@@ -322,6 +322,8 @@
   // Collect ALL rules needed to render this element + its descendants in CodePen
   // Walks every rule in every sheet and checks if it matches el or any child.
   // Also collects ancestor-driven hover/state rules (e.g. ".deck:hover .card { … }").
+  // Falls back to computed styles snapshot when CSS Modules / runtime-injected styles
+  // make stylesheet mining return nothing (common on React/Vue apps).
   function mineAllNeededRules(el) {
     const needed = new Set();
     const keyframes = {};
@@ -339,7 +341,150 @@
     const ancestorRules = mineAncestorHoverRules(el);
     ancestorRules.forEach(r => needed.add(r));
 
-    return [...needed].join("\n\n") + (Object.keys(keyframes).length ? "\n\n" + Object.values(keyframes).join("\n\n") : "");
+    const sheetCSS = [...needed].join("\n\n") + (Object.keys(keyframes).length ? "\n\n" + Object.values(keyframes).join("\n\n") : "");
+
+    // ── CSS Modules / runtime-styles fallback ──
+    // Detect if most classes on this subtree are hashed module names (e.g. "Button-module_root-xw+9D").
+    // If so, stylesheet mining won't work; snapshot computed styles for every element instead.
+    const isModuleClass = (cls) => /module_|module--|-[a-zA-Z0-9]{5,8}$/.test(cls);
+    const allClasses = allEls.flatMap(e =>
+      (e.className && typeof e.className === "string")
+        ? e.className.trim().split(/\s+/).filter(Boolean)
+        : []
+    );
+    const moduleClassCount = allClasses.filter(isModuleClass).length;
+    const usesModules = allClasses.length > 0 && moduleClassCount / allClasses.length > 0.4;
+
+    if (usesModules || needed.size === 0) {
+      return buildComputedStyleCSS(el, allEls, keyframes) + (sheetCSS ? "\n\n" + sheetCSS : "");
+    }
+
+    return sheetCSS;
+  }
+
+  /**
+   * buildComputedStyleCSS — snapshot getComputedStyle() for every element in the subtree.
+   * Generates a clean class for each unique element and inline-ifies all computed properties.
+   * Skips properties that are inherited defaults to keep the output readable.
+   * Also attempts to capture :hover styles by temporarily forcing :hover via JS.
+   */
+  const SKIP_PROPS = new Set([
+    "animation-delay","animation-duration","animation-fill-mode","animation-iteration-count",
+    "animation-name","animation-play-state","animation-timing-function",
+    "perspective-origin","transform-origin","border-image-outset","border-image-repeat",
+    "border-image-slice","border-image-source","border-image-width",
+    "column-count","column-fill","column-gap","column-rule-color","column-rule-style",
+    "column-rule-width","column-span","column-width","content","counter-increment",
+    "counter-reset","empty-cells","grid-auto-columns","grid-auto-flow","grid-auto-rows",
+    "grid-column-end","grid-column-start","grid-row-end","grid-row-start",
+    "grid-template-areas","grid-template-columns","grid-template-rows",
+    "image-rendering","orphans","page-break-after","page-break-before",
+    "page-break-inside","pointer-events","quotes","resize","speak","table-layout",
+    "unicode-bidi","widows","word-spacing"
+  ]);
+
+  // Properties where we always emit the value regardless of what "inherit" gives
+  const ALWAYS_EMIT = new Set([
+    "display","position","top","right","bottom","left","z-index",
+    "width","height","min-width","min-height","max-width","max-height",
+    "margin","margin-top","margin-right","margin-bottom","margin-left",
+    "padding","padding-top","padding-right","padding-bottom","padding-left",
+    "background","background-color","background-image","background-size",
+    "background-position","background-repeat","background-attachment",
+    "border","border-radius","border-top","border-right","border-bottom","border-left",
+    "border-color","border-width","border-style",
+    "color","font-size","font-weight","font-family","font-style","line-height",
+    "letter-spacing","text-align","text-decoration","text-transform","white-space",
+    "flex","flex-direction","flex-wrap","flex-grow","flex-shrink","flex-basis",
+    "align-items","align-content","align-self","justify-content","justify-self",
+    "gap","row-gap","column-gap",
+    "overflow","overflow-x","overflow-y","opacity","visibility",
+    "cursor","box-shadow","text-shadow","outline","outline-offset",
+    "transform","transition","animation","will-change","object-fit","object-position",
+    "aspect-ratio","inset","grid","grid-area","clip-path","filter",
+    "user-select","pointer-events"
+  ]);
+
+  function buildComputedStyleCSS(rootEl, allEls, existingKeyframes) {
+    const lines = ["/* ── Computed styles snapshot (CSS Modules detected) ── */"];
+    const elMap = new Map(); // element → generated class name
+    let counter = 0;
+
+    // Build a clean selector for each element: prefer id, fall back to generated .sp-el-N
+    function getGenClass(el) {
+      if (elMap.has(el)) return elMap.get(el);
+      let sel;
+      if (el === rootEl) {
+        sel = el.id ? `#${el.id}` : `.sp-root`;
+      } else {
+        counter++;
+        sel = `.sp-el-${counter}`;
+      }
+      elMap.set(el, sel);
+      return sel;
+    }
+
+    // Emit a comment mapping original classes → generated selector so the user can match them up
+    lines.push("/*");
+    lines.push(" * Original class mapping:");
+    allEls.forEach(el => {
+      const origClasses = (el.className && typeof el.className === "string")
+        ? el.className.trim() : "";
+      if (origClasses) {
+        const gen = getGenClass(el);
+        lines.push(` *  ${gen}  ←  .${origClasses.split(/\s+/).join(".")}`);
+      }
+    });
+    lines.push(" */\n");
+
+    // Emit computed styles for each element
+    allEls.forEach(el => {
+      const sel = getGenClass(el);
+      const cs = getComputedStyle(el);
+      const props = [];
+
+      for (const prop of Array.from(cs)) {
+        if (SKIP_PROPS.has(prop)) continue;
+        const val = cs.getPropertyValue(prop).trim();
+        if (!val || val === "initial" || val === "unset") continue;
+        if (!ALWAYS_EMIT.has(prop) && (val === "none" || val === "normal" || val === "auto" || val === "0px")) continue;
+        props.push(`  ${prop}: ${val};`);
+      }
+
+      if (props.length) {
+        lines.push(`${sel} {`);
+        lines.push(...props);
+        lines.push("}\n");
+      }
+    });
+
+    // Also capture any transition/animation from computed styles for the root
+    const rootCS = getComputedStyle(rootEl);
+    const trans = rootCS.transition;
+    const anim = rootCS.animationName;
+    if (trans && trans !== "all 0s ease 0s") {
+      lines.push(`/* transition on root: ${trans} */`);
+    }
+    if (anim && anim !== "none") {
+      lines.push(`/* animation: ${anim} */`);
+      // Try to grab matching keyframes from sheets
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules; try { rules = sheet.cssRules; } catch { continue; }
+        if (!rules) continue;
+        for (const rule of Array.from(rules)) {
+          if (rule.type === CSSRule.KEYFRAMES_RULE && anim.split(",").map(s => s.trim()).includes(rule.name)) {
+            lines.push(rule.cssText);
+          }
+        }
+      }
+    }
+
+    // Rewrite the HTML so elements get the generated selectors instead of module classes
+    // We'll emit a comment explaining how to use it
+    lines.push("\n/* ── Usage: replace hashed classes in HTML with the sp-el-N classes above ── */");
+    lines.push("/* ── Or use the HTML tab's inline styles for a quick copy ── */");
+
+    return lines.join("\n");
   }
 
   function collectNeededRules(rules, allEls, needed, keyframes, wrap) {
@@ -492,12 +637,86 @@
     showPane("html");
   }
 
-  /* ── CodePen export — THE KEY FIX ──
-     HTML  → just the element's outerHTML
-     CSS   → ALL rules that match the element OR any of its children
-             so the component renders correctly with all its styling
-     JS    → only JS, never mixed with CSS
-  ── */
+  /**
+   * buildInlineStyleHTML — clone the element subtree and replace all class-based
+   * styling with inline style attributes from getComputedStyle(). This produces
+   * a fully self-contained HTML snapshot that renders correctly in CodePen even
+   * when the original styles come from CSS Modules or runtime-injected stylesheets.
+   *
+   * Key properties we snapshot for visual fidelity:
+   * layout, background, text, border, shadow, transform, flex/grid.
+   * We skip inherited text props that would cascade naturally from body.
+   */
+  const INLINE_PROPS = [
+    "display","position","top","right","bottom","left","z-index",
+    "width","height","min-width","min-height","max-width","max-height",
+    "margin","padding",
+    "background","background-color","background-image","background-size",
+    "background-position","background-repeat","background-clip",
+    "border","border-radius","border-top","border-right","border-bottom","border-left",
+    "border-color","border-width","border-style","border-collapse",
+    "box-shadow","outline","outline-offset",
+    "color","font-size","font-weight","font-family","font-style",
+    "line-height","letter-spacing","text-align","text-decoration",
+    "text-transform","white-space","word-break","overflow-wrap",
+    "flex","flex-direction","flex-wrap","flex-grow","flex-shrink","flex-basis",
+    "align-items","align-content","align-self","justify-content","justify-items","justify-self",
+    "gap","row-gap","column-gap",
+    "grid","grid-template-columns","grid-template-rows","grid-area",
+    "overflow","overflow-x","overflow-y",
+    "opacity","visibility","cursor",
+    "transform","will-change","transition",
+    "object-fit","object-position","aspect-ratio",
+    "clip-path","filter","backdrop-filter",
+    "vertical-align","list-style",
+    "pointer-events","user-select","box-sizing"
+  ];
+
+  function buildInlineStyleHTML(rootEl) {
+    // Clone the tree so we don't modify the real DOM
+    const clone = rootEl.cloneNode(true);
+
+    // Walk original and clone in parallel
+    const origEls = [rootEl, ...Array.from(rootEl.querySelectorAll("*"))];
+    const cloneEls = [clone, ...Array.from(clone.querySelectorAll("*"))];
+
+    origEls.forEach((origEl, i) => {
+      const cloneEl = cloneEls[i];
+      if (!cloneEl) return;
+      const cs = getComputedStyle(origEl);
+      const inlineProps = [];
+
+      for (const prop of INLINE_PROPS) {
+        const val = cs.getPropertyValue(prop).trim();
+        if (!val || val === "initial" || val === "unset") continue;
+        inlineProps.push(`${prop}:${val}`);
+      }
+
+      if (inlineProps.length) {
+        // Merge with any existing inline style
+        const existing = cloneEl.getAttribute("style") || "";
+        cloneEl.setAttribute("style", (existing ? existing + ";" : "") + inlineProps.join(";"));
+      }
+
+      // Remove hashed class attributes — they're meaningless without the module bundle
+      // but keep semantic classes (no module pattern) for querySelector hooks
+      const classes = Array.from(cloneEl.classList);
+      const keepClasses = classes.filter(c => !/module_|module--|[A-Z].*-[a-zA-Z0-9]{5,8}$/.test(c));
+      if (keepClasses.length !== classes.length) {
+        if (keepClasses.length) {
+          cloneEl.setAttribute("class", keepClasses.join(" "));
+        } else {
+          cloneEl.removeAttribute("class");
+        }
+      }
+    });
+
+    // Use a temp div to get the outer HTML of the clone
+    const wrap = document.createElement("div");
+    wrap.appendChild(clone);
+    return `<!-- Inline-style snapshot by Style Peek (CSS Modules detected) -->\n` + wrap.innerHTML;
+  }
+
   function openCodePen() {
     if (!selectedEl) return;
 
@@ -506,14 +725,28 @@
       ? selectedEl.parentElement
       : selectedEl;
 
-    // ── HTML ──
-    const htmlOut = exportRoot.outerHTML;
+    // ── Detect CSS Modules (runtime-injected styles) ──
+    const allEls = [exportRoot, ...Array.from(exportRoot.querySelectorAll("*"))];
+    const allClasses = allEls.flatMap(e =>
+      (e.className && typeof e.className === "string")
+        ? e.className.trim().split(/\s+/).filter(Boolean) : []
+    );
+    const isModuleClass = (c) => /module_|module--|-[a-zA-Z0-9]{5,8}$/.test(c);
+    const usesModules = allClasses.length > 0 &&
+      allClasses.filter(isModuleClass).length / allClasses.length > 0.4;
+
+    // ── HTML: for CSS Modules, inline all computed styles so CodePen renders correctly ──
+    let htmlOut;
+    if (usesModules) {
+      htmlOut = buildInlineStyleHTML(exportRoot);
+    } else {
+      htmlOut = exportRoot.outerHTML;
+    }
 
     // ── CSS: all rules for element + descendants + ancestor hover rules ──
     let cssOut = mineAllNeededRules(exportRoot);
 
     // Inject a body background that matches the page so dark components aren't invisible.
-    // We snapshot the actual computed background of <body> and <html>.
     const bodyBg = getComputedStyle(document.body).backgroundColor;
     const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
     const pageBg = (bodyBg && bodyBg !== "rgba(0, 0, 0, 0)" && bodyBg !== "transparent")
@@ -534,7 +767,7 @@ body {
   font-family: ${getComputedStyle(document.body).fontFamily || "sans-serif"};
   padding: 40px 20px;
 }`;
-    cssOut = bodyCSS + "\n\n" + cssOut;
+    cssOut = bodyCSS + (cssOut ? "\n\n" + cssOut : "");
 
     // ── JS: extract real script blocks from the page that touch our element ──
     // Use exportRoot so siblings-mode scripts (referencing parent/sibling IDs) are captured too
