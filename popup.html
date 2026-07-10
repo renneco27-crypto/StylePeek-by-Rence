@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Style Peek</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="icons/icon48.png" alt="" class="logo" />
+      <div>
+        <h1>Style Peek</h1>
+        <p class="tag">CSS · HTML · JS inspector</p>
+      </div>
+    </header>
+
+    <button id="toggleBtn" class="primary-btn">
+      <span class="dot"></span>
+      <span id="toggleLabel">Start inspecting</span>
+    </button>
+
+    <p id="statusMsg" class="status"></p>
+
+    <ol class="steps">
+      <li>Click <strong>Start inspecting</strong></li>
+      <li>Hover the page to find your element</li>
+      <li>Click it to see HTML, CSS &amp; JS hooks</li>
+      <li>Press <kbd>Esc</kbd> anytime to cancel</li>
+    </ol>
+
+    <div class="highlight-box">
+      <span class="spark">✦</span>
+      Animations get their own tab — durations, easing, and the full
+      <code>@keyframes</code> block, ready to copy.
+    </div>
+
+    <footer>Free for everyone · no account · nothing collected</footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

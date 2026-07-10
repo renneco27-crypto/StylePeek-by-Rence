@@ -1,0 +1,203 @@
+#sp-root, #sp-root * {
+  all: revert;
+  box-sizing: border-box;
+  font-family: -apple-system, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* hover box */
+#sp-hover-box {
+  position: fixed; pointer-events: none; z-index: 2147483646;
+  border: 2px solid #22D3EE; background: rgba(34,211,238,0.07);
+  border-radius: 3px; display: none;
+}
+#sp-hover-label {
+  position: fixed; pointer-events: none; z-index: 2147483646;
+  background: #0F1115; color: #E5E7EB;
+  font: 11px/1 SFMono-Regular, Menlo, monospace;
+  padding: 3px 7px; border-radius: 4px; border: 1px solid #2A2F3D;
+  display: none; white-space: nowrap;
+}
+
+/* selection box */
+#sp-select-box {
+  position: fixed; pointer-events: none; z-index: 2147483646;
+  border-radius: 3px; display: none;
+  outline: 2px dashed #8B5CF6; outline-offset: 2px;
+  background: rgba(139,92,246,0.06);
+  animation: sp-march 0.6s linear infinite;
+}
+@keyframes sp-march { to { outline-offset: -2px; } }
+@media (prefers-reduced-motion: reduce) { #sp-select-box { animation: none; } }
+
+/* panel */
+#sp-panel {
+  position: fixed; top: 20px; right: 20px;
+  width: 400px; height: 520px;
+  z-index: 2147483647;
+  background: #0F1115; border: 1px solid #1E222E;
+  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  display: none; flex-direction: column; overflow: hidden;
+}
+#sp-panel.sp-open { display: flex; }
+
+/* header */
+#sp-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: #14161C; border-bottom: 1px solid #1E222E;
+  cursor: grab; flex-shrink: 0; user-select: none;
+}
+#sp-header:active { cursor: grabbing; }
+#sp-el-tag {
+  font: 700 10px/1 SFMono-Regular, Menlo, monospace;
+  background: #8B5CF6; color: #fff;
+  padding: 3px 7px; border-radius: 4px;
+  text-transform: lowercase; flex-shrink: 0;
+}
+#sp-el-name {
+  font: 600 11px/1 SFMono-Regular, Menlo, monospace;
+  color: #5B6472; flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+#sp-header-btns { display: flex; gap: 5px; flex-shrink: 0; }
+#sp-codepen-btn {
+  background: #1E222E; border: 1px solid #2A2F3D; color: #9CA3AF;
+  font: 700 10px/1 -apple-system, sans-serif;
+  padding: 4px 9px; border-radius: 5px; cursor: pointer;
+}
+#sp-codepen-btn:hover { color: #22D3EE; border-color: #22D3EE; }
+#sp-close-btn {
+  background: #1E222E; border: 1px solid #2A2F3D; color: #6B7585;
+  width: 22px; height: 22px; border-radius: 5px;
+  font-size: 12px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+#sp-close-btn:hover { color: #F87171; border-color: #F87171; }
+
+/* tabs */
+#sp-tabs {
+  display: flex; border-bottom: 1px solid #1E222E;
+  flex-shrink: 0; background: #0F1115;
+}
+.sp-tab {
+  flex: 1; padding: 10px 4px; text-align: center;
+  font: 700 11px/1 -apple-system, sans-serif;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: #3B4150; background: none; border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; transition: color 0.12s;
+}
+.sp-tab:hover { color: #6B7585; }
+.sp-tab.sp-active { color: #22D3EE; border-bottom-color: #22D3EE; }
+
+/* pane — just the code */
+#sp-pane {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  min-height: 0;
+}
+
+/* copy bar */
+#sp-copy-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 12px; background: #14161C; border-bottom: 1px solid #1E222E;
+  flex-shrink: 0;
+}
+#sp-copy-label {
+  font: 700 10px/1 SFMono-Regular, Menlo, monospace;
+  color: #3B4150; text-transform: uppercase; letter-spacing: 0.06em;
+}
+#sp-copy-btn {
+  background: #1E222E; border: 1px solid #2A2F3D; color: #6B7585;
+  font: 700 10px/1 -apple-system, sans-serif;
+  padding: 4px 10px; border-radius: 5px; cursor: pointer;
+}
+#sp-copy-btn:hover { color: #22D3EE; border-color: #22D3EE; }
+#sp-copy-btn.sp-copied { color: #4ADE80; border-color: #4ADE80; }
+
+/* the actual code block */
+#sp-code {
+  flex: 1; overflow-y: auto; margin: 0;
+  padding: 14px 14px;
+  font: 12px/1.65 SFMono-Regular, Menlo, Consolas, monospace;
+  color: #A8B8D0; white-space: pre-wrap; word-break: break-word;
+  background: #0F1115;
+}
+
+/* footer */
+#sp-footer {
+  padding: 8px 12px; border-top: 1px solid #1E222E;
+  flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 6px;
+}
+#sp-pick-btn {
+  background: none; border: 1px solid #2A2F3D; color: #5B6472;
+  font: 600 10.5px/1 -apple-system, sans-serif;
+  padding: 5px 10px; border-radius: 5px; cursor: pointer;
+}
+#sp-pick-btn:hover { color: #22D3EE; border-color: #22D3EE; }
+#sp-siblings-btn {
+  background: none; border: 1px solid #2A2F3D; color: #5B6472;
+  font: 600 10.5px/1 -apple-system, sans-serif;
+  padding: 5px 10px; border-radius: 5px; cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+#sp-siblings-btn:hover { color: #A78BFA; border-color: #A78BFA; }
+#sp-siblings-btn.sp-siblings-active {
+  color: #A78BFA; border-color: #A78BFA;
+  background: rgba(167,139,250,0.1);
+}
+
+/* inspecting */
+html.sp-inspecting, html.sp-inspecting * { cursor: crosshair !important; }
+
+/* toast */
+#sp-toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #14161C; border: 1px solid #1E222E; color: #9CA3AF;
+  padding: 9px 16px; border-radius: 999px;
+  font: 600 12px/1 -apple-system, sans-serif;
+  z-index: 2147483647; display: none; align-items: center; gap: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+#sp-toast.sp-show { display: flex; }
+.sp-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22D3EE;
+  animation: sp-pulse 1s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes sp-pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:0.3; transform:scale(0.6); }
+}
+
+/* ancestor banner */
+#sp-ancestor-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  background: rgba(251,191,36,0.08);
+  border-bottom: 1px solid rgba(251,191,36,0.2);
+  flex-shrink: 0;
+}
+#sp-ancestor-msg {
+  font: 600 10.5px/1.4 SFMono-Regular, Menlo, monospace;
+  color: #FCD34D;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+#sp-ancestor-btn {
+  background: rgba(251,191,36,0.12);
+  border: 1px solid rgba(251,191,36,0.3);
+  color: #FCD34D;
+  font: 700 10px/1 -apple-system, sans-serif;
+  padding: 4px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+#sp-ancestor-btn:hover {
+  background: rgba(251,191,36,0.22);
+}
