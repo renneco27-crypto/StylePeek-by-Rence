@@ -478,6 +478,12 @@
   const borderWidthSelect = root.querySelector("#sp-border-width");
   const borderStyleSelect = root.querySelector("#sp-border-style");
 
+  const themeHex          = root.querySelector("#sp-theme-hex");
+  const themeColor        = root.querySelector("#sp-theme-color");
+  const btnApplyTheme     = root.querySelector("#sp-btn-apply-theme");
+  const bgLayersList      = root.querySelector("#sp-bg-layers-list");
+  const bgDetectedCount   = root.querySelector("#sp-bg-detected-count");
+
   const bgImgTargetLabel  = root.querySelector("#sp-bg-img-target-label");
   const btnTargetSelected = root.querySelector("#sp-btn-target-selected");
   const btnTargetBody     = root.querySelector("#sp-btn-target-body");
@@ -834,6 +840,15 @@
     zInput.value = isNaN(currentZ) ? 0 : currentZ;
     buildBreadcrumbs(el);
 
+    // Sync simplified layer background color inputs
+    if (layerBgColorHex && layerBgColorPicker) {
+      const currentBg = rgbToHex(cs.backgroundColor);
+      if (currentBg && currentBg.startsWith("#")) {
+        layerBgColorHex.value = currentBg;
+        layerBgColorPicker.value = currentBg;
+      }
+    }
+
     // Scan & Pinpoint Background Layers
     scanBackgroundLayers(el);
 
@@ -1067,7 +1082,8 @@
      Layers Tab: Background Pinpointing & HTML Themes
      ══════════════════════════════════════════════════════════ */
   function scanBackgroundLayers(el) {
-    bgLayersList.innerHTML = "";
+    if (!bgLayersList && !themeHex && !themeColor && !bgDetectedCount) return;
+    if (bgLayersList) bgLayersList.innerHTML = "";
     const bgLayers = [];
 
     // 1. Root <html> Theme
@@ -1325,16 +1341,20 @@
     showToast(`🎨 Set Page Theme Background to ${col}`);
   }
 
-  themeColor.addEventListener("input", e => {
-    themeHex.value = e.target.value;
-  });
-  themeHex.addEventListener("input", e => {
-    themeColor.value = e.target.value;
-  });
-  btnApplyTheme.addEventListener("click", () => {
-    const val = themeHex.value.trim();
-    if (val) setPageThemeBackground(val);
-  });
+  if (themeColor && themeHex) {
+    themeColor.addEventListener("input", e => {
+      themeHex.value = e.target.value;
+    });
+    themeHex.addEventListener("input", e => {
+      themeColor.value = e.target.value;
+    });
+  }
+  if (btnApplyTheme && themeHex) {
+    btnApplyTheme.addEventListener("click", () => {
+      const val = themeHex.value.trim();
+      if (val) setPageThemeBackground(val);
+    });
+  }
 
   /* ══════════════════════════════════════════════════════════
      Add Custom Elements Modal & Insertion Handlers
@@ -1728,15 +1748,31 @@
 
   if (btnApplyLayerColor) {
     btnApplyLayerColor.addEventListener("click", () => {
-      if (!selectedEl) return;
-      const col = layerBgColorHex.value.trim();
+      let targetNode = selectedEl;
+      let targetLabel = "Selected Element";
+
+      if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
+        targetNode = document.body;
+        targetLabel = "Body Canvas";
+      } else if (activeBgTargetMode === "html") {
+        targetNode = document.documentElement;
+        targetLabel = "Root HTML";
+      }
+
+      if (!targetNode) return;
+      const col = layerBgColorHex ? layerBgColorHex.value.trim() : "";
       if (col) {
-        undoStack.push({ type: "style", node: selectedEl, prop: "background-color", oldVal: selectedEl.style.backgroundColor });
-        selectedEl.style.setProperty("background-color", col, "important");
-        selectedEl.style.setProperty("background", col, "important");
-        updateSelectBox(selectedEl);
-        updateSandboxPreview(selectedEl);
-        showToast(`🎨 Set layer background to ${col}`);
+        undoStack.push({ type: "style", node: targetNode, prop: "background-color", oldVal: targetNode.style.backgroundColor });
+        targetNode.style.setProperty("background-color", col, "important");
+        targetNode.style.setProperty("background", col, "important");
+        if (targetNode === document.body || targetNode === document.documentElement) {
+          setPageThemeBackground(col);
+        }
+        if (selectedEl) {
+          updateSelectBox(selectedEl);
+          updateSandboxPreview(selectedEl);
+        }
+        showToast(`🎨 Set ${targetLabel} background to ${col}`);
       }
     });
   }

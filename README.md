@@ -4,7 +4,7 @@
 ### Visual Inspector, Live Editor, Viewport Extractor & Layer Stacking Studio
 **Built for Chrome & Microsoft Edge (Manifest V3)**
 
-[![Version](https://img.shields.io/badge/Version-1.8.1-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
+[![Version](https://img.shields.io/badge/Version-1.8.2-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 [![License](https://img.shields.io/badge/License-MIT-00E5CC?style=for-the-badge)](LICENSE)
 [![Remote Debugging](https://img.shields.io/badge/Remote_Debug-CDP_Ready-F5A623?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 
