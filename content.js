@@ -1146,9 +1146,9 @@
     showToast("💻 Inserted custom HTML element!");
   });
 
-  btnAddImage.addEventListener("click", openAddModal);
-  btnAddDiv.addEventListener("click", openAddModal);
-  btnAddHtml.addEventListener("click", openAddModal);
+  if (btnAddImage) btnAddImage.addEventListener("click", openAddModal);
+  if (btnAddDiv) btnAddDiv.addEventListener("click", openAddModal);
+  if (btnAddHtml) btnAddHtml.addEventListener("click", openAddModal);
 
   /* ══════════════════════════════════════════════════════════
      Layers Tab: Word-Style Send to Back & Stacking
@@ -2046,24 +2046,26 @@ gsap.to("${selector}", {
   }
 
   /* ── Chrome Extension Messaging ── */
-  chrome.runtime.onMessage.addListener((msg, _, res) => {
-    if (msg.action === "turnOn") {
-      turnOnStylePeek(msg.mode || "inspect");
-      res({ active: isEnabled, mode: activeToolMode });
-    } else if (msg.action === "turnOff") {
-      turnOffStylePeek();
-      res({ active: isEnabled });
-    } else if (msg.action === "startTool") {
-      turnOnStylePeek(msg.mode);
-      res({ active: isEnabled, mode: activeToolMode });
-    } else if (msg.action === "getStatus") {
-      res({ active: isEnabled, mode: activeToolMode, hasSelection: !!selectedEl });
-    } else if (msg.action === "captureViewport") {
-      captureVisibleViewport();
-      res({ success: true });
-    }
-    return true;
-  });
+  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, _, res) => {
+      if (msg.action === "turnOn") {
+        turnOnStylePeek(msg.mode || "inspect");
+        res({ active: isEnabled, mode: activeToolMode });
+      } else if (msg.action === "turnOff") {
+        turnOffStylePeek();
+        res({ active: isEnabled });
+      } else if (msg.action === "startTool") {
+        turnOnStylePeek(msg.mode);
+        res({ active: isEnabled, mode: activeToolMode });
+      } else if (msg.action === "getStatus") {
+        res({ active: isEnabled, mode: activeToolMode, hasSelection: !!selectedEl });
+      } else if (msg.action === "captureViewport") {
+        captureVisibleViewport();
+        res({ success: true });
+      }
+      return true;
+    });
+  }
 
   /* ── Window PostMessage API (DevTools / Console / Scripting bridge) ── */
   window.addEventListener("message", e => {
