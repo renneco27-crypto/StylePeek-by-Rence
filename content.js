@@ -3115,27 +3115,29 @@ gsap.to("${selector}", {
      Full-Page Site Auto-Scroll Capture & Download (Clean, No Extension Artifacts)
      ══════════════════════════════════════════════════════════ */
   async function captureVisibleViewport() {
-    showToast("📸 Auto-scrolling down to capture complete full-page site...");
+    showToast("📸 Capturing rendered slide / viewport cleanly...");
 
     const origScrollX = window.scrollX || window.pageXOffset || 0;
     const origScrollY = window.scrollY || window.pageYOffset || 0;
 
-    // 1. Auto-scroll through entire document so lazy-loaded images & cards render
+    // 1. Gently load images (auto-scroll only if tall multi-screen page)
     try {
       const scrollHeight = Math.max(
         document.body.scrollHeight,
         document.documentElement.scrollHeight,
         window.innerHeight
       );
-      const step = Math.max(300, Math.floor(window.innerHeight * 0.75));
-      for (let pos = 0; pos < scrollHeight; pos += step) {
-        window.scrollTo(0, pos);
+      if (scrollHeight > window.innerHeight + 120) {
+        const step = Math.max(350, Math.floor(window.innerHeight * 0.8));
+        for (let pos = 0; pos < scrollHeight; pos += step) {
+          window.scrollTo(0, pos);
+          await new Promise(r => setTimeout(r, 40));
+        }
+        window.scrollTo(0, scrollHeight);
+        await new Promise(r => setTimeout(r, 100));
+        window.scrollTo(origScrollX, origScrollY);
         await new Promise(r => setTimeout(r, 60));
       }
-      window.scrollTo(0, scrollHeight);
-      await new Promise(r => setTimeout(r, 150));
-      window.scrollTo(origScrollX, origScrollY);
-      await new Promise(r => setTimeout(r, 80));
     } catch (e) {}
 
     // 2. Hide any active extension toasts & popovers before cloning
@@ -3278,7 +3280,7 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
     a.href = url;
     const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    a.download = `full-page-${rawTitle}-${timestamp}.html`;
+    a.download = `slide-${rawTitle}-${timestamp}.html`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -3286,6 +3288,6 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       try { URL.revokeObjectURL(url); } catch (e) {}
     }, 1500);
 
-    showToast(`✓ Downloaded full-page site cleanly (${a.download})!`);
+    showToast(`✓ Downloaded slide cleanly (${a.download})!`);
   }
 })();
