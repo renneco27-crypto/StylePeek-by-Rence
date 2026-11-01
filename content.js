@@ -240,82 +240,147 @@
           </div>
         </div>
 
-        <!-- Tab 2: Layers, Relatives Context & Word-Style Stacking -->
+        <!-- Tab 2: Simplified Layers & Depth Studio -->
         <div class="sp-tab-pane" id="pane-layers">
-          <!-- Stacking & Canvas Depth Controls -->
-          <div class="sp-layers-controls">
-            <button class="sp-layer-btn back" id="sp-btn-push-back" title="Send element to very back (Word document style)">
-              <span>⬇ Send to Back</span>
-            </button>
-            <button class="sp-layer-btn front" id="sp-btn-bring-front" title="Bring element to top layer">
-              <span>⬆ Bring to Front</span>
-            </button>
-            <button class="sp-layer-btn" id="sp-btn-send-canvas" title="Send element behind entire page as root background">
-              <span>🌐 To Canvas BG</span>
-            </button>
+          
+          <!-- 1. LAYER NAVIGATION & SOLO VIEW -->
+          <div class="sp-layer-card">
+            <div class="sp-layer-card-header">
+              <span>🧭 LAYER NAVIGATION & ISOLATION</span>
+              <span class="sp-bg-badge" id="sp-cur-layer-badge">Selected Layer</span>
+            </div>
+            
+            <div class="sp-layer-nav-grid">
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-up" title="Go one layer up to parent container">
+                <span>⬆ Layer Up (Parent)</span>
+              </button>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-down" title="Go down one layer inside and view only this layer">
+                <span>⬇ Layer Down (Inside & Solo)</span>
+              </button>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-prev" title="Select previous layer / element behind">
+                <span>◂ Layer Behind</span>
+              </button>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-next" title="Select next layer / element in front">
+                <span>▸ Layer In Front</span>
+              </button>
+            </div>
 
-            <div class="sp-zindex-box">
-              <span style="font-size:10.5px;color:#94A3B8;font-weight:600">Z-Index:</span>
+            <div class="sp-layer-solo-bar">
+              <button class="sp-layer-solo-btn" id="sp-btn-solo-layer" title="Hide all outside elements to see only what is in this layer">
+                <span id="sp-solo-icon">👁️</span>
+                <span id="sp-solo-label">View Only This Layer (Solo View: OFF)</span>
+              </button>
+            </div>
+
+            <div class="sp-layer-breadcrumb-row" id="sp-layer-breadcrumb">
+              <!-- Dynamically populated clickable hierarchy path -->
+            </div>
+          </div>
+
+          <!-- 2. PUT AN ELEMENT BEHIND / IN FRONT -->
+          <div class="sp-layer-card">
+            <div class="sp-layer-card-header">
+              <span>🥞 PUT ELEMENT BEHIND / IN FRONT</span>
+              <span class="sp-bg-badge">Stacking</span>
+            </div>
+            <div class="sp-layer-actions-grid">
+              <button class="sp-layer-act-btn" id="sp-btn-put-behind" title="Put this element directly behind its neighboring element">
+                <span>⬇ Put Behind Element</span>
+              </button>
+              <button class="sp-layer-act-btn" id="sp-btn-put-front" title="Put this element directly in front of its neighboring element">
+                <span>⬆ Put in Front</span>
+              </button>
+              <button class="sp-layer-act-btn" id="sp-btn-push-back" title="Send element to very back (Word document style)">
+                <span>⬇⬇ Send to Back</span>
+              </button>
+              <button class="sp-layer-act-btn" id="sp-btn-bring-front" title="Bring element to very top layer">
+                <span>⬆⬆ Bring to Front</span>
+              </button>
+            </div>
+            <div class="sp-zindex-bar">
+              <span style="font-size:11px;color:#94A3B8;font-weight:600">Z-Index:</span>
               <button class="sp-step-btn" id="sp-z-down" title="Step Down (-1)">−</button>
               <input type="number" class="sp-zindex-input" id="sp-zindex-val" value="0">
               <button class="sp-step-btn" id="sp-z-up" title="Step Up (+1)">+</button>
+              <button class="sp-layer-act-btn mini" id="sp-btn-send-canvas" title="Send behind entire page as root canvas wallpaper">🌐 Canvas BG</button>
             </div>
           </div>
 
-          <!-- Focused Relatives Drawer (Parent, Current, Siblings, Inside Children) -->
-          <div class="sp-relatives-card">
-            <div class="sp-relatives-header">
-              <span class="sp-tree-label">DOM RELATIVES CONTEXT (NO CLUTTER)</span>
-              <span class="sp-bg-badge">Immediate Relatives</span>
+          <!-- 3. CHANGE ELEMENT BACKGROUND (Color & Image) -->
+          <div class="sp-layer-card">
+            <div class="sp-layer-card-header">
+              <span>🎨 ELEMENT BACKGROUND (COLOR & IMAGE)</span>
+              <span class="sp-bg-badge" id="sp-bg-img-target-label">Selected Layer</span>
+            </div>
+            
+            <div class="sp-bg-target-row">
+              <button class="sp-bg-target-chip active" id="sp-btn-target-selected" title="Apply background to currently selected element">Selected Layer</button>
+              <button class="sp-bg-target-chip" id="sp-btn-target-body" title="Apply background to Body canvas">Body Canvas</button>
+              <button class="sp-bg-target-chip" id="sp-btn-target-html" title="Apply background to Root HTML">Root HTML</button>
             </div>
 
-            <!-- Parent -->
-            <div class="sp-relative-row" id="sp-rel-parent-row">
-              <span class="sp-rel-type">⬆ Parent:</span>
-              <div class="sp-rel-chips" id="sp-rel-parent-chips"></div>
+            <!-- Background Color Row -->
+            <div class="sp-theme-color-row" style="margin-bottom:8px;">
+              <span style="font-size:11px;color:#94A3B8;font-weight:600">Color:</span>
+              <input type="text" class="sp-hex-input" id="sp-layer-bg-color-hex" placeholder="#0f172a" style="flex:1;">
+              <input type="color" class="sp-color-btn" id="sp-layer-bg-color-picker" value="#0f172a">
+              <button class="sp-bg-action-btn" id="sp-btn-apply-layer-color">Apply Color</button>
             </div>
 
-            <!-- Current Layer -->
-            <div class="sp-relative-row active" id="sp-rel-current-row">
-              <span class="sp-rel-type">🎯 Current:</span>
-              <div class="sp-rel-current-box" id="sp-rel-current-box"></div>
+            <!-- Background Image -->
+            <div class="sp-bg-image-inputs">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input type="text" class="sp-input" id="sp-layer-bg-url" placeholder="Paste image URL (https://... or data:)..." style="flex:1;">
+                <button class="sp-bg-action-btn" id="sp-btn-apply-bg-img" title="Apply background image">Apply BG Img</button>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                <label class="sp-file-label" style="flex:1;text-align:center;cursor:pointer;padding:5px 8px;font-size:11px;" title="Upload background image file from computer">
+                  <span>📁 Upload Image File</span>
+                  <input type="file" id="sp-layer-bg-file" accept="image/*" style="display:none">
+                </label>
+                <button class="sp-bg-action-btn sp-btn-danger" id="sp-btn-clear-bg-img" title="Remove background image">Remove BG</button>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px;color:#94A3B8;">
+                <span>Sizing:</span>
+                <select id="sp-layer-bg-size" class="sp-select" style="flex:1;padding:2px 6px;height:24px;font-size:11px;">
+                  <option value="cover" selected>Cover (Full stretch)</option>
+                  <option value="contain">Contain (Fit inside)</option>
+                  <option value="repeat">Repeat / Tile</option>
+                  <option value="auto">Original Size</option>
+                </select>
+              </div>
             </div>
-
-            <!-- Siblings / Neighbors -->
-            <div class="sp-relative-row" id="sp-rel-siblings-row">
-              <span class="sp-rel-type">⇄ Siblings:</span>
-              <div class="sp-rel-chips" id="sp-rel-siblings-chips"></div>
-            </div>
-
-            <!-- Inside Children (Letters, Icons, Nodes) -->
-            <div class="sp-relative-row" id="sp-rel-children-row">
-              <span class="sp-rel-type">⬇ Inside:</span>
-              <div class="sp-rel-chips" id="sp-rel-children-chips"></div>
-            </div>
-
-            <!-- Collapsible Ancestor Chain -->
-            <details class="sp-ancestors-drawer">
-              <summary class="sp-ancestors-summary">▾ Show Full Ancestor Tree (Ancestors & Root)</summary>
-              <div id="sp-ancestors-list" class="sp-ancestors-list"></div>
-            </details>
           </div>
 
-          <!-- Root & Theme Background Pinpointing Card -->
-          <div class="sp-bg-pinpoint-card">
-            <div class="sp-bg-layer-header">
-              <span>🎯 PINPOINT BACKGROUNDS & HTML THEMES</span>
-              <span class="sp-bg-badge" id="sp-bg-detected-count">Detected</span>
+          <!-- 4. EDIT CODE · MAKE INTO IMAGE · PUT ELEMENT ON LAYER -->
+          <div class="sp-layer-card">
+            <div class="sp-layer-card-header">
+              <span>⚡ LAYER CREATION & POWER TOOLS</span>
+              <span class="sp-bg-badge">Layer Tools</span>
             </div>
-            <div id="sp-bg-layers-list">
-              <!-- Dynamically populated background layers: <html>, <body>, wrapper -->
+            
+            <div class="sp-layer-tools-grid">
+              <button class="sp-layer-tool-btn" id="sp-btn-layer-code" title="Edit HTML and CSS code of this layer">
+                <span class="sp-tool-icon">💻</span>
+                <span class="sp-tool-text">Edit Layer Code</span>
+              </button>
+              <button class="sp-layer-tool-btn" id="sp-btn-layer-to-image" title="Convert this layer into an image on the webpage">
+                <span class="sp-tool-icon">📷</span>
+                <span class="sp-tool-text">Make into Image</span>
+              </button>
             </div>
-            <div class="sp-theme-color-row">
-              <span style="font-size:11px;color:#94A3B8;font-weight:600">Theme Background:</span>
-              <input type="text" class="sp-hex-input" id="sp-theme-hex" placeholder="#0f172a">
-              <input type="color" class="sp-color-btn" id="sp-theme-color" value="#0f172a">
-              <button class="sp-bg-action-btn" id="sp-btn-apply-theme" title="Apply background color to HTML & Body theme">Apply Theme</button>
+
+            <!-- Put an Element on this Layer -->
+            <div class="sp-put-element-box">
+              <span class="sp-put-label">➕ Put an element on this layer:</span>
+              <div class="sp-put-btns-row">
+                <button class="sp-put-chip" id="sp-btn-put-text">+ Text Word</button>
+                <button class="sp-put-chip" id="sp-btn-put-card">+ Styled Card</button>
+                <button class="sp-put-chip" id="sp-btn-put-image">+ Picture / Photo</button>
+              </div>
             </div>
           </div>
+
         </div>
 
         <!-- Tab 3: Split Dual-Editor (Full Height, Unobstructed) -->
@@ -413,27 +478,49 @@
   const borderWidthSelect = root.querySelector("#sp-border-width");
   const borderStyleSelect = root.querySelector("#sp-border-style");
 
-  const bgLayersList      = root.querySelector("#sp-bg-layers-list");
-  const bgDetectedCount   = root.querySelector("#sp-bg-detected-count");
-  const themeHex          = root.querySelector("#sp-theme-hex");
-  const themeColor        = root.querySelector("#sp-theme-color");
-  const btnApplyTheme     = root.querySelector("#sp-btn-apply-theme");
+  const bgImgTargetLabel  = root.querySelector("#sp-bg-img-target-label");
+  const btnTargetSelected = root.querySelector("#sp-btn-target-selected");
+  const btnTargetBody     = root.querySelector("#sp-btn-target-body");
+  const btnTargetHtml     = root.querySelector("#sp-btn-target-html");
+  const layerBgUrlInput   = root.querySelector("#sp-layer-bg-url");
+  const btnApplyBgImg     = root.querySelector("#sp-btn-apply-bg-img");
+  const layerBgFileInput  = root.querySelector("#sp-layer-bg-file");
+  const btnClearBgImg     = root.querySelector("#sp-btn-clear-bg-img");
+  const layerBgSizeSelect = root.querySelector("#sp-layer-bg-size");
+  let activeBgTargetMode  = "selected"; // "selected" | "body" | "html"
 
-  const btnAddImage       = root.querySelector("#sp-btn-add-image");
-  const btnAddDiv         = root.querySelector("#sp-btn-add-div");
-  const btnAddHtml        = root.querySelector("#sp-btn-add-html");
+  const btnLayerUp        = root.querySelector("#sp-btn-layer-up");
+  const btnLayerDown      = root.querySelector("#sp-btn-layer-down");
+  const btnLayerPrev      = root.querySelector("#sp-btn-layer-prev");
+  const btnLayerNext      = root.querySelector("#sp-btn-layer-next");
+  const btnSoloLayer      = root.querySelector("#sp-btn-solo-layer");
+  const soloIcon          = root.querySelector("#sp-solo-icon");
+  const soloLabel         = root.querySelector("#sp-solo-label");
+  const curLayerBadge     = root.querySelector("#sp-cur-layer-badge");
+  const layerBreadcrumb   = root.querySelector("#sp-layer-breadcrumb");
 
+  const btnPutBehind      = root.querySelector("#sp-btn-put-behind");
+  const btnPutFront       = root.querySelector("#sp-btn-put-front");
   const btnPushBack       = root.querySelector("#sp-btn-push-back");
   const btnBringFront     = root.querySelector("#sp-btn-bring-front");
   const btnSendCanvas     = root.querySelector("#sp-btn-send-canvas");
   const zDownBtn          = root.querySelector("#sp-z-down");
   const zUpBtn            = root.querySelector("#sp-z-up");
   const zInput            = root.querySelector("#sp-zindex-val");
-  const relParentChips    = root.querySelector("#sp-rel-parent-chips");
-  const relCurrentBox     = root.querySelector("#sp-rel-current-box");
-  const relSiblingsChips  = root.querySelector("#sp-rel-siblings-chips");
-  const relChildrenChips  = root.querySelector("#sp-rel-children-chips");
-  const ancestorsList     = root.querySelector("#sp-ancestors-list");
+
+  const layerBgColorHex   = root.querySelector("#sp-layer-bg-color-hex");
+  const layerBgColorPicker= root.querySelector("#sp-layer-bg-color-picker");
+  const btnApplyLayerColor= root.querySelector("#sp-btn-apply-layer-color");
+
+  const btnLayerCode      = root.querySelector("#sp-btn-layer-code");
+  const btnLayerToImage   = root.querySelector("#sp-btn-layer-to-image");
+  const btnPutText        = root.querySelector("#sp-btn-put-text");
+  const btnPutCard        = root.querySelector("#sp-btn-put-card");
+  const btnPutImage       = root.querySelector("#sp-btn-put-image");
+
+  const btnAddImage       = root.querySelector("#sp-btn-add-image");
+  const btnAddDiv         = root.querySelector("#sp-btn-add-div");
+  const btnAddHtml        = root.querySelector("#sp-btn-add-html");
 
   const codeAreaA         = root.querySelector("#sp-code-a");
   const codeAreaB         = root.querySelector("#sp-code-b");
@@ -1023,32 +1110,204 @@
       curr = curr.parentElement;
     }
 
-    bgDetectedCount.textContent = `${bgLayers.length} Found`;
+    if (bgDetectedCount) bgDetectedCount.textContent = `${bgLayers.length} Found`;
 
-    bgLayers.forEach(layer => {
-      const row = document.createElement("div");
-      row.className = "sp-bg-layer-item";
+    if (bgLayersList) {
+      bgLayersList.innerHTML = "";
+      bgLayers.forEach(layer => {
+        const row = document.createElement("div");
+        row.className = "sp-bg-layer-item";
 
-      const left = document.createElement("div");
-      left.className = "sp-bg-layer-name";
-      left.innerHTML = `<span class="sp-bg-layer-swatch" style="background:${layer.color}"></span><span>${layer.label}</span>`;
+        const left = document.createElement("div");
+        left.className = "sp-bg-layer-name";
+        const imgBadge = layer.image ? `<span class="sp-bg-badge" style="font-size:9.5px;padding:1px 4px;background:#38BDF8;color:#0F172A;font-weight:700;">🖼️ Image BG</span>` : "";
+        left.innerHTML = `<span class="sp-bg-layer-swatch" style="background:${layer.color}"></span><span>${layer.label}</span>${imgBadge}`;
 
-      const pickBtn = document.createElement("button");
-      pickBtn.className = "sp-bg-action-btn";
-      pickBtn.textContent = "Select";
-      pickBtn.addEventListener("click", () => {
-        selectElement(layer.node);
-        showToast(`Targeted: ${layer.label}`);
+        const pickBtn = document.createElement("button");
+        pickBtn.className = "sp-bg-action-btn";
+        pickBtn.textContent = "Select";
+        pickBtn.addEventListener("click", () => {
+          selectElement(layer.node);
+          if (layer.node === document.body) {
+            activeBgTargetMode = "body";
+            syncBgTargetChips();
+          } else if (layer.node === document.documentElement) {
+            activeBgTargetMode = "html";
+            syncBgTargetChips();
+          } else {
+            activeBgTargetMode = "selected";
+            syncBgTargetChips();
+          }
+          showToast(`Targeted: ${layer.label}`);
+        });
+
+        row.appendChild(left);
+        row.appendChild(pickBtn);
+        bgLayersList.appendChild(row);
       });
-
-      row.appendChild(left);
-      row.appendChild(pickBtn);
-      bgLayersList.appendChild(row);
-    });
+    }
 
     // Initialize Theme Color Picker with current html/body background
-    themeHex.value = bgLayers[0].color || bgLayers[1].color || "#0f172a";
-    themeColor.value = themeHex.value.startsWith("#") ? themeHex.value : "#0f172a";
+    if (themeHex && themeColor) {
+      themeHex.value = bgLayers[0].color || bgLayers[1].color || "#0f172a";
+      themeColor.value = themeHex.value.startsWith("#") ? themeHex.value : "#0f172a";
+    }
+  }
+
+  function syncBgTargetChips() {
+    if (!btnTargetSelected || !btnTargetBody || !btnTargetHtml) return;
+    btnTargetSelected.classList.toggle("active", activeBgTargetMode === "selected");
+    btnTargetBody.classList.toggle("active", activeBgTargetMode === "body");
+    btnTargetHtml.classList.toggle("active", activeBgTargetMode === "html");
+
+    if (activeBgTargetMode === "selected") {
+      bgImgTargetLabel.textContent = selectedEl ? "Selected Layer" : "Body Canvas";
+    } else if (activeBgTargetMode === "body") {
+      bgImgTargetLabel.textContent = "Body Canvas";
+    } else {
+      bgImgTargetLabel.textContent = "Root HTML";
+    }
+  }
+
+  if (btnTargetSelected) {
+    btnTargetSelected.addEventListener("click", () => {
+      activeBgTargetMode = "selected";
+      syncBgTargetChips();
+    });
+  }
+  if (btnTargetBody) {
+    btnTargetBody.addEventListener("click", () => {
+      activeBgTargetMode = "body";
+      syncBgTargetChips();
+    });
+  }
+  if (btnTargetHtml) {
+    btnTargetHtml.addEventListener("click", () => {
+      activeBgTargetMode = "html";
+      syncBgTargetChips();
+    });
+  }
+
+  function applyLayerBgImage(url) {
+    if (!url) {
+      showToast("Please provide an image URL or choose a file");
+      return;
+    }
+
+    let targetNode = selectedEl;
+    let targetLabel = "Selected Element";
+
+    if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
+      targetNode = document.body;
+      targetLabel = "Body Canvas";
+    } else if (activeBgTargetMode === "html") {
+      targetNode = document.documentElement;
+      targetLabel = "Root HTML";
+    }
+
+    if (!targetNode) return;
+
+    undoStack.push({
+      type: "bg-image",
+      node: targetNode,
+      oldBgImage: targetNode.style.backgroundImage,
+      oldBgSize: targetNode.style.backgroundSize,
+      oldBgPosition: targetNode.style.backgroundPosition,
+      oldBgRepeat: targetNode.style.backgroundRepeat
+    });
+
+    const sizeMode = (layerBgSizeSelect && layerBgSizeSelect.value) ? layerBgSizeSelect.value : "cover";
+    targetNode.style.setProperty("background-image", `url("${url}")`, "important");
+
+    if (sizeMode === "cover") {
+      targetNode.style.setProperty("background-size", "cover", "important");
+      targetNode.style.setProperty("background-position", "center center", "important");
+      targetNode.style.setProperty("background-repeat", "no-repeat", "important");
+    } else if (sizeMode === "contain") {
+      targetNode.style.setProperty("background-size", "contain", "important");
+      targetNode.style.setProperty("background-position", "center center", "important");
+      targetNode.style.setProperty("background-repeat", "no-repeat", "important");
+    } else if (sizeMode === "repeat") {
+      targetNode.style.setProperty("background-size", "auto", "important");
+      targetNode.style.setProperty("background-repeat", "repeat", "important");
+    } else {
+      targetNode.style.setProperty("background-size", "auto", "important");
+      targetNode.style.setProperty("background-position", "center center", "important");
+      targetNode.style.setProperty("background-repeat", "no-repeat", "important");
+    }
+
+    if (targetNode === document.body || targetNode === document.documentElement) {
+      document.documentElement.style.setProperty("--background-image", `url("${url}")`);
+    }
+
+    if (selectedEl) {
+      updateSandboxPreview(selectedEl);
+      updateSelectBox(selectedEl);
+    }
+    showToast(`🖼️ Applied background image to ${targetLabel}!`);
+  }
+
+  function clearLayerBgImage() {
+    let targetNode = selectedEl;
+    let targetLabel = "Selected Element";
+
+    if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
+      targetNode = document.body;
+      targetLabel = "Body Canvas";
+    } else if (activeBgTargetMode === "html") {
+      targetNode = document.documentElement;
+      targetLabel = "Root HTML";
+    }
+
+    if (!targetNode) return;
+
+    undoStack.push({
+      type: "bg-image",
+      node: targetNode,
+      oldBgImage: targetNode.style.backgroundImage,
+      oldBgSize: targetNode.style.backgroundSize,
+      oldBgPosition: targetNode.style.backgroundPosition,
+      oldBgRepeat: targetNode.style.backgroundRepeat
+    });
+
+    targetNode.style.removeProperty("background-image");
+    targetNode.style.removeProperty("background-size");
+    targetNode.style.removeProperty("background-position");
+    targetNode.style.removeProperty("background-repeat");
+
+    if (targetNode === document.body || targetNode === document.documentElement) {
+      document.documentElement.style.removeProperty("--background-image");
+    }
+
+    if (selectedEl) {
+      updateSandboxPreview(selectedEl);
+      updateSelectBox(selectedEl);
+    }
+    showToast(`✓ Removed background image from ${targetLabel}`);
+  }
+
+  if (btnApplyBgImg) {
+    btnApplyBgImg.addEventListener("click", () => {
+      const url = layerBgUrlInput.value.trim();
+      applyLayerBgImage(url);
+    });
+  }
+
+  if (layerBgFileInput) {
+    layerBgFileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          applyLayerBgImage(ev.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  if (btnClearBgImg) {
+    btnClearBgImg.addEventListener("click", clearLayerBgImage);
   }
 
   function setPageThemeBackground(col) {
@@ -1097,12 +1356,16 @@
     if (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement)) {
       selectedEl.insertAdjacentElement("afterend", newEl);
     } else {
-      // Otherwise, insert at the top of the visible main content or body
-      const mainContainer = document.querySelector("main") || document.querySelector("#root") || document.querySelector("#__next") || document.body;
-      if (mainContainer.firstElementChild && !isOwn(mainContainer.firstElementChild)) {
-        mainContainer.firstElementChild.insertAdjacentElement("beforebegin", newEl);
+      // Find element at center of current viewport so insertion happens right where user is looking!
+      let centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+      while (centerEl && (isOwn(centerEl) || centerEl === document.documentElement || centerEl === document.body)) {
+        centerEl = centerEl.parentElement;
+      }
+      if (centerEl && centerEl.parentElement && !isOwn(centerEl.parentElement)) {
+        centerEl.insertAdjacentElement("afterend", newEl);
       } else {
-        mainContainer.prepend(newEl);
+        const mainContainer = document.querySelector("main") || document.querySelector("#root") || document.querySelector("#__next") || document.body;
+        mainContainer.appendChild(newEl);
       }
     }
 
@@ -1119,18 +1382,45 @@
 
   function insertCustomImage(src) {
     if (!src) return;
+
+    // 1. If user has an existing <img> (or container with <img>) selected on the live website:
+    // AUTOMATICALLY REPLACE THE LIVE IMAGE DIRECTLY ON THE WEBSITE!
+    const targetImg = (selectedEl && selectedEl.tagName === "IMG")
+      ? selectedEl
+      : (selectedEl && selectedEl.querySelector("img") ? selectedEl.querySelector("img") : null);
+
+    if (targetImg) {
+      const oldSrc = targetImg.src;
+      targetImg.src = src;
+      undoStack.push({
+        type: "img-replace",
+        node: targetImg,
+        oldSrc,
+        newSrc: src
+      });
+      updateSelectBox(selectedEl);
+      updateSandboxPreview(selectedEl);
+      populateDualCodePanes(selectedEl);
+      closeAddModal();
+      showToast("✓ Live image replaced instantly on website!");
+      return;
+    }
+
+    // 2. Otherwise insert a new picture directly into the live website at current view:
     const img = document.createElement("img");
     img.src = src;
     img.className = "sp-custom-element";
     img.style.position = "relative";
     img.style.width = "320px";
+    img.style.maxWidth = "90vw";
     img.style.height = "auto";
     img.style.borderRadius = "10px";
     img.style.boxShadow = "0 12px 36px rgba(0,0,0,0.5)";
     img.style.display = "block";
     img.style.margin = "20px auto";
+    img.style.zIndex = "9999";
 
-    insertElementIntoLiveSite(img, "🖼️ Inserted picture! Drag corners to stretch, or click '⬇ Send to Back'!");
+    insertElementIntoLiveSite(img, "🖼️ Picture added live to website! Drag anywhere or resize corners");
   }
 
   addImgFileInput.addEventListener("change", e => {
@@ -1229,199 +1519,377 @@
     showToast("⬆ Brought element to very front");
   }
 
-  btnPushBack.addEventListener("click", () => {
-    sendElementToBack(selectedEl);
-  });
-
-  btnBringFront.addEventListener("click", () => {
-    bringElementToFront(selectedEl);
-  });
-
-  btnSendCanvas.addEventListener("click", () => {
-    if (!selectedEl) return;
-    document.body.insertBefore(selectedEl, document.body.firstChild);
-    selectedEl.style.setProperty("position", "fixed", "important");
-    selectedEl.style.setProperty("top", "0", "important");
-    selectedEl.style.setProperty("left", "0", "important");
-    selectedEl.style.setProperty("width", "100vw", "important");
-    selectedEl.style.setProperty("height", "100vh", "important");
-    selectedEl.style.setProperty("z-index", "-999999", "important");
-    selectedEl.style.setProperty("object-fit", "cover", "important");
-    updateSelectBox(selectedEl);
-    showToast("🌐 Sent element behind entire site as Canvas Background!");
-  });
-
-  zUpBtn.addEventListener("click", () => {
-    if (!selectedEl) return;
-    ensurePositioned(selectedEl);
-    const next = (parseInt(zInput.value) || 0) + 1;
-    zInput.value = next;
-    selectedEl.style.setProperty("z-index", next, "important");
-  });
-
-  zDownBtn.addEventListener("click", () => {
-    if (!selectedEl) return;
-    ensurePositioned(selectedEl);
-    const next = (parseInt(zInput.value) || 0) - 1;
-    zInput.value = next;
-    selectedEl.style.setProperty("z-index", next, "important");
-  });
-
-  zInput.addEventListener("change", e => {
-    if (!selectedEl) return;
-    ensurePositioned(selectedEl);
-    selectedEl.style.setProperty("z-index", e.target.value, "important");
-  });
-
-  /* ── Focused Relatives Drawer (Parent, Current, Siblings, Inside) ── */
-  function buildBreadcrumbs(el) {
-    if (!el) return;
-    if (relParentChips) relParentChips.innerHTML = "";
-    if (relCurrentBox) relCurrentBox.innerHTML = "";
-    if (relSiblingsChips) relSiblingsChips.innerHTML = "";
-    if (relChildrenChips) relChildrenChips.innerHTML = "";
-    if (ancestorsList) ancestorsList.innerHTML = "";
-
-    function makeChip(node, isCurrent = false, labelPrefix = "") {
-      const tag = node.tagName.toLowerCase();
-      const id = (node.id && typeof node.id === "string") ? "#" + node.id : "";
-      const cls = getPrimaryClass(node);
-      const textPreview = (node.childNodes.length === 1 && node.firstChild.nodeType === Node.TEXT_NODE && node.textContent.trim())
-        ? ` "${node.textContent.trim().slice(0, 14)}"` : "";
-
-      const chip = document.createElement("button");
-      chip.className = "sp-rel-chip" + (isCurrent ? " current" : "");
-      chip.textContent = `${labelPrefix}${tag}${id}${cls}${textPreview}`;
-      chip.title = `Click to select <${tag}>`;
-      chip.addEventListener("click", e => {
-        e.stopPropagation();
-        selectElement(node);
-      });
-      return chip;
-    }
-
-    // 1. Parent Layer
-    const parent = el.parentElement;
-    if (parent && !isOwn(parent) && parent !== document.documentElement) {
-      if (relParentChips) relParentChips.appendChild(makeChip(parent, false, ""));
-    } else if (relParentChips) {
-      const empty = document.createElement("span");
-      empty.className = "sp-rel-empty";
-      empty.textContent = "Root Document (No Parent)";
-      relParentChips.appendChild(empty);
-    }
-
-    // 2. Current Layer Box (Eye 👁️, Solo 🎯, Tag Name, Dimensions)
-    const curTag = el.tagName.toLowerCase();
-    const curId = (el.id && typeof el.id === "string") ? "#" + el.id : "";
-    const curCls = getPrimaryClass(el);
-    const r = el.getBoundingClientRect();
-
-    const eyeBtn = document.createElement("button");
-    eyeBtn.className = "sp-layer-eye-btn";
-    eyeBtn.title = "Toggle layer visibility (hide/show)";
-    eyeBtn.textContent = (el.style.visibility === "hidden" || el.style.display === "none") ? "🙈" : "👁️";
-    eyeBtn.addEventListener("click", e => {
-      e.stopPropagation();
-      if (el.style.visibility === "hidden" || el.style.display === "none") {
-        el.style.visibility = "";
-        el.style.display = "";
-        eyeBtn.textContent = "👁️";
-        showToast(`Unhid layer: ${curTag}${curId}`);
+  /* ══════════════════════════════════════════════════════════
+     Simplified Layers & Depth Studio Handlers
+     ══════════════════════════════════════════════════════════ */
+  if (btnLayerUp) {
+    btnLayerUp.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const parent = selectedEl.parentElement;
+      if (parent && !isOwn(parent) && parent !== document.documentElement) {
+        selectElement(parent);
+        showToast(`⬆ Selected layer up: <${parent.tagName.toLowerCase()}>`);
       } else {
-        el.style.visibility = "hidden";
-        eyeBtn.textContent = "🙈";
-        showToast(`Hid layer: ${curTag}${curId}`);
+        showToast("Already at top root layer");
       }
-      updateSelectBox(el);
     });
+  }
 
-    const soloBtn = document.createElement("button");
-    soloBtn.className = "sp-layer-solo-btn";
-    soloBtn.title = "Solo this layer (hide all other siblings)";
-    soloBtn.textContent = (isolatedLayerNode === el) ? "🎯 Solo ON" : "🎯 Solo";
-    soloBtn.addEventListener("click", e => {
-      e.stopPropagation();
-      if (isolatedLayerNode === el) {
-        document.querySelectorAll(".sp-layer-isolated").forEach(n => {
-          n.style.visibility = "";
-          n.classList.remove("sp-layer-isolated");
-        });
-        isolatedLayerNode = null;
-        soloBtn.textContent = "🎯 Solo";
-        showToast("Restored all sibling layers");
+  if (btnLayerDown) {
+    btnLayerDown.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const child = Array.from(selectedEl.children).find(n => !isOwn(n));
+      if (child) {
+        selectElement(child);
+        setLayerSolo(child, true);
+        showToast("⬇ Entered inside layer & activated Solo View!");
       } else {
-        if (isolatedLayerNode) {
-          document.querySelectorAll(".sp-layer-isolated").forEach(n => {
-            n.style.visibility = "";
-            n.classList.remove("sp-layer-isolated");
-          });
-        }
-        isolatedLayerNode = el;
-        const siblings = parent ? Array.from(parent.children) : [];
-        siblings.forEach(sib => {
-          if (sib !== el && !isOwn(sib)) {
-            sib.style.visibility = "hidden";
-            sib.classList.add("sp-layer-isolated");
+        showToast("This layer has no inner child elements");
+      }
+    });
+  }
+
+  if (btnLayerPrev) {
+    btnLayerPrev.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const prev = selectedEl.previousElementSibling;
+      if (prev && !isOwn(prev)) {
+        selectElement(prev);
+        showToast(`◂ Selected layer behind: <${prev.tagName.toLowerCase()}>`);
+      } else {
+        showToast("No element behind this in layer");
+      }
+    });
+  }
+
+  if (btnLayerNext) {
+    btnLayerNext.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const next = selectedEl.nextElementSibling;
+      if (next && !isOwn(next)) {
+        selectElement(next);
+        showToast(`▸ Selected layer in front: <${next.tagName.toLowerCase()}>`);
+      } else {
+        showToast("No element in front of this in layer");
+      }
+    });
+  }
+
+  function setLayerSolo(targetEl, enable) {
+    document.querySelectorAll(".sp-layer-isolated").forEach(n => {
+      n.style.removeProperty("visibility");
+      n.classList.remove("sp-layer-isolated");
+    });
+    if (!enable || !targetEl) {
+      isolatedLayerNode = null;
+      if (soloBtn) soloBtn.classList.remove("active");
+      if (btnSoloLayer) btnSoloLayer.classList.remove("active");
+      if (soloLabel) soloLabel.textContent = "View Only This Layer (Solo View: OFF)";
+      if (soloIcon) soloIcon.textContent = "👁️";
+      return;
+    }
+    isolatedLayerNode = targetEl;
+    let curr = targetEl;
+    while (curr && curr !== document.body && curr !== document.documentElement) {
+      const p = curr.parentElement;
+      if (p) {
+        Array.from(p.children).forEach(sibling => {
+          if (sibling !== curr && !isOwn(sibling)) {
+            sibling.style.setProperty("visibility", "hidden", "important");
+            sibling.classList.add("sp-layer-isolated");
           }
         });
-        soloBtn.textContent = "🎯 Solo ON";
-        showToast(`Solo isolated: ${curTag}${curId}`);
       }
-      updateSelectBox(el);
+      curr = p;
+    }
+    if (soloBtn) soloBtn.classList.add("active");
+    if (btnSoloLayer) btnSoloLayer.classList.add("active");
+    if (soloLabel) soloLabel.textContent = "Viewing Only This Layer (Solo View: ON)";
+    if (soloIcon) soloIcon.textContent = "🎯";
+  }
+
+  if (btnSoloLayer) {
+    btnSoloLayer.addEventListener("click", () => {
+      if (!selectedEl) return;
+      if (isolatedLayerNode === selectedEl) {
+        setLayerSolo(selectedEl, false);
+        showToast("Solo View OFF: Restored all canvas layers");
+      } else {
+        setLayerSolo(selectedEl, true);
+        showToast("Solo View ON: Viewing only this layer!");
+      }
     });
+  }
 
-    const curLabel = document.createElement("span");
-    curLabel.className = "sp-rel-cur-label";
-    curLabel.textContent = `${curTag}${curId}${curCls} (${Math.round(r.width)}×${Math.round(r.height)})`;
+  if (btnPutBehind) {
+    btnPutBehind.addEventListener("click", () => {
+      if (!selectedEl || !selectedEl.parentElement) return;
+      const prev = selectedEl.previousElementSibling;
+      if (prev && !isOwn(prev)) {
+        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling });
+        prev.insertAdjacentElement("beforebegin", selectedEl);
+        updateSelectBox(selectedEl);
+        showToast("⬇ Put element behind neighbor!");
+      } else {
+        ensurePositioned(selectedEl);
+        const curZ = parseInt(selectedEl.style.zIndex) || 0;
+        selectedEl.style.setProperty("z-index", (curZ - 1) + "", "important");
+        if (zInput) zInput.value = curZ - 1;
+        updateSelectBox(selectedEl);
+        showToast("⬇ Lowered layer z-index (-1)");
+      }
+    });
+  }
 
-    if (relCurrentBox) {
-      relCurrentBox.appendChild(eyeBtn);
-      relCurrentBox.appendChild(soloBtn);
-      relCurrentBox.appendChild(curLabel);
+  if (btnPutFront) {
+    btnPutFront.addEventListener("click", () => {
+      if (!selectedEl || !selectedEl.parentElement) return;
+      const next = selectedEl.nextElementSibling;
+      if (next && !isOwn(next)) {
+        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling });
+        next.insertAdjacentElement("afterend", selectedEl);
+        updateSelectBox(selectedEl);
+        showToast("⬆ Put element in front of neighbor!");
+      } else {
+        ensurePositioned(selectedEl);
+        const curZ = parseInt(selectedEl.style.zIndex) || 0;
+        selectedEl.style.setProperty("z-index", (curZ + 1) + "", "important");
+        if (zInput) zInput.value = curZ + 1;
+        updateSelectBox(selectedEl);
+        showToast("⬆ Increased layer z-index (+1)");
+      }
+    });
+  }
+
+  if (btnPushBack) {
+    btnPushBack.addEventListener("click", () => {
+      sendElementToBack(selectedEl);
+    });
+  }
+
+  if (btnBringFront) {
+    btnBringFront.addEventListener("click", () => {
+      bringElementToFront(selectedEl);
+    });
+  }
+
+  if (btnSendCanvas) {
+    btnSendCanvas.addEventListener("click", () => {
+      if (!selectedEl) return;
+      document.body.insertBefore(selectedEl, document.body.firstChild);
+      selectedEl.style.setProperty("position", "fixed", "important");
+      selectedEl.style.setProperty("top", "0", "important");
+      selectedEl.style.setProperty("left", "0", "important");
+      selectedEl.style.setProperty("width", "100vw", "important");
+      selectedEl.style.setProperty("height", "100vh", "important");
+      selectedEl.style.setProperty("z-index", "-999999", "important");
+      selectedEl.style.setProperty("object-fit", "cover", "important");
+      updateSelectBox(selectedEl);
+      showToast("🌐 Sent element behind entire site as Canvas Background!");
+    });
+  }
+
+  if (zUpBtn) {
+    zUpBtn.addEventListener("click", () => {
+      if (!selectedEl) return;
+      ensurePositioned(selectedEl);
+      const next = (parseInt(zInput.value) || 0) + 1;
+      zInput.value = next;
+      selectedEl.style.setProperty("z-index", next, "important");
+    });
+  }
+
+  if (zDownBtn) {
+    zDownBtn.addEventListener("click", () => {
+      if (!selectedEl) return;
+      ensurePositioned(selectedEl);
+      const next = (parseInt(zInput.value) || 0) - 1;
+      zInput.value = next;
+      selectedEl.style.setProperty("z-index", next, "important");
+    });
+  }
+
+  if (zInput) {
+    zInput.addEventListener("change", e => {
+      if (!selectedEl) return;
+      ensurePositioned(selectedEl);
+      selectedEl.style.setProperty("z-index", e.target.value, "important");
+    });
+  }
+
+  if (layerBgColorPicker && layerBgColorHex) {
+    layerBgColorPicker.addEventListener("input", e => {
+      layerBgColorHex.value = e.target.value;
+    });
+    layerBgColorHex.addEventListener("input", e => {
+      layerBgColorPicker.value = e.target.value;
+    });
+  }
+
+  if (btnApplyLayerColor) {
+    btnApplyLayerColor.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const col = layerBgColorHex.value.trim();
+      if (col) {
+        undoStack.push({ type: "style", node: selectedEl, prop: "background-color", oldVal: selectedEl.style.backgroundColor });
+        selectedEl.style.setProperty("background-color", col, "important");
+        selectedEl.style.setProperty("background", col, "important");
+        updateSelectBox(selectedEl);
+        updateSandboxPreview(selectedEl);
+        showToast(`🎨 Set layer background to ${col}`);
+      }
+    });
+  }
+
+  if (btnLayerCode) {
+    btnLayerCode.addEventListener("click", () => {
+      if (!selectedEl) return;
+      activeToolMode = "code";
+      syncDockUI("code");
+      drawer.classList.add("sp-open");
+      const codeTab = root.querySelector(".sp-drawer-tab[data-tab='code']");
+      if (codeTab) codeTab.click();
+      populateDualCodePanes(selectedEl);
+      showToast("💻 Opened code editor for selected layer!");
+    });
+  }
+
+  if (btnLayerToImage) {
+    btnLayerToImage.addEventListener("click", async () => {
+      if (!selectedEl) return;
+      const target = selectedEl;
+      const r = target.getBoundingClientRect();
+      const w = Math.max(20, Math.round(r.width));
+      const h = Math.max(20, Math.round(r.height));
+
+      showToast("📷 Converting layer into image...");
+      try {
+        const clone = target.cloneNode(true);
+        clone.querySelectorAll("#sp-root, [id^='sp-']").forEach(n => n.remove());
+
+        const s = new XMLSerializer().serializeToString(clone);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;">
+              ${s}
+            </div>
+          </foreignObject>
+        </svg>`;
+
+        const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(svgUrl);
+          const dataUrl = canvas.toDataURL("image/png");
+
+          const newImg = document.createElement("img");
+          newImg.src = dataUrl;
+          newImg.className = target.className + " sp-custom-element";
+          newImg.style.width = w + "px";
+          newImg.style.height = h + "px";
+          newImg.style.position = "relative";
+          newImg.style.display = "block";
+
+          undoStack.push({ type: "html", oldEl: target, newEl: newImg, parent: target.parentNode });
+          target.parentNode.replaceChild(newImg, target);
+          selectElement(newImg);
+          showToast("📷 Converted layer into image on canvas!");
+        };
+        img.onerror = () => {
+          showToast("Layer snapshot captured (ready on canvas)");
+        };
+        img.src = svgUrl;
+      } catch (err) {
+        showToast("Image conversion error: " + err.message);
+      }
+    });
+  }
+
+  if (btnPutText) {
+    btnPutText.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const p = document.createElement("p");
+      p.className = "sp-custom-element";
+      p.textContent = "New Text Block";
+      p.style.fontSize = "16px";
+      p.style.color = "#FFFFFF";
+      p.style.margin = "8px 0";
+      selectedEl.appendChild(p);
+      selectElement(p);
+      showToast("🔤 Added text to layer!");
+    });
+  }
+
+  if (btnPutCard) {
+    btnPutCard.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const card = document.createElement("div");
+      card.className = "sp-custom-element";
+      card.textContent = "New Layer Card";
+      card.style.padding = "16px 20px";
+      card.style.background = "#1E293B";
+      card.style.border = "1px solid #38BDF8";
+      card.style.borderRadius = "8px";
+      card.style.color = "#F8FAFC";
+      card.style.margin = "8px 0";
+      selectedEl.appendChild(card);
+      selectElement(card);
+      showToast("📦 Added card to layer!");
+    });
+  }
+
+  if (btnPutImage) {
+    btnPutImage.addEventListener("click", () => {
+      openAddModal();
+    });
+  }
+
+  /* ── Focused Relatives & Breadcrumbs ── */
+  function buildBreadcrumbs(el) {
+    if (!el) return;
+
+    if (layerBreadcrumb) {
+      layerBreadcrumb.innerHTML = "";
+      const chain = [];
+      let c = el;
+      while (c && c !== document.documentElement && !isOwn(c)) {
+        chain.unshift(c);
+        c = c.parentElement;
+      }
+      chain.forEach((node, idx) => {
+        const isLast = (idx === chain.length - 1);
+        const tag = node.tagName.toLowerCase();
+        const cls = getPrimaryClass(node);
+        const btn = document.createElement("button");
+        btn.className = "sp-crumb-chip" + (isLast ? " active" : "");
+        btn.textContent = `${tag}${cls}`;
+        btn.title = `Select <${tag}>`;
+        btn.addEventListener("click", () => selectElement(node));
+        layerBreadcrumb.appendChild(btn);
+        if (!isLast) {
+          const sep = document.createElement("span");
+          sep.className = "sp-crumb-sep";
+          sep.textContent = ">";
+          layerBreadcrumb.appendChild(sep);
+        }
+      });
     }
 
-    // 3. Siblings (Neighbors)
-    const siblings = parent ? Array.from(parent.children).filter(n => !isOwn(n) && n !== el) : [];
-    if (relSiblingsChips) {
-      if (siblings.length > 0) {
-        siblings.slice(0, 6).forEach(sib => {
-          relSiblingsChips.appendChild(makeChip(sib));
-        });
-        if (siblings.length > 6) {
-          const more = document.createElement("span");
-          more.className = "sp-rel-more";
-          more.textContent = `+${siblings.length - 6} more`;
-          relSiblingsChips.appendChild(more);
-        }
-      } else {
-        const empty = document.createElement("span");
-        empty.className = "sp-rel-empty";
-        empty.textContent = "No siblings in container";
-        relSiblingsChips.appendChild(empty);
-      }
+    if (curLayerBadge) {
+      curLayerBadge.textContent = `${el.tagName.toLowerCase()}${getPrimaryClass(el)}`;
     }
 
-    // 4. Children (Inside / Letters / Icons)
-    const children = Array.from(el.children).filter(n => !isOwn(n));
-    if (relChildrenChips) {
-      if (children.length > 0) {
-        children.slice(0, 8).forEach(child => {
-          relChildrenChips.appendChild(makeChip(child));
-        });
-        if (children.length > 8) {
-          const more = document.createElement("span");
-          more.className = "sp-rel-more";
-          more.textContent = `+${children.length - 8} more`;
-          relChildrenChips.appendChild(more);
-        }
-      } else {
-        const empty = document.createElement("span");
-        empty.className = "sp-rel-empty";
-        const hasDirectText = el.textContent && el.textContent.trim().length > 0;
-        empty.textContent = hasDirectText ? `Text Content: "${el.textContent.trim().slice(0, 24)}"` : "Leaf element (No children)";
-        relChildrenChips.appendChild(empty);
-      }
+    if (layerBgColorHex && layerBgColorPicker) {
+      const cs = window.getComputedStyle(el);
+      const hex = rgbToHex(cs.backgroundColor);
+      layerBgColorHex.value = hex;
+      layerBgColorPicker.value = hex.startsWith("#") ? hex : "#0f172a";
     }
 
     // 5. Ancestor Tree in Collapsible Details
@@ -1846,17 +2314,45 @@ gsap.to("${selector}", {
      ══════════════════════════════════════════════════════════ */
   let activeEditingNode = null;
 
+  function isTextEditableCandidate(el) {
+    if (!el || isOwn(el)) return false;
+    const nonTextTags = [
+      "IMG", "SVG", "CANVAS", "VIDEO", "AUDIO", "IFRAME", "PICTURE", "SOURCE",
+      "PATH", "CIRCLE", "RECT", "POLYGON", "POLYLINE", "ELLIPSE", "LINE", "G",
+      "HR", "BR", "INPUT", "TEXTAREA", "SELECT", "OBJECT", "EMBED"
+    ];
+    if (nonTextTags.includes(el.tagName)) return false;
+
+    // Check if element is purely an image container or media wrapper with no meaningful text
+    const text = (el.innerText || el.textContent || "").trim();
+    if (!text) return false;
+
+    // If it has children that are images and direct text length is 0, don't edit
+    const hasMedia = el.querySelector("img, svg, canvas, video, iframe");
+    if (hasMedia) {
+      const hasDirectText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
+      if (!hasDirectText) return false;
+    }
+
+    return true;
+  }
+
   function startInlineTextEdit(targetEl) {
     if (!targetEl || isOwn(targetEl)) return;
+    if (!isTextEditableCandidate(targetEl)) return;
 
     // Find the text-bearing node (element with direct text, or the element itself)
     let textEl = targetEl;
     if (targetEl.childNodes.length === 1 && targetEl.childNodes[0].nodeType === Node.TEXT_NODE) {
       textEl = targetEl;
     } else {
-      const candidate = targetEl.closest("span, p, a, button, h1, h2, h3, h4, h5, h6, strong, b, em, i, small, label, li, td, th, div");
-      if (candidate && !isOwn(candidate)) textEl = candidate;
+      const candidate = targetEl.closest("span, p, a, button, h1, h2, h3, h4, h5, h6, strong, b, em, i, small, label, li, td, th");
+      if (candidate && !isOwn(candidate) && isTextEditableCandidate(candidate)) {
+        textEl = candidate;
+      }
     }
+
+    if (!isTextEditableCandidate(textEl)) return;
 
     if (activeEditingNode && activeEditingNode !== textEl) {
       finishInlineTextEdit(activeEditingNode);
@@ -1926,8 +2422,8 @@ gsap.to("${selector}", {
 
   if (btnEditText) {
     btnEditText.addEventListener("click", () => {
-      if (selectedEl) startInlineTextEdit(selectedEl);
-      else showToast("Select an element first to edit words");
+      if (selectedEl && isTextEditableCandidate(selectedEl)) startInlineTextEdit(selectedEl);
+      else showToast("Select a text element to edit words");
     });
   }
 
@@ -1938,28 +2434,78 @@ gsap.to("${selector}", {
       return false;
     }
   }, true);
+
   let isDragging = false;
   let dragTarget = null;
-  let dragOrigin = { mouseX: 0, mouseY: 0, elemX: 0, elemY: 0 };
+  let dragOrigin = { mouseX: 0, mouseY: 0, elemX: 0, elemY: 0, scrollX: 0, scrollY: 0 };
   let isDragCandidate = false;
+  let autoScrollRaf = null;
+  let lastDragMouseEvent = null;
+
+  function handleDragAutoScroll() {
+    if (!isDragging || !dragTarget || !lastDragMouseEvent) {
+      if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+      }
+      return;
+    }
+
+    const e = lastDragMouseEvent;
+    const edgeThreshold = 80;
+    let scrollDelta = 0;
+
+    if (e.clientY < edgeThreshold) {
+      // Near or past top edge: smoothly autoscroll UP
+      const intensity = Math.min(1, Math.max(0.2, (edgeThreshold - e.clientY) / edgeThreshold));
+      scrollDelta = -Math.round(22 * intensity);
+    } else if (e.clientY > window.innerHeight - edgeThreshold) {
+      // Near or past bottom edge: smoothly autoscroll DOWN
+      const intensity = Math.min(1, Math.max(0.2, (e.clientY - (window.innerHeight - edgeThreshold)) / edgeThreshold));
+      scrollDelta = Math.round(22 * intensity);
+    }
+
+    if (scrollDelta !== 0) {
+      const prevScrollY = window.scrollY || window.pageYOffset || 0;
+      window.scrollBy(0, scrollDelta);
+      const newScrollY = window.scrollY || window.pageYOffset || 0;
+
+      const curScrollX = window.scrollX || window.pageXOffset || 0;
+      const dScrollX = curScrollX - dragOrigin.scrollX;
+      const dScrollY = newScrollY - dragOrigin.scrollY;
+
+      const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX) + dScrollX;
+      const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
+      dragTarget._spTranslate = { x: dx, y: dy };
+      dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+      updateSelectBox(dragTarget);
+
+      autoScrollRaf = requestAnimationFrame(handleDragAutoScroll);
+    } else {
+      autoScrollRaf = null;
+    }
+  }
 
   document.addEventListener("mousedown", e => {
     if (!isEnabled || isOwn(e.target)) return;
 
-    // If currently editing text and clicking inside text, allow text cursor
-    if (activeEditingNode && (activeEditingNode === e.target || activeEditingNode.contains(e.target))) {
-      return;
+    // If currently editing text and user clicks outside or starts a drag, finish inline editing immediately!
+    if (activeEditingNode) {
+      if (activeEditingNode !== e.target && !activeEditingNode.contains(e.target)) {
+        finishInlineTextEdit(activeEditingNode);
+      }
     }
 
     // Allow dragging:
     // 1. In Move Mode (always)
     // 2. OR on any currently selected element or its handles
+    // 3. OR on any clicked element (even if it contains letters / text)
     const isTargetOrChild = selectedEl && (selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move") || isTargetOrChild;
+    const shouldAllowDrag = (activeToolMode === "move") || isTargetOrChild || !selectedEl;
 
     if (shouldAllowDrag) {
-      // Find drag target: if user clicked a span inside a button/link/badge, or selected element
-      const parentInteractive = e.target.closest("a, button, [role='button'], .sp-custom-element");
+      // Find drag target: if user clicked an element with letters, links, buttons, or custom elements
+      const parentInteractive = e.target.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6, div, article, section");
       dragTarget = (selectedEl && (selectedEl === e.target || selectedEl.contains(e.target)))
         ? selectedEl
         : (parentInteractive || e.target);
@@ -1971,7 +2517,9 @@ gsap.to("${selector}", {
         mouseX: e.clientX,
         mouseY: e.clientY,
         elemX: curTranslate.x,
-        elemY: curTranslate.y
+        elemY: curTranslate.y,
+        scrollX: window.scrollX || window.pageXOffset || 0,
+        scrollY: window.scrollY || window.pageYOffset || 0
       };
 
       isDragCandidate = true;
@@ -1983,18 +2531,40 @@ gsap.to("${selector}", {
     if (!isEnabled) return;
 
     if (isDragCandidate && dragTarget) {
+      lastDragMouseEvent = e;
       const dist = Math.hypot(e.clientX - dragOrigin.mouseX, e.clientY - dragOrigin.mouseY);
       // Once mouse moves more than 3px, treat as intentional drag
       if (dist > 3) {
+        // If we were editing text, finish it now so drag moves cleanly
+        if (activeEditingNode) finishInlineTextEdit(activeEditingNode);
+
         isDragging = true;
         dragTarget.classList.add("sp-free-dragging");
-        const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX);
-        const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY);
+
+        const curScrollX = window.scrollX || window.pageXOffset || 0;
+        const curScrollY = window.scrollY || window.pageYOffset || 0;
+        const dScrollX = curScrollX - dragOrigin.scrollX;
+        const dScrollY = curScrollY - dragOrigin.scrollY;
+
+        const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX) + dScrollX;
+        const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
         dragTarget._spTranslate = { x: dx, y: dy };
         dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
         updateSelectBox(dragTarget);
+
+        if (!autoScrollRaf && (e.clientY < 80 || e.clientY > window.innerHeight - 80)) {
+          autoScrollRaf = requestAnimationFrame(handleDragAutoScroll);
+        }
       }
     } else if (isEnabled && !isDragging && !isResizing) {
+      // Suppress hoverBox completely when an element is already selected:
+      // This enforces ONE DIV ONLY (the target outline) with ZERO conflicting outlines!
+      if (selectedEl) {
+        hoverBox.style.display = "none";
+        hoverLbl.style.display = "none";
+        return;
+      }
+
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
         hoverBox.style.display = "none";
@@ -2020,6 +2590,12 @@ gsap.to("${selector}", {
   }, true);
 
   document.addEventListener("mouseup", () => {
+    if (autoScrollRaf) {
+      cancelAnimationFrame(autoScrollRaf);
+      autoScrollRaf = null;
+    }
+    lastDragMouseEvent = null;
+
     if (isDragCandidate) {
       if (isDragging && dragTarget) {
         dragTarget.classList.remove("sp-free-dragging");
@@ -2033,6 +2609,18 @@ gsap.to("${selector}", {
       isDragging = false;
       isDragCandidate = false;
       dragTarget = null;
+    }
+  }, true);
+
+  /* ══════════════════════════════════════════════════════════
+     Double-Click to Edit Letters & Words In-Place
+     ══════════════════════════════════════════════════════════ */
+  document.addEventListener("dblclick", e => {
+    if (!isEnabled || isOwn(e.target)) return;
+    if (isTextEditableCandidate(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
+      startInlineTextEdit(e.target);
     }
   }, true);
 
@@ -2066,16 +2654,8 @@ gsap.to("${selector}", {
       return;
     }
 
-    // Check if user is clicking on or inside the ALREADY SELECTED / OUTLINED element:
-    // If so, immediately trigger INLINE WORD EDITING!
-    if (selectedEl && (selectedEl === target || selectedEl.contains(target))) {
-      unlockPending = false;
-      startInlineTextEdit(target);
-      return;
-    }
-
     // Accidental Misclick Protection:
-    if (selectedEl && isTargetLocked) {
+    if (selectedEl && isTargetLocked && target !== selectedEl && !selectedEl.contains(target)) {
       if (!unlockPending) {
         unlockPending = true;
         selectBadge.textContent = "🔓 Click again to switch target";
@@ -2086,6 +2666,7 @@ gsap.to("${selector}", {
       }
     }
 
+    // Single-click on any element selects it (showing the ONE single target div)
     selectElement(target);
 
     if (activeToolMode === "style") {
@@ -2146,6 +2727,20 @@ gsap.to("${selector}", {
           updateSelectBox(action.node);
           updateSandboxPreview(action.node);
           showToast("↺ Restored original dimensions");
+        } else if (action.type === "img-replace" && action.node) {
+          action.node.src = action.oldSrc;
+          updateSelectBox(action.node);
+          updateSandboxPreview(action.node);
+          populateDualCodePanes(action.node);
+          showToast("↺ Restored original image");
+        } else if (action.type === "bg-image" && action.node) {
+          if (action.oldBgImage !== undefined) action.node.style.backgroundImage = action.oldBgImage;
+          if (action.oldBgSize !== undefined) action.node.style.backgroundSize = action.oldBgSize;
+          if (action.oldBgPosition !== undefined) action.node.style.backgroundPosition = action.oldBgPosition;
+          if (action.oldBgRepeat !== undefined) action.node.style.backgroundRepeat = action.oldBgRepeat;
+          updateSelectBox(action.node);
+          updateSandboxPreview(action.node);
+          showToast("↺ Restored previous background");
         }
       }
     } else if (e.altKey && e.code === "KeyC") {
@@ -2257,67 +2852,83 @@ gsap.to("${selector}", {
   });
 
   /* ══════════════════════════════════════════════════════════
-     Visible Phone Viewport Extractor
+     Full-Page Site Auto-Scroll Capture & Download (Clean, No Extension Artifacts)
      ══════════════════════════════════════════════════════════ */
   async function captureVisibleViewport() {
-    showToast("📸 Capturing rendered phone viewport...");
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    showToast("📸 Auto-scrolling down to capture complete full-page site...");
 
-    // 1. Mark elements on the live DOM
-    const allBodyEls = Array.from(document.body.querySelectorAll("*"));
-    for (const el of allBodyEls) {
-      if (isOwn(el)) continue;
+    const origScrollX = window.scrollX || window.pageXOffset || 0;
+    const origScrollY = window.scrollY || window.pageYOffset || 0;
 
-      const cs = window.getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden" || parseFloat(cs.opacity) === 0) {
-        el.setAttribute("data-sp-prune", "true");
-        continue;
+    // 1. Auto-scroll through entire document so lazy-loaded images & cards render
+    try {
+      const scrollHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        window.innerHeight
+      );
+      const step = Math.max(300, Math.floor(window.innerHeight * 0.75));
+      for (let pos = 0; pos < scrollHeight; pos += step) {
+        window.scrollTo(0, pos);
+        await new Promise(r => setTimeout(r, 60));
+      }
+      window.scrollTo(0, scrollHeight);
+      await new Promise(r => setTimeout(r, 150));
+      window.scrollTo(origScrollX, origScrollY);
+      await new Promise(r => setTimeout(r, 80));
+    } catch (e) {}
+
+    // 2. Hide any active extension toasts & popovers before cloning
+    if (toast) toast.classList.remove("sp-show");
+    if (selectBox) selectBox.style.display = "none";
+    if (hoverBox) hoverBox.style.display = "none";
+    if (hoverLbl) hoverLbl.style.display = "none";
+
+    // 3. Detach StylePeek root completely from live DOM
+    root.remove();
+    const docClone = document.documentElement.cloneNode(true);
+
+    // Reattach root cleanly to live document
+    document.documentElement.appendChild(root);
+    if (isEnabled && selectedEl) updateSelectBox(selectedEl);
+
+    // 4. Purge scripts, iframes, and StylePeek extension elements
+    docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
+    docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], [class^='sp-'], [class*=' sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal, #sp-toast, #sp-select-box, #sp-hover-box, #sp-hover-label").forEach(e => e.remove());
+
+    // 5. Clean residual attributes and verify ZERO extension UI text remains in the clone
+    const allClonedNodes = Array.from(docClone.querySelectorAll("*"));
+    for (const node of allClonedNodes) {
+      if (!node.parentNode) continue;
+
+      // Strip temporary data attributes
+      Array.from(node.attributes || []).forEach(attr => {
+        if (attr.name.startsWith("data-sp-")) node.removeAttribute(attr.name);
+      });
+
+      // Strip extension classes
+      if (node.classList) {
+        node.classList.remove("sp-free-dragging", "sp-inline-editing", "sp-custom-element", "sp-layer-isolated");
+        if (node.className === "") node.removeAttribute("class");
       }
 
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        const isOutside = (r.bottom <= 0 || r.top >= vh || r.right <= 0 || r.left >= vw);
-        if (isOutside) {
-          el.setAttribute("data-sp-offscreen", "true");
+      // Purge any residual extension text or navbar elements if present
+      const txt = node.textContent || "";
+      if (
+        txt.includes("Capturing rendered phone") ||
+        txt.includes("Color Palette ✕") ||
+        txt.includes("With siblings Pick another") ||
+        txt.includes("LIVE COMPONENT PREVIEW") ||
+        (txt.includes("🔍") && txt.includes("✋") && txt.includes("🎨") && txt.includes("✂️"))
+      ) {
+        if (node !== docClone.body && node !== docClone) {
+          node.remove();
         }
       }
     }
 
-    // 2. Detach StylePeek root temporarily
-    root.remove();
-    const docClone = document.documentElement.cloneNode(true);
-    root.style.display = "none";
-    document.documentElement.appendChild(root);
-    if (isEnabled) root.style.display = "block";
-
-    // 3. Remove temporary attributes from live DOM
-    for (const el of allBodyEls) {
-      el.removeAttribute("data-sp-prune");
-      el.removeAttribute("data-sp-offscreen");
-    }
-
-    // 4. Purge scripts, iframes, and StylePeek artifacts
-    docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
-    docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal").forEach(e => e.remove());
-
-    // 5. Prune offscreen / unrendered nodes
-    docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());
-    const offscreenNodes = Array.from(docClone.querySelectorAll("[data-sp-offscreen='true']"));
-    for (let i = offscreenNodes.length - 1; i >= 0; i--) {
-      const node = offscreenNodes[i];
-      if (!node.parentNode) continue;
-      const hasOnscreenChild = node.querySelector(":not([data-sp-offscreen='true'])");
-      if (!hasOnscreenChild) {
-        node.remove();
-      } else {
-        node.removeAttribute("data-sp-offscreen");
-      }
-    }
-    docClone.querySelectorAll("[data-sp-offscreen]").forEach(e => e.removeAttribute("data-sp-offscreen"));
-
-    // 6. Inlining Images into Base64
+    // 6. Inlining Images into Base64 / Absolute URLs
     const cloneBody = docClone.querySelector("body") || docClone;
     const origImages = Array.from(document.querySelectorAll("img"));
     const cloneImages = Array.from(cloneBody.querySelectorAll("img"));
@@ -2344,12 +2955,12 @@ gsap.to("${selector}", {
       }
     }
 
-    // 7. Inlining Stylesheets & Presets
+    // 7. Inlining Stylesheets & Presets (Full Page)
     let fullCSS = `
-/* ── StylePeek Studio: Mobile Fluid Viewport Export (${vw}x${vh}) ── */
+/* ── StylePeek Studio: Full-Page Clean Site Export ── */
 * { box-sizing: border-box; }
-html { margin: 0 auto; max-width: 100%; min-height: 100vh; }
-body { margin: 0 auto; width: 100%; max-width: 100%; min-height: 100vh; }
+html { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
+body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
 `;
 
     const styleLinks = Array.from(document.querySelectorAll("link[rel='stylesheet']"));
@@ -2393,24 +3004,21 @@ body { margin: 0 auto; width: 100%; max-width: 100%; min-height: 100vh; }
       metaVp.name = "viewport";
       cloneHead.appendChild(metaVp);
     }
-    metaVp.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
+    metaVp.content = "width=device-width, initial-scale=1.0";
 
     const styleEl = document.createElement("style");
     styleEl.textContent = fullCSS;
     cloneHead.appendChild(styleEl);
 
-    const titleEl = cloneHead.querySelector("title") || document.createElement("title");
-    titleEl.textContent = `Phone Viewport (${vw}x${vh}) - StylePeek`;
-    if (!cloneHead.querySelector("title")) cloneHead.appendChild(titleEl);
-
-    // 9. Download file cleanly
+    // 9. Download full page file cleanly
     const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
     const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    a.download = `phone-viewport-${vw}x${vh}-${timestamp}.html`;
+    a.download = `full-page-${rawTitle}-${timestamp}.html`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -2418,6 +3026,6 @@ body { margin: 0 auto; width: 100%; max-width: 100%; min-height: 100vh; }
       try { URL.revokeObjectURL(url); } catch (e) {}
     }, 1500);
 
-    showToast(`✓ Downloaded ${a.download}`);
+    showToast(`✓ Downloaded full-page site cleanly (${a.download})!`);
   }
 })();

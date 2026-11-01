@@ -4,7 +4,7 @@
 ### Visual Inspector, Live Editor, Viewport Extractor & Layer Stacking Studio
 **Built for Chrome & Microsoft Edge (Manifest V3)**
 
-[![Version](https://img.shields.io/badge/Version-1.7.0-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
+[![Version](https://img.shields.io/badge/Version-1.8.1-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 [![License](https://img.shields.io/badge/License-MIT-00E5CC?style=for-the-badge)](LICENSE)
 [![Remote Debugging](https://img.shields.io/badge/Remote_Debug-CDP_Ready-F5A623?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 
@@ -22,23 +22,27 @@ In standard browser DevTools, finding out why an element is behind another or pi
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ 🥞 LAYERS TAB ARCHITECTURE                             │
+│ 🥞 SIMPLIFIED LAYERS STUDIO ARCHITECTURE               │
 ├────────────────────────────────────────────────────────┤
-│ 1. Stacking & Depth Controls (Word-Style Stacking)    │
-│    • ⬇ Send to Back    • ⬆ Bring to Front              │
-│    • 🌐 To Canvas BG   • Z-Index Step Up / Down        │
+│ 1. Layer Navigation & Solo View                       │
+│    • ⬆ Go Layer Up (Parent)  • ⬇ Go Layer Down (Inside)│
+│    • ◂ Layer Behind          • ▸ Layer In Front        │
+│    • 🎯 View Only This Layer (Solo View ON/OFF)        │
+│    • Interactive Breadcrumb Hierarchy                  │
 ├────────────────────────────────────────────────────────┤
-│ 2. DOM Relatives Context (Spatial Relatives Only)      │
-│    • ⬆ Parent Container Chip                           │
-│    • 🎯 Current Layer (👁️ Visibility · 🎯 Solo Isolate)│
-│    • ⇄ Siblings (Neighbor Cards/Columns)              │
-│    • ⬇ Inside (Inner Letters, Buttons, Icons)          │
-│    • ▾ Collapsible Full Ancestor Tree                  │
+│ 2. Put Behind / In Front & Stacking Depth              │
+│    • ⬇ Put Behind Neighbor   • ⬆ Put in Front          │
+│    • ⬇⬇ Send to Back         • ⬆⬆ Bring to Front       │
+│    • Z-Index Stepper (+ / −) • 🌐 Canvas Background    │
 ├────────────────────────────────────────────────────────┤
-│ 3. Background Pinpointing & HTML Themes               │
-│    • Automatic scan of <html>, <body> & containers     │
-│    • Real-time Hex Color Swatches                      │
-│    • Global "Apply Theme" to Root & Canvas             │
+│ 3. Element Background (Color & Image)                  │
+│    • Quick Color Picker & Hex Code                     │
+│    • Background Image (URL or 📁 File Upload)          │
+│    • Sizing Modes: Cover, Contain, Tile/Repeat, Auto   │
+├────────────────────────────────────────────────────────┤
+│ 4. Layer Creation & Power Tools                        │
+│    • 💻 Edit Layer Code      • 📷 Make into Image      │
+│    • ➕ Put Element on Layer: Text, Card, Picture      │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -105,6 +109,15 @@ The **Pinpoint Backgrounds** engine solves this automatically:
   3. **Container Wrappers**: Any ancestor `div` or `section` with an explicit background fill.
 * Shows a visual swatch, hex value, and copy button for each detected layer.
 * **Theme Background Row**: Enter any hex code or pick a color with the native eyedropper, then click **Apply Theme** to synchronously update both `<html>` and `<body>` across the entire website.
+* **🖼️ Custom Background Image**: Apply any image URL or upload a local image file directly to the **Selected Layer**, **Body Canvas**, or **Root HTML**. Supports **Cover**, **Contain**, **Repeat / Tile**, and **Original Size** modes with instant live rendering and undo/redo support.
+
+---
+
+### 4. Interactive Live Manipulation & Edge Autoscroll
+
+* **Smooth Viewport Edge Autoscroll**: When dragging elements toward the top or bottom edge of the screen, Style Peek continuously autoscrolls the viewport with proportional speed so you can move elements anywhere across long web pages without getting stuck at the edge.
+* **Smart Media vs Text Detection**: Images, SVGs, canvas, and video elements are automatically distinguished from text blocks. Media elements retain grab cursors and immediate dragability without accidentally activating inline text editing.
+* **Instant Live Image Replacement**: When selecting an existing `<img>` on the live site, inserting an image automatically and immediately replaces the image `.src` directly on the webpage without waiting or clone-only preview replacement.
 
 ---
 
