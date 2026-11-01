@@ -1,8 +1,7 @@
 /* ══════════════════════════════════════════════════════════
-   StylePeek Studio — Modern Drawer & High-Precision Inspector
+   StylePeek Studio — High-Precision Inspector & Code Studio
    ══════════════════════════════════════════════════════════ */
 
-/* Reset only stylepeek root elements specifically — never use wildcard all:revert */
 #sp-root {
   position: relative;
   z-index: 2147483647;
@@ -107,30 +106,33 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   Studio Bottom Drawer (Never cut off, responsive & compact)
+   Studio Drawer / Floating Panel
    ══════════════════════════════════════════════════════════ */
 #sp-drawer {
   position: fixed;
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
+  width: 620px;
   max-width: calc(100vw - 24px);
   background: #0F121A;
   border: 1px solid #263044;
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05);
   display: none;
   flex-direction: column;
   overflow: hidden;
   z-index: 2147483647;
-  transition: height 0.2s ease, opacity 0.15s ease;
+  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s ease, opacity 0.15s ease;
 }
 #sp-drawer.sp-open {
   display: flex;
 }
+#sp-drawer.sp-expanded {
+  width: 860px;
+}
 
-/* Drawer Top Header */
+/* Header */
 #sp-drawer-header {
   display: flex;
   align-items: center;
@@ -157,6 +159,7 @@
 #sp-drawer-drag-handle:hover {
   color: #22D3EE;
 }
+
 .sp-drawer-title-group {
   display: flex;
   align-items: center;
@@ -177,7 +180,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 130px;
+  max-width: 120px;
 }
 .sp-lock-tag {
   background: #181E2C;
@@ -199,7 +202,7 @@
   border-color: #3B465C;
 }
 
-/* Tabs inside Drawer Header */
+/* Tabs */
 #sp-drawer-tabs {
   display: flex;
   gap: 4px;
@@ -248,16 +251,15 @@
   border-color: #EF4444;
 }
 
-/* Drawer Body Container */
+/* Drawer Body */
 #sp-drawer-body {
   padding: 12px;
-  max-height: 250px;
-  min-height: 180px;
+  max-height: 340px;
+  min-height: 190px;
   overflow-y: auto;
   background: #0B0E14;
 }
 
-/* Strict display rules for tabs to guarantee no stacking or cutoff */
 #sp-drawer .sp-tab-pane {
   display: none !important;
 }
@@ -265,7 +267,7 @@
   display: block !important;
 }
 
-/* ── Tab 1: Colors (Simplified, Zero Confusion) ── */
+/* ── Tab 1: Simplified Colors ── */
 .sp-color-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -301,9 +303,7 @@
   text-align: center;
   outline: none;
 }
-.sp-hex-input:focus {
-  border-color: #22D3EE;
-}
+.sp-hex-input:focus { border-color: #22D3EE; }
 input[type="color"].sp-color-btn {
   -webkit-appearance: none;
   border: 1px solid #2E3A52;
@@ -318,7 +318,6 @@ input[type="color"].sp-color-btn {
 input[type="color"].sp-color-btn::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"].sp-color-btn::-webkit-color-swatch { border: none; border-radius: 5px; }
 
-/* Swatches */
 .sp-swatches-row {
   display: flex;
   gap: 6px;
@@ -337,7 +336,7 @@ input[type="color"].sp-color-btn::-webkit-color-swatch { border: none; border-ra
   border-color: #FFFFFF;
 }
 
-/* ── Tab 2: Layers & DOM Hierarchy Breadcrumb ── */
+/* ── Tab 2: Layers & DOM Hierarchy ── */
 .sp-layers-controls {
   display: flex;
   align-items: center;
@@ -401,7 +400,6 @@ input[type="color"].sp-color-btn::-webkit-color-swatch { border: none; border-ra
   border-color: #38BDF8;
 }
 
-/* Horizontal Scrollable DOM Layer Hierarchy */
 .sp-tree-label {
   font-size: 10px;
   font-weight: 700;
@@ -447,108 +445,193 @@ input[type="color"].sp-color-btn::-webkit-color-swatch { border: none; border-ra
   font-size: 11px;
 }
 
-/* ── Tab 3: Code Editor ── */
-.sp-code-bar {
+/* ══════════════════════════════════════════════════════════
+   Tab 3: Split Dual-Editor (State A vs State B + Live Animate)
+   ══════════════════════════════════════════════════════════ */
+.sp-split-container {
+  display: flex;
+  gap: 12px;
+  width: 100% !important;
+  align-items: stretch;
+}
+
+.sp-split-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sp-split-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 6px;
+  font: 700 11px SFMono-Regular, monospace;
+  color: #A855F7;
 }
-.sp-code-subtabs {
-  display: flex;
-  gap: 4px;
+.sp-split-header.target {
+  color: #22D3EE;
 }
-.sp-code-subtab {
-  background: #141824;
-  border: 1px solid #263044;
-  color: #94A3B8;
-  font: 700 10.5px SFMono-Regular, monospace;
-  padding: 3px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.sp-code-subtab.active {
-  background: #8B5CF6;
-  color: #FFFFFF;
-  border-color: #8B5CF6;
-}
-.sp-code-textarea {
-  width: 100%;
-  height: 120px;
-  background: #080A0F;
-  border: 1px solid #202738;
-  border-radius: 6px;
-  color: #A5B4FC;
-  font: 11.5px/1.5 SFMono-Regular, Menlo, monospace;
-  padding: 8px;
-  resize: none;
-  outline: none;
-  tab-size: 2;
-  white-space: pre;
-}
-.sp-apply-code-btn {
-  margin-top: 6px;
-  width: 100%;
-  padding: 7px 0;
-  background: #8B5CF6;
-  color: #FFFFFF;
-  border: none;
-  border-radius: 6px;
-  font: 700 11.5px/1 -apple-system, sans-serif;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.sp-apply-code-btn:hover { background: #7C3AED; }
 
-/* ── Tab 4: Morph & GSAP / Figma ── */
-.sp-morph-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 10px;
+#sp-root textarea.sp-code-area {
+  width: 100% !important;
+  height: 200px !important;
+  min-height: 180px !important;
+  background: #080A0F !important;
+  border: 1px solid #202738 !important;
+  border-radius: 8px !important;
+  color: #C7D2FE !important;
+  font: 11.5px/1.55 SFMono-Regular, Menlo, Consolas, monospace !important;
+  padding: 10px !important;
+  resize: vertical !important;
+  outline: none !important;
+  tab-size: 2 !important;
+  white-space: pre !important;
+  display: block !important;
+  box-sizing: border-box !important;
 }
-.sp-morph-btn {
-  background: #141824;
-  border: 1px solid #263044;
-  color: #F1F5F9;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font: 600 11px -apple-system, sans-serif;
-  cursor: pointer;
+#sp-root textarea.sp-code-area:focus {
+  border-color: #8B5CF6 !important;
+}
+
+/* Center Action Column */
+.sp-split-center-actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  transition: all 0.12s;
+  gap: 8px;
+  width: 130px;
+  flex-shrink: 0;
+  padding: 0 4px;
 }
-.sp-morph-btn:hover {
-  background: #1E2336;
-  border-color: #8B5CF6;
-}
-.sp-morph-action-btn {
-  width: 100%;
-  padding: 8px 0;
+
+.sp-animate-btn {
   background: linear-gradient(135deg, #8B5CF6, #06B6D4);
   color: #FFFFFF;
   border: none;
+  border-radius: 8px;
+  padding: 10px 6px;
+  font: 700 11px -apple-system, sans-serif;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+  transition: all 0.12s;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+}
+.sp-animate-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.sp-apply-split-btn {
+  background: #141824;
+  border: 1px solid #2B384E;
+  color: #E2E8F0;
+  border-radius: 6px;
+  padding: 8px 4px;
+  font: 600 11px -apple-system, sans-serif;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s;
+}
+.sp-apply-split-btn:hover {
+  background: #202738;
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+
+.sp-copy-gsap-btn {
+  background: #10141E;
+  border: 1px dashed #2A364C;
+  color: #94A3B8;
+  border-radius: 6px;
+  padding: 6px 4px;
+  font: 600 10px -apple-system, sans-serif;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s;
+}
+.sp-copy-gsap-btn:hover {
+  color: #22D3EE;
+  border-color: #22D3EE;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Modal Error Inspection Alert
+   ══════════════════════════════════════════════════════════ */
+#sp-error-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 440px;
+  max-width: 90vw;
+  background: #10131C;
+  border: 1px solid #EF4444;
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+  z-index: 2147483647;
+  padding: 16px;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+#sp-error-modal.sp-modal-show {
+  display: flex;
+}
+.sp-error-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #F87171;
+  font: 700 13px -apple-system, sans-serif;
+}
+.sp-error-msg-box {
+  background: #180D11;
+  border: 1px solid #3F151B;
+  border-radius: 6px;
+  padding: 10px;
+  font: 11.5px/1.4 SFMono-Regular, monospace;
+  color: #FCA5A5;
+}
+.sp-error-fix-box {
+  background: #0E1624;
+  border: 1px solid #1E2D44;
+  border-radius: 6px;
+  padding: 10px;
+  font: 11.5px/1.4 SFMono-Regular, monospace;
+  color: #7DD3FC;
+}
+.sp-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sp-modal-fix-btn {
+  background: #10B981;
+  border: none;
+  color: #FFFFFF;
+  padding: 7px 14px;
   border-radius: 6px;
   font: 700 11.5px -apple-system, sans-serif;
   cursor: pointer;
-  transition: opacity 0.12s;
-  margin-bottom: 8px;
 }
-.sp-morph-action-btn:hover { opacity: 0.92; }
-
-.sp-gsap-box {
-  background: #080A0F;
-  border: 1px solid #202738;
+.sp-modal-fix-btn:hover { background: #059669; }
+.sp-modal-close-btn {
+  background: #1E2433;
+  border: 1px solid #2D374D;
+  color: #94A3B8;
+  padding: 7px 12px;
   border-radius: 6px;
-  padding: 8px;
-  font: 11px/1.4 SFMono-Regular, monospace;
-  color: #38BDF8;
-  max-height: 80px;
-  overflow-y: auto;
+  font: 600 11.5px -apple-system, sans-serif;
+  cursor: pointer;
 }
+.sp-modal-close-btn:hover { color: #FFFFFF; }
 
 /* ── Free Live Dragging Styles ── */
 body.sp-mode-move * {

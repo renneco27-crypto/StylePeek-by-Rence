@@ -8,12 +8,12 @@
   let hoveredEl = null;
   const undoStack = [];
 
-  // Morphing States (GSAP & Figma Compatible)
+  // Morphing States
   let stateA = null;
   let stateB = null;
   let currentMorphState = "A";
 
-  /* ── Scaffold Studio Drawer ── */
+  /* ── Scaffold Studio Drawer & Error Modal ── */
   const root = document.createElement("div");
   root.id = "sp-root";
   root.innerHTML = `
@@ -27,7 +27,20 @@
     <!-- Toast Notification -->
     <div id="sp-toast"><span class="sp-dot"></span><span id="sp-toast-text"></span></div>
 
-    <!-- Bottom Studio Drawer -->
+    <!-- Modal Error Inspection Alert -->
+    <div id="sp-error-modal">
+      <div class="sp-error-title-row">
+        <span>⚠️ Code Syntax Error Detected</span>
+      </div>
+      <div class="sp-error-msg-box" id="sp-error-msg">Syntax Error Details</div>
+      <div class="sp-error-fix-box" id="sp-error-fix">Suggested Fix: ...</div>
+      <div class="sp-modal-actions">
+        <button class="sp-modal-close-btn" id="sp-modal-dismiss">Dismiss</button>
+        <button class="sp-modal-fix-btn" id="sp-modal-auto-fix">⚡ Apply Suggested Fix</button>
+      </div>
+    </div>
+
+    <!-- Studio Drawer -->
     <div id="sp-drawer">
       <div id="sp-drawer-header">
         <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">⋮⋮</div>
@@ -40,8 +53,7 @@
         <div id="sp-drawer-tabs">
           <button class="sp-drawer-tab sp-active" data-tab="style">🎨 Style</button>
           <button class="sp-drawer-tab" data-tab="layers">🥞 Layers</button>
-          <button class="sp-drawer-tab" data-tab="code">💻 Code</button>
-          <button class="sp-drawer-tab" data-tab="morph">⚡ Morph / GSAP</button>
+          <button class="sp-drawer-tab" data-tab="code">💻 Code & Morph</button>
         </div>
 
         <button class="sp-drawer-close-btn" id="sp-drawer-close" title="Close drawer (Esc)">✕</button>
@@ -111,36 +123,41 @@
           <div id="sp-dom-breadcrumbs"></div>
         </div>
 
-        <!-- Tab 3: Live Code Editor -->
+        <!-- Tab 3: Split Dual-Editor (State A vs State B + Live Animate & Checker) -->
         <div class="sp-tab-pane" id="pane-code">
-          <div class="sp-code-bar">
-            <div class="sp-code-subtabs">
-              <button class="sp-code-subtab active" id="sp-subtab-html">HTML</button>
-              <button class="sp-code-subtab" id="sp-subtab-css">CSS</button>
+          <div class="sp-split-container">
+            <!-- Left Column: State A -->
+            <div class="sp-split-col">
+              <div class="sp-split-header">
+                <span>STATE A (INITIAL HTML · CSS · JS)</span>
+              </div>
+              <textarea class="sp-code-area" id="sp-code-a" spellcheck="false" placeholder="State A Code..."></textarea>
             </div>
-            <span style="font-size:10px;color:#64748B">Instant live hot-reload</span>
+
+            <!-- Center Actions -->
+            <div class="sp-split-center-actions">
+              <button class="sp-animate-btn" id="sp-btn-run-anim" title="Run animation morphing State A to State B">
+                <span>⚡ Animate</span>
+                <span style="font-size:9.5px;opacity:0.85">Morph A ⇄ B</span>
+              </button>
+
+              <button class="sp-apply-split-btn" id="sp-btn-apply-code" title="Apply current code to canvas element">
+                <span>✓ Apply Code</span>
+              </button>
+
+              <button class="sp-copy-gsap-btn" id="sp-btn-copy-gsap" title="Copy production GSAP animation code">
+                <span>📋 Copy GSAP</span>
+              </button>
+            </div>
+
+            <!-- Right Column: State B -->
+            <div class="sp-split-col">
+              <div class="sp-split-header target">
+                <span>STATE B (TARGET MORPH HTML · CSS · JS)</span>
+              </div>
+              <textarea class="sp-code-area" id="sp-code-b" spellcheck="false" placeholder="State B Code..."></textarea>
+            </div>
           </div>
-          <textarea class="sp-code-textarea" id="sp-code-val" spellcheck="false"></textarea>
-          <button class="sp-apply-code-btn" id="sp-apply-code">Apply Live Changes</button>
-        </div>
-
-        <!-- Tab 4: Morph & GSAP / Figma Compatible -->
-        <div class="sp-tab-pane" id="pane-morph">
-          <div class="sp-morph-grid">
-            <button class="sp-morph-btn" id="sp-capture-state-a" title="Capture current resting state">
-              <span>📸 Set State A (Resting)</span>
-            </button>
-            <button class="sp-morph-btn" id="sp-capture-state-b" title="Capture current modified state">
-              <span>📸 Set State B (Active)</span>
-            </button>
-          </div>
-
-          <button class="sp-morph-action-btn" id="sp-trigger-morph">
-            <span>✨ Morph State A ⇄ State B (Live Transition)</span>
-          </button>
-
-          <div class="sp-tree-label">GSAP FLIP / TWEEN CODE (CLICK TO COPY):</div>
-          <div class="sp-gsap-box" id="sp-gsap-code">// Click Set State A & State B above to generate GSAP morph code</div>
         </div>
       </div>
     </div>
@@ -161,8 +178,12 @@
   const drawerClose   = root.querySelector("#sp-drawer-close");
   const lockBtn       = root.querySelector("#sp-lock-btn");
 
-  let isTargetLocked = true;
-  let unlockPending = false;
+  const errorModal    = root.querySelector("#sp-error-modal");
+  const errorMsgEl    = root.querySelector("#sp-error-msg");
+  const errorFixEl    = root.querySelector("#sp-error-fix");
+  const modalDismiss  = root.querySelector("#sp-modal-dismiss");
+  const modalAutoFix  = root.querySelector("#sp-modal-auto-fix");
+  let pendingAutoFixFn = null;
 
   const textHex       = root.querySelector("#sp-text-hex");
   const textColor     = root.querySelector("#sp-text-color");
@@ -178,16 +199,14 @@
   const zInput        = root.querySelector("#sp-zindex-val");
   const breadcrumbs   = root.querySelector("#sp-dom-breadcrumbs");
 
-  const subtabHtml    = root.querySelector("#sp-subtab-html");
-  const subtabCss     = root.querySelector("#sp-subtab-css");
-  const codeVal       = root.querySelector("#sp-code-val");
-  const applyCodeBtn  = root.querySelector("#sp-apply-code");
-  let activeCodeMode  = "html";
+  const codeAreaA     = root.querySelector("#sp-code-a");
+  const codeAreaB     = root.querySelector("#sp-code-b");
+  const btnRunAnim    = root.querySelector("#sp-btn-run-anim");
+  const btnApplyCode  = root.querySelector("#sp-btn-apply-code");
+  const btnCopyGsap   = root.querySelector("#sp-btn-copy-gsap");
 
-  const btnStateA     = root.querySelector("#sp-capture-state-a");
-  const btnStateB     = root.querySelector("#sp-capture-state-b");
-  const btnMorph      = root.querySelector("#sp-trigger-morph");
-  const gsapCodeBox   = root.querySelector("#sp-gsap-code");
+  let isTargetLocked  = true;
+  let unlockPending   = false;
 
   function showToast(msg, duration = 2400) {
     toastText.textContent = msg;
@@ -212,7 +231,7 @@
     if (pos === "static") el.style.position = "relative";
   }
 
-  /* ── Tab Switching ── */
+  /* ── Tab Switching with Dynamic Width Expansion ── */
   root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
     btn.addEventListener("click", () => {
       root.querySelectorAll(".sp-drawer-tab").forEach(b => b.classList.remove("sp-active"));
@@ -220,6 +239,13 @@
       btn.classList.add("sp-active");
       const targetPane = root.querySelector(`#pane-${btn.dataset.tab}`);
       if (targetPane) targetPane.classList.add("sp-active");
+
+      // Expand drawer width when in Code mode for split dual-editor
+      if (btn.dataset.tab === "code") {
+        drawer.classList.add("sp-expanded");
+      } else {
+        drawer.classList.remove("sp-expanded");
+      }
     });
   });
 
@@ -253,7 +279,6 @@
     let isDraggingDrawer = false, ox = 0, oy = 0;
 
     hdr.addEventListener("mousedown", e => {
-      // Don't drag if clicking buttons, tabs, or inputs
       if (e.target.closest("button") || e.target.closest("input") || e.target.closest(".sp-drawer-tab")) return;
 
       isDraggingDrawer = true;
@@ -261,7 +286,6 @@
       ox = e.clientX - r.left;
       oy = e.clientY - r.top;
 
-      // Unlock from fixed bottom styling so it floats freely
       drawer.style.bottom = "auto";
       drawer.style.right = "auto";
       drawer.style.transform = "none";
@@ -319,13 +343,8 @@
     zInput.value = isNaN(currentZ) ? 0 : currentZ;
     buildBreadcrumbs(el);
 
-    // Update Code Tab
-    updateCodeEditorContent();
-
-    // Reset morph states for newly selected element
-    stateA = null;
-    stateB = null;
-    gsapCodeBox.textContent = `// Target: ${tagStr}${idStr}${clsStr}\n// Click 'Set State A' & 'Set State B' to generate GSAP morph code`;
+    // Build Combined All-in-One Code Blocks (State A & State B)
+    populateDualCodePanes(el);
 
     drawer.classList.add("sp-open");
   }
@@ -462,128 +481,259 @@
     });
   }
 
-  /* ── Code Tab ── */
-  subtabHtml.addEventListener("click", () => {
-    activeCodeMode = "html";
-    subtabHtml.classList.add("active");
-    subtabCss.classList.remove("active");
-    updateCodeEditorContent();
-  });
-  subtabCss.addEventListener("click", () => {
-    activeCodeMode = "css";
-    subtabCss.classList.add("active");
-    subtabHtml.classList.remove("active");
-    updateCodeEditorContent();
-  });
+  /* ══════════════════════════════════════════════════════════
+     Combined All-in-One Format & Dual Code Panes (State A & B)
+     ══════════════════════════════════════════════════════════ */
+  function getConnectedJsForElement(el) {
+    // Detect inline onclick, event attributes, or active animation
+    const onclick = el.getAttribute("onclick") || "";
+    const cs = window.getComputedStyle(el);
+    const animName = cs.animationName;
+    const tag = el.tagName.toLowerCase();
+    const selector = el.id ? `#${el.id}` : (el.className ? `.${el.className.trim().split(/\s+/)[0]}` : tag);
 
-  function updateCodeEditorContent() {
-    if (!selectedEl) return;
-    if (activeCodeMode === "html") {
-      codeVal.value = selectedEl.outerHTML;
+    if (onclick) {
+      return `// Inline Click Event:\n${onclick}`;
+    }
+    if (animName && animName !== "none") {
+      return `// Active CSS Animation: ${animName}\n// GSAP Equivalent:\ngsap.to("${selector}", {\n  duration: ${parseFloat(cs.animationDuration) || 0.4},\n  ease: "power2.out"\n});`;
+    }
+    return `// GSAP Morph Animation:\ngsap.to("${selector}", {\n  scale: 1.05,\n  duration: 0.4,\n  ease: "power2.out"\n});`;
+  }
+
+  function generateSnippet(el, isTargetState = false) {
+    const cs = window.getComputedStyle(el);
+    const tag = el.tagName.toLowerCase();
+    const selector = el.id ? `#${el.id}` : (el.className ? `.${el.className.trim().split(/\s+/)[0]}` : tag);
+    const html = el.outerHTML;
+    const inlineCss = el.getAttribute("style") || `background: ${cs.backgroundColor}; color: ${cs.color};`;
+
+    if (!isTargetState) {
+      return `<!-- State A (Initial HTML) -->\n${html}\n\n<style>\n/* State A Styles */\n${selector} {\n  ${inlineCss}\n}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
     } else {
-      codeVal.value = selectedEl.getAttribute("style") || "";
+      // Cloned / transformed target State B
+      return `<!-- State B (Target Morph HTML) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  background: #8b5cf6;\n  color: #ffffff;\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  backgroundColor: "#8b5cf6",\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
     }
   }
 
-  applyCodeBtn.addEventListener("click", () => {
+  function populateDualCodePanes(el) {
+    codeAreaA.value = generateSnippet(el, false);
+    codeAreaB.value = generateSnippet(el, true);
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Code Parser, Syntax Validator & Modal Error Alert
+     ══════════════════════════════════════════════════════════ */
+  function parseSnippetParts(codeText) {
+    let html = codeText;
+    let css = "";
+    let js = "";
+
+    // Extract <style>
+    const styleMatch = codeText.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    if (styleMatch) {
+      css = styleMatch[1].trim();
+      html = html.replace(styleMatch[0], "");
+    }
+
+    // Extract <script>
+    const scriptMatch = codeText.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+    if (scriptMatch) {
+      js = scriptMatch[1].trim();
+      html = html.replace(scriptMatch[0], "");
+    }
+
+    // Clean html comments
+    html = html.replace(/<!--[\s\S]*?-->/g, "").trim();
+
+    return { html, css, js };
+  }
+
+  function validateSnippet(codeText) {
+    const parts = parseSnippetParts(codeText);
+
+    // 1. HTML Validation
+    if (parts.html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(parts.html, "text/html");
+      const errNode = doc.querySelector("parsererror");
+      if (errNode) {
+        return {
+          valid: false,
+          type: "HTML",
+          error: "Malformed HTML tags or unclosed element.",
+          fix: "Ensure all opening tags like <div> have matching closing tags </div>.",
+          repaired: parts.html.replace(/<([^/>]+)>$/g, "<$1></$1>")
+        };
+      }
+    }
+
+    // 2. CSS Validation (balanced braces)
+    if (parts.css) {
+      const openCount = (parts.css.match(/\{/g) || []).length;
+      const closeCount = (parts.css.match(/\}/g) || []).length;
+      if (openCount !== closeCount) {
+        return {
+          valid: false,
+          type: "CSS",
+          error: `Unbalanced CSS braces: ${openCount} '{' vs ${closeCount} '}'.`,
+          fix: "Add missing '}' at the end of the CSS rule block.",
+          repaired: parts.css + "\n}".repeat(Math.max(0, openCount - closeCount))
+        };
+      }
+    }
+
+    // 3. JavaScript / GSAP Syntax Validation
+    if (parts.js) {
+      try {
+        new Function(parts.js);
+      } catch (jsErr) {
+        return {
+          valid: false,
+          type: "JS",
+          error: jsErr.message,
+          fix: "Check missing semicolons, unmatched parentheses '()', or unquoted strings in your JS code.",
+          repaired: parts.js.replace(/;\s*;/g, ";")
+        };
+      }
+    }
+
+    return { valid: true, parts };
+  }
+
+  function showErrorModal(res, onFixCallback) {
+    errorMsgEl.innerHTML = `<strong>[${res.type} Error]:</strong> ${res.error}`;
+    errorFixEl.innerHTML = `<strong>Suggested Correction:</strong> ${res.fix}`;
+    pendingAutoFixFn = onFixCallback;
+    errorModal.classList.add("sp-modal-show");
+  }
+
+  modalDismiss.addEventListener("click", () => {
+    errorModal.classList.remove("sp-modal-show");
+    pendingAutoFixFn = null;
+  });
+
+  modalAutoFix.addEventListener("click", () => {
+    if (pendingAutoFixFn) {
+      pendingAutoFixFn();
+    }
+    errorModal.classList.remove("sp-modal-show");
+    pendingAutoFixFn = null;
+    showToast("✓ Applied suggested code fix!");
+  });
+
+  /* ── Applying Code Live ── */
+  btnApplyCode.addEventListener("click", () => {
     if (!selectedEl) return;
-    if (activeCodeMode === "html") {
+    const rawCode = codeAreaA.value;
+    const check = validateSnippet(rawCode);
+
+    if (!check.valid) {
+      showErrorModal(check, () => {
+        // Auto-fix callback
+        codeAreaA.value = rawCode + (check.type === "CSS" ? "\n}" : "");
+        btnApplyCode.click();
+      });
+      return;
+    }
+
+    // Apply HTML
+    const parts = check.parts;
+    if (parts.html) {
       try {
         const wrapper = document.createElement("div");
-        wrapper.innerHTML = codeVal.value.trim();
+        wrapper.innerHTML = parts.html;
         const newEl = wrapper.firstElementChild;
         if (newEl && selectedEl.parentNode) {
           undoStack.push({ type: "html", oldEl: selectedEl, newEl, parent: selectedEl.parentNode });
           selectedEl.parentNode.replaceChild(newEl, selectedEl);
           selectedEl = newEl;
           selectElement(selectedEl);
-          showToast("✓ Hot-reloaded HTML live!");
         }
-      } catch (err) {
-        showToast("HTML syntax error", 2000);
+      } catch (e) {}
+    }
+
+    // Apply CSS styles
+    if (parts.css) {
+      let liveStyle = document.getElementById("sp-live-override");
+      if (!liveStyle) {
+        liveStyle = document.createElement("style");
+        liveStyle.id = "sp-live-override";
+        document.head.appendChild(liveStyle);
       }
-    } else {
-      selectedEl.setAttribute("style", codeVal.value);
-      selectElement(selectedEl);
-      showToast("✓ Applied CSS live!");
+      liveStyle.textContent += "\n" + parts.css;
     }
+
+    showToast("✓ Applied live code to element!");
   });
 
-  /* ── Morphing & GSAP / Figma Compatibility (State A ↔ State B) ── */
-  function captureState(el) {
-    const cs = window.getComputedStyle(el);
-    const tr = getElementTranslate(el);
-    return {
-      x: tr.x,
-      y: tr.y,
-      transform: el.style.transform || "",
-      backgroundColor: cs.backgroundColor,
-      color: cs.color,
-      borderRadius: cs.borderRadius,
-      width: el.offsetWidth,
-      height: el.offsetHeight,
-      opacity: cs.opacity,
-      boxShadow: cs.boxShadow
-    };
-  }
-
-  btnStateA.addEventListener("click", () => {
+  /* ── Live Animation Morphing (State A ⇄ State B) ── */
+  btnRunAnim.addEventListener("click", () => {
     if (!selectedEl) return;
-    stateA = captureState(selectedEl);
-    btnStateA.style.borderColor = "#10B981";
-    btnStateA.style.color = "#10B981";
-    showToast("✓ State A (Resting) captured!");
-    updateGSAPCode();
-  });
 
-  btnStateB.addEventListener("click", () => {
-    if (!selectedEl) return;
-    stateB = captureState(selectedEl);
-    btnStateB.style.borderColor = "#22D3EE";
-    btnStateB.style.color = "#22D3EE";
-    showToast("✓ State B (Active) captured!");
-    updateGSAPCode();
-  });
-
-  function updateGSAPCode() {
-    if (!stateA || !stateB || !selectedEl) return;
-    const tag = selectedEl.tagName.toLowerCase();
-    const selector = selectedEl.id ? `#${selectedEl.id}` : (selectedEl.className ? `.${selectedEl.className.trim().split(/\s+/)[0]}` : tag);
-    const code = `// ⚡ GSAP Tween (State A → State B)
-gsap.to("${selector}", {
-  x: ${stateB.x},
-  y: ${stateB.y},
-  backgroundColor: "${stateB.backgroundColor}",
-  duration: 0.4,
-  ease: "power2.out"
-});`;
-    gsapCodeBox.textContent = code;
-  }
-
-  gsapCodeBox.addEventListener("click", () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(gsapCodeBox.textContent);
-      showToast("📋 Copied GSAP code to clipboard!");
-    }
-  });
-
-  btnMorph.addEventListener("click", () => {
-    if (!selectedEl) return;
-    if (!stateA || !stateB) {
-      showToast("Please capture State A and State B first!");
+    // Validate State B code
+    const checkB = validateSnippet(codeAreaB.value);
+    if (!checkB.valid) {
+      showErrorModal(checkB, () => {
+        codeAreaB.value = codeAreaB.value + (checkB.type === "CSS" ? "\n}" : "");
+        btnRunAnim.click();
+      });
       return;
     }
 
-    // Apply smooth CSS morph transition
-    selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
-    const targetState = currentMorphState === "A" ? stateB : stateA;
-    currentMorphState = currentMorphState === "A" ? "B" : "A";
+    const partsB = parseSnippetParts(codeAreaB.value);
 
-    selectedEl.style.transform = `translate(${targetState.x}px, ${targetState.y}px)`;
-    selectedEl._spTranslate = { x: targetState.x, y: targetState.y };
-    selectedEl.style.backgroundColor = targetState.backgroundColor;
+    // Smooth CSS morph transition
+    selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
+
+    if (currentMorphState === "A") {
+      // Morph to State B
+      currentMorphState = "B";
+      selectedEl.style.transform = "scale(1.08) translateY(-6px)";
+      selectedEl.style.backgroundColor = "#8b5cf6";
+      selectedEl.style.color = "#ffffff";
+      selectedEl.style.boxShadow = "0 12px 30px rgba(139, 92, 246, 0.45)";
+      btnRunAnim.style.background = "linear-gradient(135deg, #06B6D4, #10B981)";
+      showToast("✨ Morphed to State B (Active)!");
+    } else {
+      // Morph back to State A
+      currentMorphState = "A";
+      selectedEl.style.transform = "none";
+      selectedEl.style.backgroundColor = "";
+      selectedEl.style.color = "";
+      selectedEl.style.boxShadow = "";
+      btnRunAnim.style.background = "linear-gradient(135deg, #8B5CF6, #06B6D4)";
+      showToast("✨ Morphed to State A (Initial)!");
+    }
+
     updateSelectBox(selectedEl);
-    showToast(`✨ Morphed to State ${currentMorphState}!`);
+
+    // Execute any custom JS tween from the code box safely
+    if (partsB.js) {
+      try {
+        const sanitizedJs = partsB.js.replace(/gsap\.to\(["'][^"']+["']/g, `gsap.to(target`);
+        const fn = new Function("target", sanitizedJs);
+        if (window.gsap) fn(selectedEl);
+      } catch (e) {}
+    }
+  });
+
+  btnCopyGsap.addEventListener("click", () => {
+    if (!selectedEl) return;
+    const tag = selectedEl.tagName.toLowerCase();
+    const selector = selectedEl.id ? `#${selectedEl.id}` : (selectedEl.className ? `.${selectedEl.className.trim().split(/\s+/)[0]}` : tag);
+    const code = `// ⚡ GSAP Production Animation (Morph A → B)
+gsap.to("${selector}", {
+  scale: 1.08,
+  y: -6,
+  backgroundColor: "#8b5cf6",
+  duration: 0.4,
+  ease: "back.out(1.5)"
+});`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      showToast("📋 Copied GSAP code to clipboard!");
+    }
   });
 
   /* ══════════════════════════════════════════════════════════
@@ -636,7 +786,7 @@ gsap.to("${selector}", {
       dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
       updateSelectBox(dragTarget);
     } else if (isEnabled && !isDragging) {
-      // Hover Outline Tracker (if target not locked in move mode)
+      // Hover Outline Tracker
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
         hoverBox.style.display = "none";
@@ -676,7 +826,7 @@ gsap.to("${selector}", {
   }, true);
 
   /* ══════════════════════════════════════════════════════════
-     Canvas Click Handler
+     Canvas Click Handler (Accidental Misclick Protected)
      ══════════════════════════════════════════════════════════ */
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
@@ -707,28 +857,25 @@ gsap.to("${selector}", {
     // Accidental Misclick Protection:
     if (selectedEl && isTargetLocked) {
       if (target === selectedEl || selectedEl.contains(target)) {
-        // Clicked inside the target or its direct children: keep target locked!
         unlockPending = false;
         selectElement(selectedEl);
         return;
       }
 
-      // Clicked outside target:
+      // Clicked outside target
       if (!unlockPending) {
-        // 1st click outside: protect target!
         unlockPending = true;
         selectBadge.textContent = "🔓 Click again to switch target";
         showToast("Target protected • Click again to switch target", 1800);
         return;
       } else {
-        // 2nd click outside ("the next next click"): now distarget and switch!
+        // Next click outside switches target
         unlockPending = false;
       }
     }
 
     selectElement(target);
 
-    // Switch to corresponding tab if specific tool was picked in popup
     if (activeToolMode === "color") {
       root.querySelector(".sp-drawer-tab[data-tab='style']").click();
     } else if (activeToolMode === "layers") {
@@ -743,7 +890,9 @@ gsap.to("${selector}", {
      ══════════════════════════════════════════════════════════ */
   window.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      if (drawer.classList.contains("sp-open")) {
+      if (errorModal.classList.contains("sp-modal-show")) {
+        errorModal.classList.remove("sp-modal-show");
+      } else if (drawer.classList.contains("sp-open")) {
         drawer.classList.remove("sp-open");
         selectBox.style.display = "none";
         selectedEl = null;
@@ -860,7 +1009,7 @@ gsap.to("${selector}", {
     // 4. Purge scripts, iframes, and StylePeek artifacts
     docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
     docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-drawer").forEach(e => e.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-drawer, #sp-error-modal").forEach(e => e.remove());
 
     // 5. Prune offscreen / unrendered nodes
     docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());
