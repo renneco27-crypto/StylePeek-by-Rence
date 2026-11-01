@@ -30,6 +30,7 @@
     <!-- Bottom Studio Drawer -->
     <div id="sp-drawer">
       <div id="sp-drawer-header">
+        <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">⋮⋮</div>
         <div class="sp-drawer-title-group">
           <span id="sp-drawer-tag">div</span>
           <span id="sp-drawer-name">.element</span>
@@ -245,6 +246,44 @@
     isTargetLocked = true;
     unlockPending = false;
   });
+
+  /* ── Draggable Popup / Drawer Header ── */
+  (function initDraggableDrawer() {
+    const hdr = root.querySelector("#sp-drawer-header");
+    let isDraggingDrawer = false, ox = 0, oy = 0;
+
+    hdr.addEventListener("mousedown", e => {
+      // Don't drag if clicking buttons, tabs, or inputs
+      if (e.target.closest("button") || e.target.closest("input") || e.target.closest(".sp-drawer-tab")) return;
+
+      isDraggingDrawer = true;
+      const r = drawer.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+
+      // Unlock from fixed bottom styling so it floats freely
+      drawer.style.bottom = "auto";
+      drawer.style.right = "auto";
+      drawer.style.transform = "none";
+      drawer.style.left = r.left + "px";
+      drawer.style.top = r.top + "px";
+
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    window.addEventListener("mousemove", e => {
+      if (!isDraggingDrawer) return;
+      const left = Math.max(10, Math.min(window.innerWidth - drawer.offsetWidth - 10, e.clientX - ox));
+      const top  = Math.max(10, Math.min(window.innerHeight - 50, e.clientY - oy));
+      drawer.style.left = left + "px";
+      drawer.style.top = top + "px";
+    }, true);
+
+    window.addEventListener("mouseup", () => {
+      isDraggingDrawer = false;
+    });
+  })();
 
   /* ── Select and Inspect Element ── */
   function selectElement(el) {

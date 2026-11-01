@@ -140,6 +140,22 @@
   border-bottom: 1px solid #22293A;
   user-select: none;
   gap: 8px;
+  cursor: grab;
+}
+#sp-drawer-header:active {
+  cursor: grabbing;
+}
+#sp-drawer-drag-handle {
+  color: #64748B;
+  font-size: 14px;
+  cursor: grab;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+#sp-drawer-drag-handle:hover {
+  color: #22D3EE;
 }
 .sp-drawer-title-group {
   display: flex;
