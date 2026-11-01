@@ -163,6 +163,7 @@
     </div>
   `;
 
+  root.style.display = "none";
   document.documentElement.appendChild(root);
 
   /* ── Element References ── */
@@ -266,11 +267,7 @@
   }
 
   drawerClose.addEventListener("click", () => {
-    drawer.classList.remove("sp-open");
-    selectBox.style.display = "none";
-    selectedEl = null;
-    isTargetLocked = true;
-    unlockPending = false;
+    turnOffStylePeek();
   });
 
   /* ── Draggable Popup / Drawer Header ── */
@@ -779,6 +776,7 @@ gsap.to("${selector}", {
   }, true);
 
   document.addEventListener("mousemove", e => {
+    if (!isEnabled) return;
     if (isDragging && dragTarget) {
       const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX);
       const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY);
@@ -892,11 +890,7 @@ gsap.to("${selector}", {
     if (e.key === "Escape") {
       if (errorModal.classList.contains("sp-modal-show")) {
         errorModal.classList.remove("sp-modal-show");
-      } else if (drawer.classList.contains("sp-open")) {
-        drawer.classList.remove("sp-open");
-        selectBox.style.display = "none";
-        selectedEl = null;
-      } else if (isEnabled) {
+      } else {
         turnOffStylePeek();
       }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
@@ -930,6 +924,7 @@ gsap.to("${selector}", {
      ══════════════════════════════════════════════════════════ */
   function turnOnStylePeek(mode = "inspect") {
     isEnabled = true;
+    root.style.display = "block";
     activeToolMode = mode;
     document.body.classList.toggle("sp-mode-move", mode === "move");
     showToast(`StylePeek ON (${mode.toUpperCase()}) • Click any element`);
@@ -944,6 +939,9 @@ gsap.to("${selector}", {
     selectBox.style.display = "none";
     drawer.classList.remove("sp-open");
     selectedEl = null;
+    isTargetLocked = false;
+    unlockPending = false;
+    root.style.display = "none";
     showToast("StylePeek OFF • Page restored to normal");
   }
 
@@ -998,7 +996,8 @@ gsap.to("${selector}", {
     // 2. Detach StylePeek root temporarily
     root.remove();
     const docClone = document.documentElement.cloneNode(true);
-    document.documentElement.appendChild(root);
+    root.style.display = "none";
+  document.documentElement.appendChild(root);
 
     // 3. Remove temporary attributes from live DOM
     for (const el of allBodyEls) {

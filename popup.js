@@ -105,6 +105,7 @@ masterToggle.addEventListener("change", async () => {
     try {
       await sendTabMessage(tab.id, { action: "turnOff" });
       statusMsg.textContent = "StylePeek OFF • Page restored";
+      setTimeout(() => window.close(), 400);
     } catch (e) {}
   }
 });
