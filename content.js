@@ -3,25 +3,43 @@
   window.__stylePeekInjected = true;
 
   let isEnabled = false;
-  let activeToolMode = "inspect"; // "inspect", "move", "color", "layers", "code", "delete"
+  let activeToolMode = "inspect"; // "inspect", "move", "resize", "style", "layers", "code", "delete"
   let selectedEl = null;
   let hoveredEl = null;
   const undoStack = [];
 
   // Morphing States
-  let stateA = null;
-  let stateB = null;
   let currentMorphState = "A";
+  let sandboxMode = "component"; // "component" or "context"
 
-  /* ── Scaffold Studio Drawer & Error Modal ── */
+  /* ── Scaffold Studio Root, Dock, Drawer & Error Modal ── */
   const root = document.createElement("div");
   root.id = "sp-root";
   root.innerHTML = `
-    <!-- Outlines -->
+    <!-- Outlines with 4 Corner Resizers -->
     <div id="sp-hover-box"></div>
     <div id="sp-hover-label"></div>
     <div id="sp-select-box">
       <div id="sp-select-badge"></div>
+      <div class="sp-resize-handle nw" data-dir="nw" title="Drag corner to stretch"></div>
+      <div class="sp-resize-handle ne" data-dir="ne" title="Drag corner to stretch"></div>
+      <div class="sp-resize-handle se" data-dir="se" title="Drag corner to stretch"></div>
+      <div class="sp-resize-handle sw" data-dir="sw" title="Drag corner to stretch"></div>
+    </div>
+
+    <!-- Floating Tool Sidebar Dock (Visible ONLY when StylePeek is ON) -->
+    <div id="sp-sidebar-dock">
+      <div id="sp-dock-handle" title="Drag dock">⋮⋮</div>
+      <button class="sp-dock-btn sp-dock-active" data-tool="inspect" title="Inspect & Select Element (I)">🔍</button>
+      <button class="sp-dock-btn" data-tool="move" title="Free Live Drag (M)">✋</button>
+      <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">↔️</button>
+      <button class="sp-dock-btn" data-tool="style" title="Colors & Backgrounds (C)">🎨</button>
+      <button class="sp-dock-btn" data-tool="layers" title="Layers & Send to Back (L)">🥞</button>
+      <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">💻</button>
+      <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">✂️</button>
+      <div class="sp-dock-sep"></div>
+      <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Phone Viewport (Alt+C)">📸</button>
+      <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Turn OFF StylePeek">⭕</button>
     </div>
 
     <!-- Toast Notification -->
@@ -31,6 +49,7 @@
     <div id="sp-error-modal">
       <div class="sp-error-title-row">
         <span>⚠️ Code Syntax Error Detected</span>
+        <button class="sp-error-close-x" id="sp-modal-x" title="Close (Esc)">✕</button>
       </div>
       <div class="sp-error-msg-box" id="sp-error-msg">Syntax Error Details</div>
       <div class="sp-error-fix-box" id="sp-error-fix">Suggested Fix: ...</div>
@@ -48,6 +67,7 @@
           <span id="sp-drawer-tag">div</span>
           <span id="sp-drawer-name">.element</span>
           <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">🔒 Locked</button>
+          <button class="sp-lock-tag" id="sp-btn-deselect" title="Deselect element / reset target" style="color:#F87171;border-color:#4B1D24;">✕ Reset</button>
         </div>
 
         <div id="sp-drawer-tabs">
@@ -101,11 +121,27 @@
           </div>
         </div>
 
-        <!-- Tab 2: Layers & DOM Hierarchy Breadcrumbs -->
+        <!-- Tab 2: Layers, Background Controls & Word-style Send to Back -->
         <div class="sp-tab-pane" id="pane-layers">
+          <!-- Background Manager Card -->
+          <div class="sp-bg-layer-card">
+            <div class="sp-bg-layer-header">
+              <span>CANVAS / PAGE BACKGROUND</span>
+              <span class="sp-bg-badge" id="sp-bg-type-badge">Color</span>
+            </div>
+            <div class="sp-bg-input-group">
+              <input type="text" class="sp-bg-url-input" id="sp-bg-input-val" placeholder="Image URL (https://...) or hex / gradient...">
+              <button class="sp-bg-action-btn" id="sp-btn-apply-bg">Apply</button>
+            </div>
+            <div class="sp-bg-quick-row">
+              <button class="sp-bg-action-btn" id="sp-btn-select-body" title="Select root page background (body)">🌐 Select Page Body</button>
+              <button class="sp-bg-action-btn" id="sp-btn-copy-bg" title="Copy background CSS property">📋 Copy Background</button>
+            </div>
+          </div>
+
           <div class="sp-layers-controls">
-            <button class="sp-layer-btn back" id="sp-btn-push-back" title="Push element behind other layers">
-              <span>⬇ Push to Back</span>
+            <button class="sp-layer-btn back" id="sp-btn-push-back" title="Send element to very back (Word document style)">
+              <span>⬇ Send to Back</span>
             </button>
             <button class="sp-layer-btn front" id="sp-btn-bring-front" title="Bring element to top layer">
               <span>⬆ Bring to Front</span>
@@ -123,20 +159,32 @@
           <div id="sp-dom-breadcrumbs"></div>
         </div>
 
-        <!-- Tab 3: Split Dual-Editor (State A vs State B + Live Animate & Checker) -->
+        <!-- Tab 3: Interactive Sandbox Preview & Dual-Editor (State A vs State B) -->
         <div class="sp-tab-pane" id="pane-code">
+          <!-- Live Interactive Sandbox Preview -->
+          <div class="sp-sandbox-wrapper">
+            <div class="sp-sandbox-header">
+              <span>LIVE COMPONENT PREVIEW</span>
+              <div class="sp-sandbox-controls">
+                <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Neighbor Context">View: Component Only</button>
+                <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh Sandbox">↺ Refresh</button>
+              </div>
+            </div>
+            <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
+          </div>
+
           <div class="sp-split-container">
             <!-- Left Column: State A -->
             <div class="sp-split-col">
               <div class="sp-split-header">
-                <span>STATE A (INITIAL HTML · CSS · JS)</span>
+                <span>STATE A (CURRENT HTML · CSS · JS)</span>
               </div>
               <textarea class="sp-code-area" id="sp-code-a" spellcheck="false" placeholder="State A Code..."></textarea>
             </div>
 
             <!-- Center Actions -->
             <div class="sp-split-center-actions">
-              <button class="sp-animate-btn" id="sp-btn-run-anim" title="Run animation morphing State A to State B">
+              <button class="sp-animate-btn" id="sp-btn-run-anim" title="Run animation morphing State A to State B (or apply State A if B is blank)">
                 <span>⚡ Animate</span>
                 <span style="font-size:9.5px;opacity:0.85">Morph A ⇄ B</span>
               </button>
@@ -153,9 +201,9 @@
             <!-- Right Column: State B -->
             <div class="sp-split-col">
               <div class="sp-split-header target">
-                <span>STATE B (TARGET MORPH HTML · CSS · JS)</span>
+                <span>STATE B (OPTIONAL MORPH TARGET)</span>
               </div>
-              <textarea class="sp-code-area" id="sp-code-b" spellcheck="false" placeholder="State B Code..."></textarea>
+              <textarea class="sp-code-area" id="sp-code-b" spellcheck="false" placeholder="Leave blank to just render State A..."></textarea>
             </div>
           </div>
         </div>
@@ -167,47 +215,63 @@
   document.documentElement.appendChild(root);
 
   /* ── Element References ── */
-  const hoverBox      = root.querySelector("#sp-hover-box");
-  const hoverLbl      = root.querySelector("#sp-hover-label");
-  const selectBox     = root.querySelector("#sp-select-box");
-  const selectBadge   = root.querySelector("#sp-select-badge");
-  const toast         = root.querySelector("#sp-toast");
-  const toastText     = root.querySelector("#sp-toast-text");
-  const drawer        = root.querySelector("#sp-drawer");
-  const drawerTag     = root.querySelector("#sp-drawer-tag");
-  const drawerName    = root.querySelector("#sp-drawer-name");
-  const drawerClose   = root.querySelector("#sp-drawer-close");
-  const lockBtn       = root.querySelector("#sp-lock-btn");
+  const hoverBox        = root.querySelector("#sp-hover-box");
+  const hoverLbl        = root.querySelector("#sp-hover-label");
+  const selectBox       = root.querySelector("#sp-select-box");
+  const selectBadge     = root.querySelector("#sp-select-badge");
+  const sidebarDock     = root.querySelector("#sp-sidebar-dock");
+  const dockCaptureBtn  = root.querySelector("#sp-dock-capture");
+  const dockPowerBtn    = root.querySelector("#sp-dock-power");
 
-  const errorModal    = root.querySelector("#sp-error-modal");
-  const errorMsgEl    = root.querySelector("#sp-error-msg");
-  const errorFixEl    = root.querySelector("#sp-error-fix");
-  const modalDismiss  = root.querySelector("#sp-modal-dismiss");
-  const modalAutoFix  = root.querySelector("#sp-modal-auto-fix");
-  let pendingAutoFixFn = null;
+  const toast           = root.querySelector("#sp-toast");
+  const toastText       = root.querySelector("#sp-toast-text");
+  const drawer          = root.querySelector("#sp-drawer");
+  const drawerTag       = root.querySelector("#sp-drawer-tag");
+  const drawerName      = root.querySelector("#sp-drawer-name");
+  const drawerClose     = root.querySelector("#sp-drawer-close");
+  const lockBtn         = root.querySelector("#sp-lock-btn");
+  const deselectBtn     = root.querySelector("#sp-btn-deselect");
 
-  const textHex       = root.querySelector("#sp-text-hex");
-  const textColor     = root.querySelector("#sp-text-color");
-  const bgHex         = root.querySelector("#sp-bg-hex");
-  const bgColor       = root.querySelector("#sp-bg-color");
-  const borderHex     = root.querySelector("#sp-border-hex");
-  const borderColor   = root.querySelector("#sp-border-color");
+  const errorModal      = root.querySelector("#sp-error-modal");
+  const errorModalX     = root.querySelector("#sp-modal-x");
+  const errorMsgEl      = root.querySelector("#sp-error-msg");
+  const errorFixEl      = root.querySelector("#sp-error-fix");
+  const modalDismiss    = root.querySelector("#sp-modal-dismiss");
+  const modalAutoFix    = root.querySelector("#sp-modal-auto-fix");
+  let pendingAutoFixFn  = null;
 
-  const btnPushBack   = root.querySelector("#sp-btn-push-back");
-  const btnBringFront = root.querySelector("#sp-btn-bring-front");
-  const zDownBtn      = root.querySelector("#sp-z-down");
-  const zUpBtn        = root.querySelector("#sp-z-up");
-  const zInput        = root.querySelector("#sp-zindex-val");
-  const breadcrumbs   = root.querySelector("#sp-dom-breadcrumbs");
+  const textHex         = root.querySelector("#sp-text-hex");
+  const textColor       = root.querySelector("#sp-text-color");
+  const bgHex           = root.querySelector("#sp-bg-hex");
+  const bgColor         = root.querySelector("#sp-bg-color");
+  const borderHex       = root.querySelector("#sp-border-hex");
+  const borderColor     = root.querySelector("#sp-border-color");
 
-  const codeAreaA     = root.querySelector("#sp-code-a");
-  const codeAreaB     = root.querySelector("#sp-code-b");
-  const btnRunAnim    = root.querySelector("#sp-btn-run-anim");
-  const btnApplyCode  = root.querySelector("#sp-btn-apply-code");
-  const btnCopyGsap   = root.querySelector("#sp-btn-copy-gsap");
+  const bgInputVal      = root.querySelector("#sp-bg-input-val");
+  const bgTypeBadge     = root.querySelector("#sp-bg-type-badge");
+  const btnApplyBg      = root.querySelector("#sp-btn-apply-bg");
+  const btnSelectBody   = root.querySelector("#sp-btn-select-body");
+  const btnCopyBg       = root.querySelector("#sp-btn-copy-bg");
 
-  let isTargetLocked  = true;
-  let unlockPending   = false;
+  const btnPushBack     = root.querySelector("#sp-btn-push-back");
+  const btnBringFront   = root.querySelector("#sp-btn-bring-front");
+  const zDownBtn        = root.querySelector("#sp-z-down");
+  const zUpBtn          = root.querySelector("#sp-z-up");
+  const zInput          = root.querySelector("#sp-zindex-val");
+  const breadcrumbs     = root.querySelector("#sp-dom-breadcrumbs");
+
+  const sandboxViewport = root.querySelector("#sp-sandbox-viewport");
+  const btnContextToggle= root.querySelector("#sp-btn-context-toggle");
+  const btnRefreshPreview=root.querySelector("#sp-btn-refresh-preview");
+
+  const codeAreaA       = root.querySelector("#sp-code-a");
+  const codeAreaB       = root.querySelector("#sp-code-b");
+  const btnRunAnim      = root.querySelector("#sp-btn-run-anim");
+  const btnApplyCode    = root.querySelector("#sp-btn-apply-code");
+  const btnCopyGsap     = root.querySelector("#sp-btn-copy-gsap");
+
+  let isTargetLocked    = true;
+  let unlockPending     = false;
 
   function showToast(msg, duration = 2400) {
     toastText.textContent = msg;
@@ -232,6 +296,79 @@
     if (pos === "static") el.style.position = "relative";
   }
 
+  /* ── Sidebar Dock Mode Switching & Sync ── */
+  function syncDockUI(mode) {
+    root.querySelectorAll(".sp-dock-btn[data-tool]").forEach(b => {
+      b.classList.toggle("sp-dock-active", b.dataset.tool === mode);
+    });
+  }
+
+  root.querySelectorAll(".sp-dock-btn[data-tool]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tool = btn.dataset.tool;
+      activeToolMode = tool;
+      syncDockUI(tool);
+      document.body.classList.toggle("sp-mode-move", tool === "move");
+
+      if (tool === "style") {
+        drawer.classList.add("sp-open");
+        root.querySelector(".sp-drawer-tab[data-tab='style']").click();
+      } else if (tool === "layers") {
+        drawer.classList.add("sp-open");
+        root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
+      } else if (tool === "code") {
+        drawer.classList.add("sp-open");
+        root.querySelector(".sp-drawer-tab[data-tab='code']").click();
+      } else if (tool === "inspect") {
+        showToast("🔍 Inspect Mode • Click any element to open editor");
+      } else if (tool === "move") {
+        showToast("✋ Move Mode • Drag any element freely on canvas");
+      } else if (tool === "resize") {
+        showToast("↔️ Resize Mode • Drag outline corner handles to stretch");
+      } else if (tool === "delete") {
+        showToast("✂️ Delete Mode • Click element to remove (Ctrl+Z undo)");
+      }
+    });
+  });
+
+  dockCaptureBtn.addEventListener("click", () => {
+    captureVisibleViewport();
+  });
+
+  dockPowerBtn.addEventListener("click", () => {
+    turnOffStylePeek();
+  });
+
+  /* ── Draggable Sidebar Dock ── */
+  (function initDraggableDock() {
+    const dockHandle = root.querySelector("#sp-dock-handle");
+    let isDraggingDock = false, ox = 0, oy = 0;
+
+    dockHandle.addEventListener("mousedown", e => {
+      isDraggingDock = true;
+      const r = sidebarDock.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      sidebarDock.style.right = "auto";
+      sidebarDock.style.left = r.left + "px";
+      sidebarDock.style.top = r.top + "px";
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    window.addEventListener("mousemove", e => {
+      if (!isDraggingDock) return;
+      const left = Math.max(8, Math.min(window.innerWidth - sidebarDock.offsetWidth - 8, e.clientX - ox));
+      const top  = Math.max(8, Math.min(window.innerHeight - sidebarDock.offsetHeight - 8, e.clientY - oy));
+      sidebarDock.style.left = left + "px";
+      sidebarDock.style.top = top + "px";
+    }, true);
+
+    window.addEventListener("mouseup", () => {
+      isDraggingDock = false;
+    });
+  })();
+
   /* ── Tab Switching with Dynamic Width Expansion ── */
   root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -241,9 +378,10 @@
       const targetPane = root.querySelector(`#pane-${btn.dataset.tab}`);
       if (targetPane) targetPane.classList.add("sp-active");
 
-      // Expand drawer width when in Code mode for split dual-editor
+      // Expand drawer width in Code mode for split dual-editor
       if (btn.dataset.tab === "code") {
         drawer.classList.add("sp-expanded");
+        updateSandboxPreview(selectedEl);
       } else {
         drawer.classList.remove("sp-expanded");
       }
@@ -262,12 +400,26 @@
       unlockPending = false;
       updateLockBtnUI();
       if (selectedEl) updateSelectBox(selectedEl);
-      showToast(isTargetLocked ? "🔒 Target Locked (Safe from misclicks)" : "🔓 Target Unlocked (Single click changes target)");
+      showToast(isTargetLocked ? "🔒 Target Locked (Safe from accidental misclicks)" : "🔓 Target Unlocked");
+    });
+  }
+
+  if (deselectBtn) {
+    deselectBtn.addEventListener("click", () => {
+      selectedEl = null;
+      selectBox.style.display = "none";
+      drawer.classList.remove("sp-open");
+      isTargetLocked = false;
+      unlockPending = false;
+      showToast("✕ Selection cleared");
     });
   }
 
   drawerClose.addEventListener("click", () => {
-    turnOffStylePeek();
+    drawer.classList.remove("sp-open");
+    selectBox.style.display = "none";
+    selectedEl = null;
+    showToast("Drawer closed • Select any element to reopen");
   });
 
   /* ── Draggable Popup / Drawer Header ── */
@@ -335,6 +487,16 @@
     const bdrH = rgbToHex(cs.borderColor);
     borderHex.value = bdrH; borderColor.value = bdrH;
 
+    // Read Background for Layers Background Card
+    if (cs.backgroundImage && cs.backgroundImage !== "none") {
+      const m = cs.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
+      bgInputVal.value = m ? m[1] : cs.backgroundImage;
+      bgTypeBadge.textContent = "Image";
+    } else {
+      bgInputVal.value = bgH;
+      bgTypeBadge.textContent = "Color";
+    }
+
     // Read Z-Index & Build Hierarchy
     const currentZ = parseInt(cs.zIndex);
     zInput.value = isNaN(currentZ) ? 0 : currentZ;
@@ -342,6 +504,9 @@
 
     // Build Combined All-in-One Code Blocks (State A & State B)
     populateDualCodePanes(el);
+
+    // Update Sandbox Live Component Preview
+    updateSandboxPreview(el);
 
     drawer.classList.add("sp-open");
   }
@@ -363,23 +528,109 @@
     selectBadge.textContent = `${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}`;
   }
 
+  /* ── 4-Corner Live Resizing / Stretching ── */
+  let isResizing = false;
+  let resizeDir = "";
+  let resizeStart = { mouseX: 0, mouseY: 0, width: 0, height: 0, startStyleW: "", startStyleH: "" };
+
+  selectBox.querySelectorAll(".sp-resize-handle").forEach(handle => {
+    handle.addEventListener("mousedown", e => {
+      if (!selectedEl) return;
+      isResizing = true;
+      resizeDir = handle.dataset.dir;
+      const r = selectedEl.getBoundingClientRect();
+      resizeStart = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        width: r.width,
+        height: r.height,
+        startStyleW: selectedEl.style.width,
+        startStyleH: selectedEl.style.height
+      };
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!isResizing || !selectedEl) return;
+    const deltaX = e.clientX - resizeStart.mouseX;
+    const deltaY = e.clientY - resizeStart.mouseY;
+
+    let newW = resizeStart.width;
+    let newH = resizeStart.height;
+
+    if (resizeDir === "se") {
+      newW += deltaX;
+      newH += deltaY;
+    } else if (resizeDir === "sw") {
+      newW -= deltaX;
+      newH += deltaY;
+    } else if (resizeDir === "ne") {
+      newW += deltaX;
+      newH -= deltaY;
+    } else if (resizeDir === "nw") {
+      newW -= deltaX;
+      newH -= deltaY;
+    }
+
+    newW = Math.max(16, Math.round(newW));
+    newH = Math.max(16, Math.round(newH));
+
+    selectedEl.style.width = newW + "px";
+    selectedEl.style.height = newH + "px";
+    updateSelectBox(selectedEl);
+    updateSandboxPreview(selectedEl);
+  }, true);
+
+  window.addEventListener("mouseup", () => {
+    if (isResizing && selectedEl) {
+      isResizing = false;
+      undoStack.push({
+        type: "resize",
+        node: selectedEl,
+        oldW: resizeStart.startStyleW,
+        oldH: resizeStart.startStyleH,
+        newW: selectedEl.style.width,
+        newH: selectedEl.style.height
+      });
+      showToast(`↔️ Stretched element to ${selectedEl.style.width} × ${selectedEl.style.height}`);
+    }
+  }, true);
+
   /* ── Live Color Binding ── */
   textColor.addEventListener("input", e => {
     textHex.value = e.target.value;
-    if (selectedEl) selectedEl.style.color = e.target.value;
+    if (selectedEl) {
+      selectedEl.style.color = e.target.value;
+      updateSandboxPreview(selectedEl);
+    }
   });
   textHex.addEventListener("input", e => {
     textColor.value = e.target.value;
-    if (selectedEl) selectedEl.style.color = e.target.value;
+    if (selectedEl) {
+      selectedEl.style.color = e.target.value;
+      updateSandboxPreview(selectedEl);
+    }
   });
 
   bgColor.addEventListener("input", e => {
     bgHex.value = e.target.value;
-    if (selectedEl) selectedEl.style.backgroundColor = e.target.value;
+    if (selectedEl) {
+      selectedEl.style.backgroundColor = e.target.value;
+      bgInputVal.value = e.target.value;
+      bgTypeBadge.textContent = "Color";
+      updateSandboxPreview(selectedEl);
+    }
   });
   bgHex.addEventListener("input", e => {
     bgColor.value = e.target.value;
-    if (selectedEl) selectedEl.style.backgroundColor = e.target.value;
+    if (selectedEl) {
+      selectedEl.style.backgroundColor = e.target.value;
+      bgInputVal.value = e.target.value;
+      bgTypeBadge.textContent = "Color";
+      updateSandboxPreview(selectedEl);
+    }
   });
 
   borderColor.addEventListener("input", e => {
@@ -387,6 +638,7 @@
     if (selectedEl) {
       selectedEl.style.borderColor = e.target.value;
       if (getComputedStyle(selectedEl).borderStyle === "none") selectedEl.style.borderStyle = "solid";
+      updateSandboxPreview(selectedEl);
     }
   });
   borderHex.addEventListener("input", e => {
@@ -394,6 +646,7 @@
     if (selectedEl) {
       selectedEl.style.borderColor = e.target.value;
       if (getComputedStyle(selectedEl).borderStyle === "none") selectedEl.style.borderStyle = "solid";
+      updateSandboxPreview(selectedEl);
     }
   });
 
@@ -404,20 +657,59 @@
       selectedEl.style.backgroundColor = col;
       if (col !== "transparent") {
         bgHex.value = col; bgColor.value = col;
+        bgInputVal.value = col;
       } else {
         bgHex.value = "transparent";
+        bgInputVal.value = "transparent";
       }
+      updateSandboxPreview(selectedEl);
       showToast(`Set background: ${col}`);
     });
   });
 
-  /* ── Layers Tab: Z-Index & Breadcrumbs ── */
+  /* ── Background Controls in Layers Tab ── */
+  btnSelectBody.addEventListener("click", () => {
+    const rootBody = document.body;
+    selectElement(rootBody);
+    showToast("🌐 Selected Page Body (Canvas Background)");
+  });
+
+  btnApplyBg.addEventListener("click", () => {
+    if (!selectedEl) return;
+    const val = bgInputVal.value.trim();
+    if (!val) return;
+    if (/^https?:\/\/|^data:image/i.test(val)) {
+      selectedEl.style.backgroundImage = `url("${val}")`;
+      selectedEl.style.backgroundSize = "cover";
+      selectedEl.style.backgroundPosition = "center";
+      bgTypeBadge.textContent = "Image";
+      showToast("🖼️ Applied Background Image!");
+    } else {
+      selectedEl.style.background = val;
+      bgTypeBadge.textContent = "Custom";
+      showToast("🎨 Applied Background Style!");
+    }
+    updateSandboxPreview(selectedEl);
+  });
+
+  btnCopyBg.addEventListener("click", () => {
+    if (!selectedEl) return;
+    const cs = window.getComputedStyle(selectedEl);
+    const bg = (cs.backgroundImage && cs.backgroundImage !== "none") ? cs.backgroundImage : cs.backgroundColor;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(bg);
+      showToast(`📋 Copied background: ${bg}`);
+    }
+  });
+
+  /* ── Layers Tab: Word-Style Send to Back & Breadcrumbs ── */
   btnPushBack.addEventListener("click", () => {
     if (!selectedEl) return;
     ensurePositioned(selectedEl);
-    selectedEl.style.zIndex = "-1";
-    zInput.value = -1;
-    showToast("⬇ Pushed element behind (z-index: -1)");
+    // Word document style: send completely behind all elements
+    selectedEl.style.zIndex = "-9999";
+    zInput.value = -9999;
+    showToast("⬇ Sent to Back (Word-style • z-index: -9999)");
   });
 
   btnBringFront.addEventListener("click", () => {
@@ -425,7 +717,7 @@
     ensurePositioned(selectedEl);
     selectedEl.style.zIndex = "9999";
     zInput.value = 9999;
-    showToast("⬆ Brought element to front (z-index: 9999)");
+    showToast("⬆ Brought to Front (z-index: 9999)");
   });
 
   zUpBtn.addEventListener("click", () => {
@@ -454,7 +746,7 @@
     breadcrumbs.innerHTML = "";
     const chain = [];
     let curr = el;
-    while (curr && curr !== document.body && curr !== document.documentElement && !isOwn(curr)) {
+    while (curr && curr !== document.documentElement && !isOwn(curr)) {
       chain.unshift(curr);
       curr = curr.parentElement;
     }
@@ -479,10 +771,54 @@
   }
 
   /* ══════════════════════════════════════════════════════════
+     Interactive Live Component Sandbox Preview
+     ══════════════════════════════════════════════════════════ */
+  function updateSandboxPreview(el) {
+    if (!sandboxViewport) return;
+    sandboxViewport.innerHTML = "";
+    if (!el) {
+      sandboxViewport.innerHTML = '<span style="color:#64748B;font-size:11px">No element selected</span>';
+      return;
+    }
+
+    try {
+      let previewTarget;
+      if (sandboxMode === "context" && el.parentElement && !isOwn(el.parentElement)) {
+        previewTarget = el.parentElement.cloneNode(true);
+        previewTarget.querySelectorAll("script, noscript, #sp-root, [id^='sp-']").forEach(n => n.remove());
+        const tag = el.tagName.toLowerCase();
+        const match = previewTarget.querySelector(tag) || previewTarget.firstElementChild;
+        if (match) match.style.outline = "2px dashed #A855F7";
+      } else {
+        previewTarget = el.cloneNode(true);
+        previewTarget.querySelectorAll("script, noscript, #sp-root, [id^='sp-']").forEach(n => n.remove());
+      }
+
+      previewTarget.style.pointerEvents = "auto";
+      previewTarget.style.margin = "auto";
+      sandboxViewport.appendChild(previewTarget);
+    } catch (e) {
+      sandboxViewport.innerHTML = '<span style="color:#64748B;font-size:11px">Preview unavailable</span>';
+    }
+  }
+
+  btnContextToggle.addEventListener("click", () => {
+    sandboxMode = (sandboxMode === "component") ? "context" : "component";
+    btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component Only" : "View: Parent & Context";
+    btnContextToggle.classList.toggle("active", sandboxMode === "context");
+    updateSandboxPreview(selectedEl);
+    showToast(`Sandbox view: ${sandboxMode.toUpperCase()}`);
+  });
+
+  btnRefreshPreview.addEventListener("click", () => {
+    updateSandboxPreview(selectedEl);
+    showToast("↺ Refreshed Sandbox Preview");
+  });
+
+  /* ══════════════════════════════════════════════════════════
      Combined All-in-One Format & Dual Code Panes (State A & B)
      ══════════════════════════════════════════════════════════ */
   function getConnectedJsForElement(el) {
-    // Detect inline onclick, event attributes, or active animation
     const onclick = el.getAttribute("onclick") || "";
     const cs = window.getComputedStyle(el);
     const animName = cs.animationName;
@@ -508,8 +844,7 @@
     if (!isTargetState) {
       return `<!-- State A (Initial HTML) -->\n${html}\n\n<style>\n/* State A Styles */\n${selector} {\n  ${inlineCss}\n}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
     } else {
-      // Cloned / transformed target State B
-      return `<!-- State B (Target Morph HTML) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  background: #8b5cf6;\n  color: #ffffff;\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  backgroundColor: "#8b5cf6",\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
+      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  background: #8b5cf6;\n  color: #ffffff;\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  backgroundColor: "#8b5cf6",\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
     }
   }
 
@@ -519,31 +854,115 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     Code Parser, Syntax Validator & Modal Error Alert
+     Safe Static Syntax Validator (NO new Function / NO eval!)
      ══════════════════════════════════════════════════════════ */
   function parseSnippetParts(codeText) {
-    let html = codeText;
+    let html = codeText || "";
     let css = "";
     let js = "";
 
-    // Extract <style>
     const styleMatch = codeText.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
     if (styleMatch) {
       css = styleMatch[1].trim();
       html = html.replace(styleMatch[0], "");
     }
 
-    // Extract <script>
     const scriptMatch = codeText.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
     if (scriptMatch) {
       js = scriptMatch[1].trim();
       html = html.replace(scriptMatch[0], "");
     }
 
-    // Clean html comments
     html = html.replace(/<!--[\s\S]*?-->/g, "").trim();
 
     return { html, css, js };
+  }
+
+  function validateJsSyntaxSafely(jsCode) {
+    // Static bracket & quote parser without eval / new Function
+    const stack = [];
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let inBacktick = false;
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let i = 0; i < jsCode.length; i++) {
+      const char = jsCode[i];
+      const next = jsCode[i + 1] || "";
+      const prev = jsCode[i - 1] || "";
+
+      if (inLineComment) {
+        if (char === "\n") inLineComment = false;
+        continue;
+      }
+      if (inBlockComment) {
+        if (char === "*" && next === "/") { inBlockComment = false; i++; }
+        continue;
+      }
+
+      if (!inSingleQuote && !inDoubleQuote && !inBacktick) {
+        if (char === "/" && next === "/") { inLineComment = true; i++; continue; }
+        if (char === "/" && next === "*") { inBlockComment = true; i++; continue; }
+      }
+
+      if (char === "'" && !inDoubleQuote && !inBacktick && prev !== "\\") {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+      if (char === '"' && !inSingleQuote && !inBacktick && prev !== "\\") {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+      if (char === '`' && !inSingleQuote && !inDoubleQuote && prev !== "\\") {
+        inBacktick = !inBacktick;
+        continue;
+      }
+
+      if (inSingleQuote || inDoubleQuote || inBacktick) continue;
+
+      if (char === "(" || char === "{" || char === "[") {
+        stack.push({ char, index: i });
+      } else if (char === ")" || char === "}" || char === "]") {
+        if (stack.length === 0) {
+          return {
+            valid: false,
+            error: `Unexpected closing '${char}' without matching opening bracket.`,
+            fix: `Remove the stray '${char}' or add the opening counterpart.`
+          };
+        }
+        const last = stack.pop();
+        const expected = last.char === "(" ? ")" : (last.char === "{" ? "}" : "]");
+        if (char !== expected) {
+          return {
+            valid: false,
+            error: `Mismatched bracket: expected '${expected}' to close '${last.char}', but found '${char}'.`,
+            fix: `Replace '${char}' with '${expected}'.`
+          };
+        }
+      }
+    }
+
+    if (inSingleQuote || inDoubleQuote || inBacktick) {
+      const q = inSingleQuote ? "'" : (inDoubleQuote ? '"' : "`");
+      return {
+        valid: false,
+        error: `Unterminated string literal (missing closing ${q}).`,
+        fix: `Close the string with a matching ${q}.`
+      };
+    }
+
+    if (stack.length > 0) {
+      const unclosed = stack[stack.length - 1];
+      const match = unclosed.char === "(" ? ")" : (unclosed.char === "{" ? "}" : "]");
+      return {
+        valid: false,
+        error: `Unclosed bracket '${unclosed.char}'.`,
+        fix: `Add missing closing '${match}' at the end of the script.`
+      };
+    }
+
+    return { valid: true };
   }
 
   function validateSnippet(codeText) {
@@ -580,17 +999,16 @@
       }
     }
 
-    // 3. JavaScript / GSAP Syntax Validation
+    // 3. JavaScript Syntax Validation (Safe Static Analysis, No CSP Violation)
     if (parts.js) {
-      try {
-        new Function(parts.js);
-      } catch (jsErr) {
+      const jsRes = validateJsSyntaxSafely(parts.js);
+      if (!jsRes.valid) {
         return {
           valid: false,
           type: "JS",
-          error: jsErr.message,
-          fix: "Check missing semicolons, unmatched parentheses '()', or unquoted strings in your JS code.",
-          repaired: parts.js.replace(/;\s*;/g, ";")
+          error: jsRes.error,
+          fix: jsRes.fix,
+          repaired: parts.js + ";"
         };
       }
     }
@@ -605,17 +1023,19 @@
     errorModal.classList.add("sp-modal-show");
   }
 
-  modalDismiss.addEventListener("click", () => {
+  function closeErrorModal() {
     errorModal.classList.remove("sp-modal-show");
     pendingAutoFixFn = null;
-  });
+  }
+
+  errorModalX.addEventListener("click", closeErrorModal);
+  modalDismiss.addEventListener("click", closeErrorModal);
 
   modalAutoFix.addEventListener("click", () => {
     if (pendingAutoFixFn) {
       pendingAutoFixFn();
     }
-    errorModal.classList.remove("sp-modal-show");
-    pendingAutoFixFn = null;
+    closeErrorModal();
     showToast("✓ Applied suggested code fix!");
   });
 
@@ -627,7 +1047,6 @@
 
     if (!check.valid) {
       showErrorModal(check, () => {
-        // Auto-fix callback
         codeAreaA.value = rawCode + (check.type === "CSS" ? "\n}" : "");
         btnApplyCode.click();
       });
@@ -661,24 +1080,33 @@
       liveStyle.textContent += "\n" + parts.css;
     }
 
-    showToast("✓ Applied live code to element!");
+    updateSandboxPreview(selectedEl);
+    showToast("✓ Applied live code to element & canvas!");
   });
 
-  /* ── Live Animation Morphing (State A ⇄ State B) ── */
+  /* ── Live Animation Morphing (State A ⇄ State B, CSP-Safe) ── */
   btnRunAnim.addEventListener("click", () => {
     if (!selectedEl) return;
 
-    // Validate State B code
-    const checkB = validateSnippet(codeAreaB.value);
+    const rawB = codeAreaB.value.trim();
+    const partsB = parseSnippetParts(rawB);
+
+    // If State B is left blank, directly apply State A!
+    if (!partsB.html && !partsB.css && !partsB.js) {
+      btnApplyCode.click();
+      showToast("✓ Rendered State A to canvas & preview!");
+      return;
+    }
+
+    // Validate State B code safely
+    const checkB = validateSnippet(rawB);
     if (!checkB.valid) {
       showErrorModal(checkB, () => {
-        codeAreaB.value = codeAreaB.value + (checkB.type === "CSS" ? "\n}" : "");
+        codeAreaB.value = rawB + (checkB.type === "CSS" ? "\n}" : "");
         btnRunAnim.click();
       });
       return;
     }
-
-    const partsB = parseSnippetParts(codeAreaB.value);
 
     // Smooth CSS morph transition
     selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
@@ -686,6 +1114,18 @@
     if (currentMorphState === "A") {
       // Morph to State B
       currentMorphState = "B";
+
+      // Parse custom styles or apply preset morph
+      if (partsB.css) {
+        let liveMorphStyle = document.getElementById("sp-morph-override");
+        if (!liveMorphStyle) {
+          liveMorphStyle = document.createElement("style");
+          liveMorphStyle.id = "sp-morph-override";
+          document.head.appendChild(liveMorphStyle);
+        }
+        liveMorphStyle.textContent = partsB.css;
+      }
+
       selectedEl.style.transform = "scale(1.08) translateY(-6px)";
       selectedEl.style.backgroundColor = "#8b5cf6";
       selectedEl.style.color = "#ffffff";
@@ -695,24 +1135,19 @@
     } else {
       // Morph back to State A
       currentMorphState = "A";
+      const liveMorphStyle = document.getElementById("sp-morph-override");
+      if (liveMorphStyle) liveMorphStyle.textContent = "";
+
       selectedEl.style.transform = "none";
       selectedEl.style.backgroundColor = "";
       selectedEl.style.color = "";
       selectedEl.style.boxShadow = "";
       btnRunAnim.style.background = "linear-gradient(135deg, #8B5CF6, #06B6D4)";
-      showToast("✨ Morphed to State A (Initial)!");
+      showToast("✨ Morphed back to State A (Initial)!");
     }
 
     updateSelectBox(selectedEl);
-
-    // Execute any custom JS tween from the code box safely
-    if (partsB.js) {
-      try {
-        const sanitizedJs = partsB.js.replace(/gsap\.to\(["'][^"']+["']/g, `gsap.to(target`);
-        const fn = new Function("target", sanitizedJs);
-        if (window.gsap) fn(selectedEl);
-      } catch (e) {}
-    }
+    updateSandboxPreview(selectedEl);
   });
 
   btnCopyGsap.addEventListener("click", () => {
@@ -783,7 +1218,7 @@ gsap.to("${selector}", {
       dragTarget._spTranslate = { x: dx, y: dy };
       dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
       updateSelectBox(dragTarget);
-    } else if (isEnabled && !isDragging) {
+    } else if (isEnabled && !isDragging && !isResizing) {
       // Hover Outline Tracker
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
@@ -824,7 +1259,7 @@ gsap.to("${selector}", {
   }, true);
 
   /* ══════════════════════════════════════════════════════════
-     Canvas Click Handler (Accidental Misclick Protected)
+     Canvas Click Handler (Accidental Misclick Protected & Unlocked)
      ══════════════════════════════════════════════════════════ */
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
@@ -852,29 +1287,37 @@ gsap.to("${selector}", {
       return;
     }
 
-    // Accidental Misclick Protection:
+    // Accidental Misclick Protection & Background Layer Trap Fix:
     if (selectedEl && isTargetLocked) {
-      if (target === selectedEl || selectedEl.contains(target)) {
+      // 1. If clicking the exact same target: keep selected
+      if (target === selectedEl) {
         unlockPending = false;
-        selectElement(selectedEl);
         return;
       }
 
-      // Clicked outside target
+      // 2. If user clicks a child element inside a selected parent/background layer:
+      // IMMEDIATELY select the child! This fixes the purple outline getting stuck on layers.
+      if (selectedEl.contains(target)) {
+        unlockPending = false;
+        selectElement(target);
+        return;
+      }
+
+      // 3. Clicked completely outside target:
       if (!unlockPending) {
         unlockPending = true;
         selectBadge.textContent = "🔓 Click again to switch target";
         showToast("Target protected • Click again to switch target", 1800);
         return;
       } else {
-        // Next click outside switches target
+        // Next click outside switches target cleanly
         unlockPending = false;
       }
     }
 
     selectElement(target);
 
-    if (activeToolMode === "color") {
+    if (activeToolMode === "style") {
       root.querySelector(".sp-drawer-tab[data-tab='style']").click();
     } else if (activeToolMode === "layers") {
       root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
@@ -887,14 +1330,19 @@ gsap.to("${selector}", {
      Global Shortcuts
      ══════════════════════════════════════════════════════════ */
   window.addEventListener("keydown", e => {
+    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+
     if (e.key === "Escape") {
       if (errorModal.classList.contains("sp-modal-show")) {
-        errorModal.classList.remove("sp-modal-show");
+        closeErrorModal();
+      } else if (drawer.classList.contains("sp-open")) {
+        drawer.classList.remove("sp-open");
+        selectBox.style.display = "none";
+        selectedEl = null;
       } else {
         turnOffStylePeek();
       }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
-      if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
       if (undoStack.length > 0) {
         e.preventDefault();
         const action = undoStack.pop();
@@ -910,12 +1358,35 @@ gsap.to("${selector}", {
           action.node._spTranslate = { x: 0, y: 0 };
           action.node.style.transform = "";
           updateSelectBox(action.node);
-          showToast("↺ Restored original element position");
+          showToast("↺ Restored original position");
+        } else if (action.type === "resize" && action.node) {
+          action.node.style.width = action.oldW;
+          action.node.style.height = action.oldH;
+          updateSelectBox(action.node);
+          updateSandboxPreview(action.node);
+          showToast("↺ Restored original dimensions");
         }
       }
     } else if (e.altKey && e.code === "KeyC") {
       e.preventDefault();
       captureVisibleViewport();
+    } else if (isEnabled) {
+      const k = e.key.toLowerCase();
+      if (k === "i") {
+        activeToolMode = "inspect"; syncDockUI("inspect"); showToast("🔍 Inspect Mode");
+      } else if (k === "m") {
+        activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("✋ Move Mode");
+      } else if (k === "s") {
+        activeToolMode = "resize"; syncDockUI("resize"); showToast("↔️ Resize / Stretch Mode");
+      } else if (k === "c") {
+        activeToolMode = "style"; syncDockUI("style"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']").click();
+      } else if (k === "l") {
+        activeToolMode = "layers"; syncDockUI("layers"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
+      } else if (k === "k") {
+        activeToolMode = "code"; syncDockUI("code"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='code']").click();
+      } else if (k === "d") {
+        activeToolMode = "delete"; syncDockUI("delete"); showToast("✂️ Delete Mode");
+      }
     }
   });
 
@@ -925,9 +1396,16 @@ gsap.to("${selector}", {
   function turnOnStylePeek(mode = "inspect") {
     isEnabled = true;
     root.style.display = "block";
-    activeToolMode = mode;
-    document.body.classList.toggle("sp-mode-move", mode === "move");
-    showToast(`StylePeek ON (${mode.toUpperCase()}) • Click any element`);
+    const mappedMode = (mode === "color") ? "style" : mode;
+    activeToolMode = mappedMode;
+    syncDockUI(mappedMode);
+    document.body.classList.toggle("sp-mode-move", mappedMode === "move");
+    if (mappedMode === "style" || mappedMode === "layers" || mappedMode === "code") {
+      drawer.classList.add("sp-open");
+      const tabBtn = root.querySelector(`.sp-drawer-tab[data-tab='${mappedMode}']`);
+      if (tabBtn) tabBtn.click();
+    }
+    showToast(`StylePeek ON (${mappedMode.toUpperCase()}) • Sidebar dock active`);
   }
 
   function turnOffStylePeek() {
@@ -941,7 +1419,8 @@ gsap.to("${selector}", {
     selectedEl = null;
     isTargetLocked = false;
     unlockPending = false;
-    root.style.display = "none";
+    closeErrorModal();
+    root.style.display = "none"; // Completely hides dock, drawer, outlines
     showToast("StylePeek OFF • Page restored to normal");
   }
 
@@ -997,7 +1476,8 @@ gsap.to("${selector}", {
     root.remove();
     const docClone = document.documentElement.cloneNode(true);
     root.style.display = "none";
-  document.documentElement.appendChild(root);
+    document.documentElement.appendChild(root);
+    if (isEnabled) root.style.display = "block";
 
     // 3. Remove temporary attributes from live DOM
     for (const el of allBodyEls) {
@@ -1008,7 +1488,7 @@ gsap.to("${selector}", {
     // 4. Purge scripts, iframes, and StylePeek artifacts
     docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
     docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-drawer, #sp-error-modal").forEach(e => e.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-error-modal").forEach(e => e.remove());
 
     // 5. Prune offscreen / unrendered nodes
     docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());

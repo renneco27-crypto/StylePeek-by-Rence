@@ -9,6 +9,7 @@ const statusMsg        = document.getElementById("statusMsg");
 const tools = {
   inspect: document.getElementById("toolInspect"),
   move:    document.getElementById("toolMove"),
+  resize:  document.getElementById("toolResize"),
   color:   document.getElementById("toolColor"),
   layers:  document.getElementById("toolLayers"),
   code:    document.getElementById("toolCode"),
