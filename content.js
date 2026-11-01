@@ -150,6 +150,7 @@
         <div class="sp-drawer-title-group">
           <span id="sp-drawer-tag">div</span>
           <span id="sp-drawer-name">.element</span>
+          <button class="sp-lock-tag" id="sp-btn-edit-text" title="Click to edit words live directly on the element" style="color:#38BDF8;border-color:#1E3A5F;">✏️ Edit Words</button>
           <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">🔒 Locked</button>
           <button class="sp-lock-tag" id="sp-btn-deselect" title="Deselect element / reset target" style="color:#F87171;border-color:#4B1D24;">✕ Reset</button>
         </div>
@@ -393,6 +394,7 @@
   const drawerClose       = root.querySelector("#sp-drawer-close");
   const lockBtn           = root.querySelector("#sp-lock-btn");
   const deselectBtn       = root.querySelector("#sp-btn-deselect");
+  const btnEditText       = root.querySelector("#sp-btn-edit-text");
 
   const errorModal        = root.querySelector("#sp-error-modal");
   const errorModalX       = root.querySelector("#sp-modal-x");
@@ -484,8 +486,10 @@
   }
 
   function ensurePositioned(el) {
-    const pos = window.getComputedStyle(el).position;
-    if (pos === "static" || !pos) el.style.position = "relative";
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+    if (cs.position === "static" || !cs.position) el.style.setProperty("position", "relative", "important");
+    if (cs.display === "inline") el.style.setProperty("display", "inline-block", "important");
   }
 
   /* ── Sidebar Dock Mode Switching & Sync ── */
@@ -1828,18 +1832,129 @@ gsap.to("${selector}", {
     return { x: 0, y: 0 };
   }
 
+  /* ══════════════════════════════════════════════════════════
+     Direct Inline Word / Text Editing Engine
+     ══════════════════════════════════════════════════════════ */
+  let activeEditingNode = null;
+
+  function startInlineTextEdit(targetEl) {
+    if (!targetEl || isOwn(targetEl)) return;
+
+    // Find the text-bearing node (element with direct text, or the element itself)
+    let textEl = targetEl;
+    if (targetEl.childNodes.length === 1 && targetEl.childNodes[0].nodeType === Node.TEXT_NODE) {
+      textEl = targetEl;
+    } else {
+      const candidate = targetEl.closest("span, p, a, button, h1, h2, h3, h4, h5, h6, strong, b, em, i, small, label, li, td, th, div");
+      if (candidate && !isOwn(candidate)) textEl = candidate;
+    }
+
+    if (activeEditingNode && activeEditingNode !== textEl) {
+      finishInlineTextEdit(activeEditingNode);
+    }
+
+    activeEditingNode = textEl;
+    textEl._spOriginalText = textEl.innerText;
+    textEl.contentEditable = "true";
+    textEl.classList.add("sp-inline-editing");
+    textEl.focus();
+
+    // Place cursor at end of text
+    try {
+      const sel = window.getSelection();
+      if (sel) {
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (err) {}
+
+    showToast("✏️ Editing words live • Type new text, press Enter to finish");
+
+    function onBlur() {
+      finishInlineTextEdit(textEl);
+      textEl.removeEventListener("blur", onBlur);
+      textEl.removeEventListener("keydown", onKey);
+    }
+
+    function onKey(ev) {
+      if (ev.key === "Escape") {
+        textEl.innerText = textEl._spOriginalText;
+        textEl.blur();
+      } else if (ev.key === "Enter" && !ev.shiftKey && !["P", "DIV"].includes(textEl.tagName)) {
+        ev.preventDefault();
+        textEl.blur();
+      }
+    }
+
+    textEl.addEventListener("blur", onBlur);
+    textEl.addEventListener("keydown", onKey);
+  }
+
+  function finishInlineTextEdit(node) {
+    if (!node) return;
+    node.contentEditable = "false";
+    node.classList.remove("sp-inline-editing");
+    if (node._spOriginalText !== undefined && node.innerText !== node._spOriginalText) {
+      const oldText = node._spOriginalText;
+      const newText = node.innerText;
+      undoStack.push({
+        type: "text",
+        node,
+        oldText,
+        newText
+      });
+      delete node._spOriginalText;
+      updateSandboxPreview(selectedEl);
+      populateDualCodePanes(selectedEl);
+      updateSelectBox(selectedEl);
+      showToast("✓ Saved word edits to live site!");
+    }
+    if (activeEditingNode === node) activeEditingNode = null;
+  }
+
+  if (btnEditText) {
+    btnEditText.addEventListener("click", () => {
+      if (selectedEl) startInlineTextEdit(selectedEl);
+      else showToast("Select an element first to edit words");
+    });
+  }
+
+  // Prevent browser native HTML5 drag-and-drop on <a> links, buttons, and images
+  document.addEventListener("dragstart", e => {
+    if (isEnabled && !isOwn(e.target)) {
+      e.preventDefault();
+      return false;
+    }
+  }, true);
   let isDragging = false;
   let dragTarget = null;
   let dragOrigin = { mouseX: 0, mouseY: 0, elemX: 0, elemY: 0 };
+  let isDragCandidate = false;
 
   document.addEventListener("mousedown", e => {
     if (!isEnabled || isOwn(e.target)) return;
 
-    if (activeToolMode === "move") {
-      dragTarget = (selectedEl && (selectedEl === e.target || selectedEl.contains(e.target)))
-        ? selectedEl : e.target;
+    // If currently editing text and clicking inside text, allow text cursor
+    if (activeEditingNode && (activeEditingNode === e.target || activeEditingNode.contains(e.target))) {
+      return;
+    }
 
-      isDragging = true;
+    // Allow dragging:
+    // 1. In Move Mode (always)
+    // 2. OR on any currently selected element or its handles
+    const isTargetOrChild = selectedEl && (selectedEl === e.target || selectedEl.contains(e.target));
+    const shouldAllowDrag = (activeToolMode === "move") || isTargetOrChild;
+
+    if (shouldAllowDrag) {
+      // Find drag target: if user clicked a span inside a button/link/badge, or selected element
+      const parentInteractive = e.target.closest("a, button, [role='button'], .sp-custom-element");
+      dragTarget = (selectedEl && (selectedEl === e.target || selectedEl.contains(e.target)))
+        ? selectedEl
+        : (parentInteractive || e.target);
+
       ensurePositioned(dragTarget);
 
       const curTranslate = getElementTranslate(dragTarget);
@@ -1850,21 +1965,26 @@ gsap.to("${selector}", {
         elemY: curTranslate.y
       };
 
-      dragTarget.classList.add("sp-free-dragging");
-      selectElement(dragTarget);
-      e.preventDefault();
-      e.stopPropagation();
+      isDragCandidate = true;
+      isDragging = false;
     }
   }, true);
 
   document.addEventListener("mousemove", e => {
     if (!isEnabled) return;
-    if (isDragging && dragTarget) {
-      const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX);
-      const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY);
-      dragTarget._spTranslate = { x: dx, y: dy };
-      dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
-      updateSelectBox(dragTarget);
+
+    if (isDragCandidate && dragTarget) {
+      const dist = Math.hypot(e.clientX - dragOrigin.mouseX, e.clientY - dragOrigin.mouseY);
+      // Once mouse moves more than 3px, treat as intentional drag
+      if (dist > 3) {
+        isDragging = true;
+        dragTarget.classList.add("sp-free-dragging");
+        const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX);
+        const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY);
+        dragTarget._spTranslate = { x: dx, y: dy };
+        dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+        updateSelectBox(dragTarget);
+      }
     } else if (isEnabled && !isDragging && !isResizing) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
@@ -1891,14 +2011,18 @@ gsap.to("${selector}", {
   }, true);
 
   document.addEventListener("mouseup", () => {
-    if (isDragging && dragTarget) {
-      dragTarget.classList.remove("sp-free-dragging");
-      undoStack.push({
-        type: "move",
-        node: dragTarget,
-        translate: { ...dragTarget._spTranslate }
-      });
+    if (isDragCandidate) {
+      if (isDragging && dragTarget) {
+        dragTarget.classList.remove("sp-free-dragging");
+        undoStack.push({
+          type: "move",
+          node: dragTarget,
+          translate: { ...dragTarget._spTranslate }
+        });
+        showToast("✓ Moved element!");
+      }
       isDragging = false;
+      isDragCandidate = false;
       dragTarget = null;
     }
   }, true);
@@ -1933,22 +2057,16 @@ gsap.to("${selector}", {
       return;
     }
 
-    // Accidental Misclick Protection & Background Layer Trap Fix:
+    // Check if user is clicking on or inside the ALREADY SELECTED / OUTLINED element:
+    // If so, immediately trigger INLINE WORD EDITING!
+    if (selectedEl && (selectedEl === target || selectedEl.contains(target))) {
+      unlockPending = false;
+      startInlineTextEdit(target);
+      return;
+    }
+
+    // Accidental Misclick Protection:
     if (selectedEl && isTargetLocked) {
-      if (target === selectedEl) {
-        unlockPending = false;
-        return;
-      }
-
-      // If user clicks a child element inside a selected parent/background layer:
-      // IMMEDIATELY select the child! This fixes the purple outline getting stuck on layers.
-      if (selectedEl.contains(target)) {
-        unlockPending = false;
-        selectElement(target);
-        return;
-      }
-
-      // Clicked completely outside target:
       if (!unlockPending) {
         unlockPending = true;
         selectBadge.textContent = "🔓 Click again to switch target";
@@ -2002,6 +2120,12 @@ gsap.to("${selector}", {
           selectedEl = action.oldEl;
           selectElement(selectedEl);
           showToast("↺ Restored previous HTML");
+        } else if (action.type === "text" && action.node) {
+          action.node.innerText = action.oldText;
+          updateSandboxPreview(action.node);
+          populateDualCodePanes(action.node);
+          updateSelectBox(action.node);
+          showToast("↺ Restored original words");
         } else if (action.type === "move" && action.node) {
           action.node._spTranslate = { x: 0, y: 0 };
           action.node.style.transform = "";

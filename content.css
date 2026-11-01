@@ -1328,6 +1328,18 @@ body.sp-mode-move * {
 .sp-dock-btn.add-btn {
   color: #10B981 !important;
 }
+
+/* ── Direct Live Word / Text Editing ── */
+.sp-inline-editing {
+  outline: 2px dashed #38BDF8 !important;
+  outline-offset: 3px !important;
+  cursor: text !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  min-width: 1ch !important;
+  border-radius: 2px !important;
+  background-color: rgba(56, 189, 248, 0.08) !important;
+}
 .sp-dock-btn.add-btn:hover {
   background: #142823 !important;
   border-color: #10B981 !important;
