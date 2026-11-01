@@ -1,7 +1,5 @@
 (function () {
-  if (window.__stylePeekInjected) {
-    return;
-  }
+  if (window.__stylePeekInjected) return;
   window.__stylePeekInjected = true;
 
   let isEnabled = false;
@@ -10,15 +8,18 @@
   let hoveredEl = null;
   const undoStack = [];
 
-  /* ── Scaffold Injected UI ── */
+  // Morphing States (GSAP & Figma Compatible)
+  let stateA = null;
+  let stateB = null;
+  let currentMorphState = "A";
+
+  /* ── Scaffold Studio Drawer ── */
   const root = document.createElement("div");
   root.id = "sp-root";
   root.innerHTML = `
-    <!-- Hover Outline Box -->
+    <!-- Outlines -->
     <div id="sp-hover-box"></div>
     <div id="sp-hover-label"></div>
-
-    <!-- Selection Outline Box -->
     <div id="sp-select-box">
       <div id="sp-select-badge"></div>
     </div>
@@ -26,149 +27,119 @@
     <!-- Toast Notification -->
     <div id="sp-toast"><span class="sp-dot"></span><span id="sp-toast-text"></span></div>
 
-    <!-- Floating Element Editor Popup -->
-    <div id="sp-element-popup">
-      <div id="sp-pop-header">
-        <div class="sp-pop-title-group">
-          <span id="sp-pop-tag">div</span>
-          <span id="sp-pop-name">.element</span>
+    <!-- Bottom Studio Drawer -->
+    <div id="sp-drawer">
+      <div id="sp-drawer-header">
+        <div class="sp-drawer-title-group">
+          <span id="sp-drawer-tag">div</span>
+          <span id="sp-drawer-name">.element</span>
+          <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">🔒 Locked</button>
         </div>
-        <button class="sp-pop-close-btn" id="sp-pop-close" title="Close popup (Esc)">✕</button>
+
+        <div id="sp-drawer-tabs">
+          <button class="sp-drawer-tab sp-active" data-tab="style">🎨 Style</button>
+          <button class="sp-drawer-tab" data-tab="layers">🥞 Layers</button>
+          <button class="sp-drawer-tab" data-tab="code">💻 Code</button>
+          <button class="sp-drawer-tab" data-tab="morph">⚡ Morph / GSAP</button>
+        </div>
+
+        <button class="sp-drawer-close-btn" id="sp-drawer-close" title="Close drawer (Esc)">✕</button>
       </div>
 
-      <div id="sp-pop-tabs">
-        <button class="sp-pop-tab sp-active" data-tab="style">🎨 Style</button>
-        <button class="sp-pop-tab" data-tab="layers">🥞 Layers</button>
-        <button class="sp-pop-tab" data-tab="code">💻 Code</button>
-        <button class="sp-pop-tab" data-tab="anim">⚡ Anim</button>
-      </div>
+      <div id="sp-drawer-body">
+        <!-- Tab 1: Simplified Colors & Hex -->
+        <div class="sp-tab-pane sp-active" id="pane-style">
+          <div class="sp-color-grid">
+            <div class="sp-color-card">
+              <span class="sp-color-label">Text Color</span>
+              <div class="sp-color-input-row">
+                <input type="text" class="sp-hex-input" id="sp-text-hex" value="#ffffff">
+                <input type="color" class="sp-color-btn" id="sp-text-color" value="#ffffff">
+              </div>
+            </div>
 
-      <!-- Tab 1: Style & Gradient -->
-      <div class="sp-tab-pane sp-active" id="pane-style">
-        <div class="sp-field-row">
-          <label>Text Color</label>
-          <div class="sp-field-inputs">
-            <input type="text" class="sp-hex-input" id="sp-text-hex" value="#ffffff">
-            <input type="color" class="sp-color-btn" id="sp-text-color" value="#ffffff">
-          </div>
-        </div>
+            <div class="sp-color-card">
+              <span class="sp-color-label">Background</span>
+              <div class="sp-color-input-row">
+                <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#000000">
+                <input type="color" class="sp-color-btn" id="sp-bg-color" value="#000000">
+              </div>
+            </div>
 
-        <div class="sp-field-row">
-          <label>Background</label>
-          <div class="sp-field-inputs">
-            <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#000000">
-            <input type="color" class="sp-color-btn" id="sp-bg-color" value="#000000">
-          </div>
-        </div>
-
-        <div class="sp-field-row">
-          <label>Border Color</label>
-          <div class="sp-field-inputs">
-            <input type="text" class="sp-hex-input" id="sp-border-hex" value="#3b82f6">
-            <input type="color" class="sp-color-btn" id="sp-border-color" value="#3b82f6">
-          </div>
-        </div>
-
-        <!-- Gradient Builder -->
-        <div class="sp-gradient-box">
-          <div class="sp-gradient-header">
-            <span>Gradient Generator</span>
-            <select class="sp-select" id="sp-grad-type">
-              <option value="linear">Linear</option>
-              <option value="radial">Radial</option>
-            </select>
-          </div>
-          <div id="sp-gradient-preview"></div>
-
-          <div class="sp-field-row" style="margin-bottom:6px">
-            <label style="width:60px">Direction</label>
-            <select class="sp-select" id="sp-grad-dir" style="flex:1">
-              <option value="to right">To Right →</option>
-              <option value="to bottom">To Bottom ↓</option>
-              <option value="135deg">Diagonal ↘ (135°)</option>
-              <option value="45deg">Diagonal ↗ (45°)</option>
-              <option value="to left">To Left ←</option>
-            </select>
-          </div>
-
-          <div class="sp-field-row" style="margin-bottom:6px">
-            <label style="width:60px">Stop 1</label>
-            <div class="sp-field-inputs">
-              <input type="text" class="sp-hex-input" id="sp-grad-c1-hex" value="#8b5cf6">
-              <input type="color" class="sp-color-btn" id="sp-grad-c1" value="#8b5cf6">
+            <div class="sp-color-card">
+              <span class="sp-color-label">Border Color</span>
+              <div class="sp-color-input-row">
+                <input type="text" class="sp-hex-input" id="sp-border-hex" value="#3b82f6">
+                <input type="color" class="sp-color-btn" id="sp-border-color" value="#3b82f6">
+              </div>
             </div>
           </div>
 
-          <div class="sp-field-row" style="margin-bottom:6px">
-            <label style="width:60px">Stop 2</label>
-            <div class="sp-field-inputs">
-              <input type="text" class="sp-hex-input" id="sp-grad-c2-hex" value="#06b6d4">
-              <input type="color" class="sp-color-btn" id="sp-grad-c2" value="#06b6d4">
+          <div class="sp-swatches-row">
+            <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
+            <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
+            <div class="sp-color-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue"></div>
+            <div class="sp-color-swatch" style="background:#06b6d4" data-col="#06b6d4" title="Cyan"></div>
+            <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Emerald"></div>
+            <div class="sp-color-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
+            <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Rose"></div>
+            <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
+            <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Layers & DOM Hierarchy Breadcrumbs -->
+        <div class="sp-tab-pane" id="pane-layers">
+          <div class="sp-layers-controls">
+            <button class="sp-layer-btn back" id="sp-btn-push-back" title="Push element behind other layers">
+              <span>⬇ Push to Back</span>
+            </button>
+            <button class="sp-layer-btn front" id="sp-btn-bring-front" title="Bring element to top layer">
+              <span>⬆ Bring to Front</span>
+            </button>
+
+            <div class="sp-zindex-box">
+              <span style="font-size:10.5px;color:#94A3B8;font-weight:600">Z-Index:</span>
+              <button class="sp-step-btn" id="sp-z-down" title="Step Down (-1)">−</button>
+              <input type="number" class="sp-zindex-input" id="sp-zindex-val" value="0">
+              <button class="sp-step-btn" id="sp-z-up" title="Step Up (+1)">+</button>
             </div>
           </div>
 
-          <button class="sp-apply-gradient-btn" id="sp-apply-gradient">Apply Gradient to Element</button>
+          <div class="sp-tree-label">DOM LAYER HIERARCHY (CLICK TO JUMP LAYERS):</div>
+          <div id="sp-dom-breadcrumbs"></div>
         </div>
 
-        <!-- Quick Swatches -->
-        <div class="sp-swatches-row">
-          <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
-          <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
-          <div class="sp-color-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue"></div>
-          <div class="sp-color-swatch" style="background:#06b6d4" data-col="#06b6d4" title="Cyan"></div>
-          <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Emerald"></div>
-          <div class="sp-color-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
-          <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Rose"></div>
-          <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
-          <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
-        </div>
-      </div>
-
-      <!-- Tab 2: Layers & Z-Index -->
-      <div class="sp-tab-pane" id="pane-layers">
-        <div class="sp-layer-actions">
-          <button class="sp-layer-btn back" id="sp-btn-push-back" title="Send element to back (z-index: -1)">
-            <span>⬇ Push to Back</span>
-          </button>
-          <button class="sp-layer-btn front" id="sp-btn-bring-front" title="Bring element to top layer (z-index: 9999)">
-            <span>⬆ Bring to Front</span>
-          </button>
-        </div>
-
-        <div class="sp-zindex-row">
-          <span style="font-size:11px;font-weight:600;color:#94A3B8">Z-Index Stacking:</span>
-          <div style="display:flex;align-items:center;gap:6px">
-            <button class="sp-step-btn" id="sp-z-down" title="Step Down (-1)">−</button>
-            <input type="number" class="sp-zindex-input" id="sp-zindex-val" value="0">
-            <button class="sp-step-btn" id="sp-z-up" title="Step Up (+1)">+</button>
+        <!-- Tab 3: Live Code Editor -->
+        <div class="sp-tab-pane" id="pane-code">
+          <div class="sp-code-bar">
+            <div class="sp-code-subtabs">
+              <button class="sp-code-subtab active" id="sp-subtab-html">HTML</button>
+              <button class="sp-code-subtab" id="sp-subtab-css">CSS</button>
+            </div>
+            <span style="font-size:10px;color:#64748B">Instant live hot-reload</span>
           </div>
+          <textarea class="sp-code-textarea" id="sp-code-val" spellcheck="false"></textarea>
+          <button class="sp-apply-code-btn" id="sp-apply-code">Apply Live Changes</button>
         </div>
 
-        <div class="sp-layer-tree-label">DOM LAYER HIERARCHY (CLICK TO SELECT):</div>
-        <div id="sp-layer-breadcrumbs"></div>
-      </div>
+        <!-- Tab 4: Morph & GSAP / Figma Compatible -->
+        <div class="sp-tab-pane" id="pane-morph">
+          <div class="sp-morph-grid">
+            <button class="sp-morph-btn" id="sp-capture-state-a" title="Capture current resting state">
+              <span>📸 Set State A (Resting)</span>
+            </button>
+            <button class="sp-morph-btn" id="sp-capture-state-b" title="Capture current modified state">
+              <span>📸 Set State B (Active)</span>
+            </button>
+          </div>
 
-      <!-- Tab 3: Live Code Editor -->
-      <div class="sp-tab-pane" id="pane-code">
-        <div class="sp-code-subtabs">
-          <button class="sp-code-subtab active" id="sp-subtab-html">HTML</button>
-          <button class="sp-code-subtab" id="sp-subtab-css">CSS</button>
-        </div>
-        <textarea class="sp-code-textarea" id="sp-code-val" spellcheck="false"></textarea>
-        <button class="sp-apply-code-btn" id="sp-apply-code">Apply Live Changes</button>
-      </div>
+          <button class="sp-morph-action-btn" id="sp-trigger-morph">
+            <span>✨ Morph State A ⇄ State B (Live Transition)</span>
+          </button>
 
-      <!-- Tab 4: Animations -->
-      <div class="sp-tab-pane" id="pane-anim">
-        <div class="sp-layer-tree-label">ACTIVE ANIMATIONS & KEYFRAMES:</div>
-        <div class="sp-anim-info" id="sp-anim-info">No active CSS animation</div>
-
-        <div class="sp-layer-tree-label" style="margin-top:10px">QUICK ANIMATION PRESETS:</div>
-        <div class="sp-preset-grid">
-          <button class="sp-preset-btn" data-preset="pulse">💫 Pulse</button>
-          <button class="sp-preset-btn" data-preset="float">🎈 Float</button>
-          <button class="sp-preset-btn" data-preset="glow">✨ Glow</button>
-          <button class="sp-preset-btn" data-preset="bounce">⚡ Bounce</button>
+          <div class="sp-tree-label">GSAP FLIP / TWEEN CODE (CLICK TO COPY):</div>
+          <div class="sp-gsap-box" id="sp-gsap-code">// Click Set State A & State B above to generate GSAP morph code</div>
         </div>
       </div>
     </div>
@@ -183,10 +154,14 @@
   const selectBadge   = root.querySelector("#sp-select-badge");
   const toast         = root.querySelector("#sp-toast");
   const toastText     = root.querySelector("#sp-toast-text");
-  const popup         = root.querySelector("#sp-element-popup");
-  const popTag        = root.querySelector("#sp-pop-tag");
-  const popName       = root.querySelector("#sp-pop-name");
-  const popClose      = root.querySelector("#sp-pop-close");
+  const drawer        = root.querySelector("#sp-drawer");
+  const drawerTag     = root.querySelector("#sp-drawer-tag");
+  const drawerName    = root.querySelector("#sp-drawer-name");
+  const drawerClose   = root.querySelector("#sp-drawer-close");
+  const lockBtn       = root.querySelector("#sp-lock-btn");
+
+  let isTargetLocked = true;
+  let unlockPending = false;
 
   const textHex       = root.querySelector("#sp-text-hex");
   const textColor     = root.querySelector("#sp-text-color");
@@ -195,21 +170,12 @@
   const borderHex     = root.querySelector("#sp-border-hex");
   const borderColor   = root.querySelector("#sp-border-color");
 
-  const gradType      = root.querySelector("#sp-grad-type");
-  const gradDir       = root.querySelector("#sp-grad-dir");
-  const gradC1Hex     = root.querySelector("#sp-grad-c1-hex");
-  const gradC1Color   = root.querySelector("#sp-grad-c1");
-  const gradC2Hex     = root.querySelector("#sp-grad-c2-hex");
-  const gradC2Color   = root.querySelector("#sp-grad-c2");
-  const gradPreview   = root.querySelector("#sp-gradient-preview");
-  const applyGradBtn  = root.querySelector("#sp-apply-gradient");
-
   const btnPushBack   = root.querySelector("#sp-btn-push-back");
   const btnBringFront = root.querySelector("#sp-btn-bring-front");
   const zDownBtn      = root.querySelector("#sp-z-down");
   const zUpBtn        = root.querySelector("#sp-z-up");
   const zInput        = root.querySelector("#sp-zindex-val");
-  const breadcrumbs   = root.querySelector("#sp-layer-breadcrumbs");
+  const breadcrumbs   = root.querySelector("#sp-dom-breadcrumbs");
 
   const subtabHtml    = root.querySelector("#sp-subtab-html");
   const subtabCss     = root.querySelector("#sp-subtab-css");
@@ -217,23 +183,12 @@
   const applyCodeBtn  = root.querySelector("#sp-apply-code");
   let activeCodeMode  = "html";
 
-  const animInfo      = root.querySelector("#sp-anim-info");
+  const btnStateA     = root.querySelector("#sp-capture-state-a");
+  const btnStateB     = root.querySelector("#sp-capture-state-b");
+  const btnMorph      = root.querySelector("#sp-trigger-morph");
+  const gsapCodeBox   = root.querySelector("#sp-gsap-code");
 
-  /* ── Presets Keyframe Styles Injected into document head ── */
-  (function injectGlobalAnimStyles() {
-    if (document.getElementById("sp-global-anims")) return;
-    const s = document.createElement("style");
-    s.id = "sp-global-anims";
-    s.textContent = `
-      @keyframes sp-pulse-anim { 0%,100%{transform:scale(1);} 50%{transform:scale(1.06);} }
-      @keyframes sp-float-anim { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
-      @keyframes sp-glow-anim { 0%,100%{box-shadow:0 0 5px #22D3EE;} 50%{box-shadow:0 0 20px #8B5CF6, 0 0 35px #22D3EE;} }
-      @keyframes sp-bounce-anim { 0%,20%,50%,80%,100%{transform:translateY(0);} 40%{transform:translateY(-12px);} 60%{transform:translateY(-6px);} }
-    `;
-    document.head.appendChild(s);
-  })();
-
-  function showToast(msg, duration = 2500) {
+  function showToast(msg, duration = 2400) {
     toastText.textContent = msg;
     toast.classList.add("sp-show");
     if (toast._t) clearTimeout(toast._t);
@@ -251,73 +206,93 @@
     return el === root || root.contains(el);
   }
 
-  /* ── Position Popup next to element ── */
-  function anchorPopup(el) {
-    const r = el.getBoundingClientRect();
-    const pw = 360, ph = 400;
-    let top = r.bottom + 8;
-    let left = r.left;
-
-    // Boundary clamping
-    if (top + ph > window.innerHeight) {
-      top = Math.max(10, r.top - ph - 8);
-    }
-    if (left + pw > window.innerWidth) {
-      left = Math.max(10, window.innerWidth - pw - 15);
-    }
-    if (left < 10) left = 10;
-    if (top < 10) top = 10;
-
-    popup.style.top = top + "px";
-    popup.style.left = left + "px";
-    popup.classList.add("sp-open");
+  function ensurePositioned(el) {
+    const pos = window.getComputedStyle(el).position;
+    if (pos === "static") el.style.position = "relative";
   }
 
-  /* ── Draggable Popup Header ── */
-  (function initDraggablePopup() {
-    const hdr = root.querySelector("#sp-pop-header");
-    let dragging = false, ox = 0, oy = 0;
-    hdr.addEventListener("mousedown", e => {
-      if (e.target.id === "sp-pop-close") return;
-      dragging = true;
-      const r = popup.getBoundingClientRect();
-      ox = e.clientX - r.left;
-      oy = e.clientY - r.top;
-      e.preventDefault();
-    });
-    window.addEventListener("mousemove", e => {
-      if (!dragging) return;
-      const left = Math.max(0, Math.min(window.innerWidth - 300, e.clientX - ox));
-      const top  = Math.max(0, Math.min(window.innerHeight - 80, e.clientY - oy));
-      popup.style.left = left + "px";
-      popup.style.top = top + "px";
-    });
-    window.addEventListener("mouseup", () => dragging = false);
-  })();
-
   /* ── Tab Switching ── */
-  root.querySelectorAll(".sp-pop-tab").forEach(tabBtn => {
-    tabBtn.addEventListener("click", () => {
-      root.querySelectorAll(".sp-pop-tab").forEach(b => b.classList.remove("sp-active"));
+  root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      root.querySelectorAll(".sp-drawer-tab").forEach(b => b.classList.remove("sp-active"));
       root.querySelectorAll(".sp-tab-pane").forEach(p => p.classList.remove("sp-active"));
-      tabBtn.classList.add("sp-active");
-      const targetPane = root.querySelector(`#pane-${tabBtn.dataset.tab}`);
+      btn.classList.add("sp-active");
+      const targetPane = root.querySelector(`#pane-${btn.dataset.tab}`);
       if (targetPane) targetPane.classList.add("sp-active");
     });
   });
 
-  popClose.addEventListener("click", () => {
-    popup.classList.remove("sp-open");
+  function updateLockBtnUI() {
+    if (!lockBtn) return;
+    lockBtn.textContent = isTargetLocked ? "🔒 Locked" : "🔓 Unlocked";
+    lockBtn.classList.toggle("unlocked", !isTargetLocked);
+  }
+
+  if (lockBtn) {
+    lockBtn.addEventListener("click", () => {
+      isTargetLocked = !isTargetLocked;
+      unlockPending = false;
+      updateLockBtnUI();
+      if (selectedEl) updateSelectBox(selectedEl);
+      showToast(isTargetLocked ? "🔒 Target Locked (Safe from misclicks)" : "🔓 Target Unlocked (Single click changes target)");
+    });
+  }
+
+  drawerClose.addEventListener("click", () => {
+    drawer.classList.remove("sp-open");
     selectBox.style.display = "none";
     selectedEl = null;
+    isTargetLocked = true;
+    unlockPending = false;
   });
 
   /* ── Select and Inspect Element ── */
   function selectElement(el) {
     if (!el || isOwn(el)) return;
     selectedEl = el;
+    isTargetLocked = true;
+    unlockPending = false;
+    updateLockBtnUI();
 
-    // 1. Update selection outline box
+    updateSelectBox(el);
+
+    const tagStr = el.tagName.toLowerCase();
+    const idStr = el.id ? "#" + el.id : "";
+    const clsStr = (typeof el.className === "string" && el.className.trim())
+      ? "." + el.className.trim().split(/\s+/)[0] : "";
+
+    drawerTag.textContent = tagStr;
+    drawerName.textContent = idStr || clsStr || "";
+
+    // Read Styles for Color Tab
+    const cs = window.getComputedStyle(el);
+    const txtHex = rgbToHex(cs.color);
+    textHex.value = txtHex; textColor.value = txtHex;
+
+    const bgH = rgbToHex(cs.backgroundColor);
+    bgHex.value = bgH; bgColor.value = bgH;
+
+    const bdrH = rgbToHex(cs.borderColor);
+    borderHex.value = bdrH; borderColor.value = bdrH;
+
+    // Read Z-Index & Build Hierarchy
+    const currentZ = parseInt(cs.zIndex);
+    zInput.value = isNaN(currentZ) ? 0 : currentZ;
+    buildBreadcrumbs(el);
+
+    // Update Code Tab
+    updateCodeEditorContent();
+
+    // Reset morph states for newly selected element
+    stateA = null;
+    stateB = null;
+    gsapCodeBox.textContent = `// Target: ${tagStr}${idStr}${clsStr}\n// Click 'Set State A' & 'Set State B' to generate GSAP morph code`;
+
+    drawer.classList.add("sp-open");
+  }
+
+  function updateSelectBox(el) {
+    if (!el) { selectBox.style.display = "none"; return; }
     const r = el.getBoundingClientRect();
     selectBox.style.display = "block";
     selectBox.style.left = r.left + "px";
@@ -329,63 +304,9 @@
     const idStr = el.id ? "#" + el.id : "";
     const clsStr = (typeof el.className === "string" && el.className.trim())
       ? "." + el.className.trim().split(/\s+/)[0] : "";
-    selectBadge.textContent = `${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})`;
-
-    popTag.textContent = tagStr;
-    popName.textContent = idStr || clsStr || "";
-
-    // 2. Read Computed Styles for Color Tab
-    const cs = window.getComputedStyle(el);
-    const txtHex = rgbToHex(cs.color);
-    textHex.value = txtHex;
-    textColor.value = txtHex;
-
-    const bgH = rgbToHex(cs.backgroundColor);
-    bgHex.value = bgH;
-    bgColor.value = bgH;
-
-    const bdrH = rgbToHex(cs.borderColor);
-    borderHex.value = bdrH;
-    borderColor.value = bdrH;
-
-    updateGradientPreview();
-
-    // 3. Read Z-Index & Build Hierarchy Breadcrumbs
-    const currentZ = parseInt(cs.zIndex);
-    zInput.value = isNaN(currentZ) ? 0 : currentZ;
-    buildBreadcrumbs(el);
-
-    // 4. Update Live Code & Animations
-    updateCodeEditorContent();
-    updateAnimationInfo(el, cs);
-
-    // 5. Open and Anchor Popup
-    anchorPopup(el);
+    const lockIcon = isTargetLocked ? " 🔒" : "";
+    selectBadge.textContent = `${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}`;
   }
-
-  /* ── Gradient Preview & Application ── */
-  function updateGradientPreview() {
-    const type = gradType.value;
-    const dir = gradDir.value;
-    const c1 = gradC1Hex.value;
-    const c2 = gradC2Hex.value;
-    const gradVal = type === "linear" ? `linear-gradient(${dir}, ${c1}, ${c2})` : `radial-gradient(circle, ${c1}, ${c2})`;
-    gradPreview.style.background = gradVal;
-    return gradVal;
-  }
-
-  [gradType, gradDir].forEach(ctrl => ctrl.addEventListener("change", updateGradientPreview));
-  gradC1Color.addEventListener("input", e => { gradC1Hex.value = e.target.value; updateGradientPreview(); });
-  gradC1Hex.addEventListener("input", e => { gradC1Color.value = e.target.value; updateGradientPreview(); });
-  gradC2Color.addEventListener("input", e => { gradC2Hex.value = e.target.value; updateGradientPreview(); });
-  gradC2Hex.addEventListener("input", e => { gradC2Color.value = e.target.value; updateGradientPreview(); });
-
-  applyGradBtn.addEventListener("click", () => {
-    if (!selectedEl) return;
-    const gradVal = updateGradientPreview();
-    selectedEl.style.backgroundImage = gradVal;
-    showToast("✓ Applied gradient to element");
-  });
 
   /* ── Live Color Binding ── */
   textColor.addEventListener("input", e => {
@@ -427,8 +348,7 @@
       const col = sw.dataset.col;
       selectedEl.style.backgroundColor = col;
       if (col !== "transparent") {
-        bgHex.value = col;
-        bgColor.value = col;
+        bgHex.value = col; bgColor.value = col;
       } else {
         bgHex.value = "transparent";
       }
@@ -437,17 +357,12 @@
   });
 
   /* ── Layers Tab: Z-Index & Breadcrumbs ── */
-  function ensurePositioned(el) {
-    const pos = window.getComputedStyle(el).position;
-    if (pos === "static") el.style.position = "relative";
-  }
-
   btnPushBack.addEventListener("click", () => {
     if (!selectedEl) return;
     ensurePositioned(selectedEl);
     selectedEl.style.zIndex = "-1";
     zInput.value = -1;
-    showToast("⬇ Pushed element to back (z-index: -1)");
+    showToast("⬇ Pushed element behind (z-index: -1)");
   });
 
   btnBringFront.addEventListener("click", () => {
@@ -461,8 +376,7 @@
   zUpBtn.addEventListener("click", () => {
     if (!selectedEl) return;
     ensurePositioned(selectedEl);
-    const cur = parseInt(zInput.value) || 0;
-    const next = cur + 1;
+    const next = (parseInt(zInput.value) || 0) + 1;
     zInput.value = next;
     selectedEl.style.zIndex = next;
   });
@@ -470,8 +384,7 @@
   zDownBtn.addEventListener("click", () => {
     if (!selectedEl) return;
     ensurePositioned(selectedEl);
-    const cur = parseInt(zInput.value) || 0;
-    const next = cur - 1;
+    const next = (parseInt(zInput.value) || 0) - 1;
     zInput.value = next;
     selectedEl.style.zIndex = next;
   });
@@ -510,7 +423,7 @@
     });
   }
 
-  /* ── Live Code Tab ── */
+  /* ── Code Tab ── */
   subtabHtml.addEventListener("click", () => {
     activeCodeMode = "html";
     subtabHtml.classList.add("active");
@@ -545,7 +458,7 @@
           selectedEl.parentNode.replaceChild(newEl, selectedEl);
           selectedEl = newEl;
           selectElement(selectedEl);
-          showToast("✓ Hot-reloaded HTML changes live!");
+          showToast("✓ Hot-reloaded HTML live!");
         }
       } catch (err) {
         showToast("HTML syntax error", 2000);
@@ -555,43 +468,122 @@
       selectElement(selectedEl);
       showToast("✓ Applied CSS live!");
     }
-    applyCodeBtn.classList.add("applied");
-    setTimeout(() => applyCodeBtn.classList.remove("applied"), 1200);
   });
 
-  /* ── Animations Tab ── */
-  function updateAnimationInfo(el, cs) {
-    const animName = cs.animationName;
-    if (!animName || animName === "none") {
-      animInfo.textContent = "No CSS keyframe animation active on this element.";
-    } else {
-      animInfo.innerHTML = `<strong>Name:</strong> ${animName}<br><strong>Duration:</strong> ${cs.animationDuration}<br><strong>Timing:</strong> ${cs.animationTimingFunction}`;
-    }
+  /* ── Morphing & GSAP / Figma Compatibility (State A ↔ State B) ── */
+  function captureState(el) {
+    const cs = window.getComputedStyle(el);
+    const tr = getElementTranslate(el);
+    return {
+      x: tr.x,
+      y: tr.y,
+      transform: el.style.transform || "",
+      backgroundColor: cs.backgroundColor,
+      color: cs.color,
+      borderRadius: cs.borderRadius,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+      opacity: cs.opacity,
+      boxShadow: cs.boxShadow
+    };
   }
 
-  root.querySelectorAll(".sp-preset-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (!selectedEl) return;
-      const preset = btn.dataset.preset;
-      selectedEl.style.animation = `sp-${preset}-anim 1.5s ease-in-out infinite`;
-      showToast(`⚡ Applied ${preset.toUpperCase()} animation!`);
-    });
+  btnStateA.addEventListener("click", () => {
+    if (!selectedEl) return;
+    stateA = captureState(selectedEl);
+    btnStateA.style.borderColor = "#10B981";
+    btnStateA.style.color = "#10B981";
+    showToast("✓ State A (Resting) captured!");
+    updateGSAPCode();
+  });
+
+  btnStateB.addEventListener("click", () => {
+    if (!selectedEl) return;
+    stateB = captureState(selectedEl);
+    btnStateB.style.borderColor = "#22D3EE";
+    btnStateB.style.color = "#22D3EE";
+    showToast("✓ State B (Active) captured!");
+    updateGSAPCode();
+  });
+
+  function updateGSAPCode() {
+    if (!stateA || !stateB || !selectedEl) return;
+    const tag = selectedEl.tagName.toLowerCase();
+    const selector = selectedEl.id ? `#${selectedEl.id}` : (selectedEl.className ? `.${selectedEl.className.trim().split(/\s+/)[0]}` : tag);
+    const code = `// ⚡ GSAP Tween (State A → State B)
+gsap.to("${selector}", {
+  x: ${stateB.x},
+  y: ${stateB.y},
+  backgroundColor: "${stateB.backgroundColor}",
+  duration: 0.4,
+  ease: "power2.out"
+});`;
+    gsapCodeBox.textContent = code;
+  }
+
+  gsapCodeBox.addEventListener("click", () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(gsapCodeBox.textContent);
+      showToast("📋 Copied GSAP code to clipboard!");
+    }
+  });
+
+  btnMorph.addEventListener("click", () => {
+    if (!selectedEl) return;
+    if (!stateA || !stateB) {
+      showToast("Please capture State A and State B first!");
+      return;
+    }
+
+    // Apply smooth CSS morph transition
+    selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
+    const targetState = currentMorphState === "A" ? stateB : stateA;
+    currentMorphState = currentMorphState === "A" ? "B" : "A";
+
+    selectedEl.style.transform = `translate(${targetState.x}px, ${targetState.y}px)`;
+    selectedEl._spTranslate = { x: targetState.x, y: targetState.y };
+    selectedEl.style.backgroundColor = targetState.backgroundColor;
+    updateSelectBox(selectedEl);
+    showToast(`✨ Morphed to State ${currentMorphState}!`);
   });
 
   /* ══════════════════════════════════════════════════════════
-     Free Live Drag Anywhere (Move Mode)
+     Free Live Dragging (No Snapping Back!)
      ══════════════════════════════════════════════════════════ */
-  let isDragging = false, dragStart = { x: 0, y: 0 }, dragTarget = null, initTransform = "";
+  function getElementTranslate(el) {
+    if (el._spTranslate) return el._spTranslate;
+    const tr = el.style.transform || "";
+    const match = tr.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    if (match) {
+      return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  let isDragging = false;
+  let dragTarget = null;
+  let dragOrigin = { mouseX: 0, mouseY: 0, elemX: 0, elemY: 0 };
 
   document.addEventListener("mousedown", e => {
     if (!isEnabled || isOwn(e.target)) return;
+
     if (activeToolMode === "move") {
-      dragTarget = e.target;
+      dragTarget = (selectedEl && (selectedEl === e.target || selectedEl.contains(e.target)))
+        ? selectedEl : e.target;
+
       isDragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      initTransform = dragTarget.style.transform || "";
       ensurePositioned(dragTarget);
+
+      const curTranslate = getElementTranslate(dragTarget);
+      dragOrigin = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        elemX: curTranslate.x,
+        elemY: curTranslate.y
+      };
+
       dragTarget.classList.add("sp-free-dragging");
+      selectElement(dragTarget);
       e.preventDefault();
       e.stopPropagation();
     }
@@ -599,17 +591,13 @@
 
   document.addEventListener("mousemove", e => {
     if (isDragging && dragTarget) {
-      const dx = e.clientX - dragStart.x;
-      const dy = e.clientY - dragStart.y;
+      const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX);
+      const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY);
+      dragTarget._spTranslate = { x: dx, y: dy };
       dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
-      // Keep select outline following
-      if (dragTarget === selectedEl) {
-        const r = dragTarget.getBoundingClientRect();
-        selectBox.style.left = r.left + "px";
-        selectBox.style.top = r.top + "px";
-      }
-    } else if (isEnabled) {
-      // Hover Outline Tracker
+      updateSelectBox(dragTarget);
+    } else if (isEnabled && !isDragging) {
+      // Hover Outline Tracker (if target not locked in move mode)
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
         hoverBox.style.display = "none";
@@ -641,7 +629,7 @@
       undoStack.push({
         type: "move",
         node: dragTarget,
-        transform: initTransform
+        translate: { ...dragTarget._spTranslate }
       });
       isDragging = false;
       dragTarget = null;
@@ -649,7 +637,7 @@
   }, true);
 
   /* ══════════════════════════════════════════════════════════
-     Canvas Click Handler (Inspect, Delete, Palette, Layers)
+     Canvas Click Handler
      ══════════════════════════════════════════════════════════ */
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
@@ -669,7 +657,7 @@
       });
       target.remove();
       if (target === selectedEl) {
-        popup.classList.remove("sp-open");
+        drawer.classList.remove("sp-open");
         selectBox.style.display = "none";
         selectedEl = null;
       }
@@ -677,26 +665,47 @@
       return;
     }
 
-    // Default or other tool modes: Select element & open floating editor
+    // Accidental Misclick Protection:
+    if (selectedEl && isTargetLocked) {
+      if (target === selectedEl || selectedEl.contains(target)) {
+        // Clicked inside the target or its direct children: keep target locked!
+        unlockPending = false;
+        selectElement(selectedEl);
+        return;
+      }
+
+      // Clicked outside target:
+      if (!unlockPending) {
+        // 1st click outside: protect target!
+        unlockPending = true;
+        selectBadge.textContent = "🔓 Click again to switch target";
+        showToast("Target protected • Click again to switch target", 1800);
+        return;
+      } else {
+        // 2nd click outside ("the next next click"): now distarget and switch!
+        unlockPending = false;
+      }
+    }
+
     selectElement(target);
 
     // Switch to corresponding tab if specific tool was picked in popup
     if (activeToolMode === "color") {
-      root.querySelector(".sp-pop-tab[data-tab='style']").click();
+      root.querySelector(".sp-drawer-tab[data-tab='style']").click();
     } else if (activeToolMode === "layers") {
-      root.querySelector(".sp-pop-tab[data-tab='layers']").click();
+      root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
     } else if (activeToolMode === "code") {
-      root.querySelector(".sp-pop-tab[data-tab='code']").click();
+      root.querySelector(".sp-drawer-tab[data-tab='code']").click();
     }
   }, true);
 
   /* ══════════════════════════════════════════════════════════
-     Global Shortcuts (Esc, Ctrl+Z, Alt+C)
+     Global Shortcuts
      ══════════════════════════════════════════════════════════ */
   window.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      if (popup.classList.contains("sp-open")) {
-        popup.classList.remove("sp-open");
+      if (drawer.classList.contains("sp-open")) {
+        drawer.classList.remove("sp-open");
         selectBox.style.display = "none";
         selectedEl = null;
       } else if (isEnabled) {
@@ -716,8 +725,10 @@
           selectElement(selectedEl);
           showToast("↺ Restored previous HTML");
         } else if (action.type === "move" && action.node) {
-          action.node.style.transform = action.transform || "";
-          showToast("↺ Restored element position");
+          action.node._spTranslate = { x: 0, y: 0 };
+          action.node.style.transform = "";
+          updateSelectBox(action.node);
+          showToast("↺ Restored original element position");
         }
       }
     } else if (e.altKey && e.code === "KeyC") {
@@ -727,13 +738,13 @@
   });
 
   /* ══════════════════════════════════════════════════════════
-     Activation / Deactivation Modes
+     Activation / Deactivation
      ══════════════════════════════════════════════════════════ */
   function turnOnStylePeek(mode = "inspect") {
     isEnabled = true;
     activeToolMode = mode;
     document.body.classList.toggle("sp-mode-move", mode === "move");
-    showToast(`StylePeek ON (${mode.toUpperCase()}) • Hover & click elements`);
+    showToast(`StylePeek ON (${mode.toUpperCase()}) • Click any element`);
   }
 
   function turnOffStylePeek() {
@@ -743,7 +754,7 @@
     hoverBox.style.display = "none";
     hoverLbl.style.display = "none";
     selectBox.style.display = "none";
-    popup.classList.remove("sp-open");
+    drawer.classList.remove("sp-open");
     selectedEl = null;
     showToast("StylePeek OFF • Page restored to normal");
   }
@@ -810,7 +821,7 @@
     // 4. Purge scripts, iframes, and StylePeek artifacts
     docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
     docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock").forEach(e => e.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-drawer").forEach(e => e.remove());
 
     // 5. Prune offscreen / unrendered nodes
     docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());
