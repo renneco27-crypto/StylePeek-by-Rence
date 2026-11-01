@@ -2888,10 +2888,441 @@ gsap.to("${selector}", {
   });
 
   /* ══════════════════════════════════════════════════════════
+     Breadth-First Search (BFS) Interactive Branch State Crawler
+     ══════════════════════════════════════════════════════════ */
+  async function exploreAndRecordAllBranchStates() {
+    let cancelRequested = false;
+    let pill = null;
+
+    // Create live floating status pill during BFS exploration
+    pill = document.createElement("div");
+    pill.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: #F8FAFC;
+      border: 1px solid #38BDF8;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      padding: 10px 22px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    `;
+    pill.innerHTML = `
+      <span style="display:inline-block;animation:sp-spin 1s linear infinite;">⚡</span>
+      <span id="sp-bfs-msg">Exploring interactive panel branches...</span>
+      <kbd style="background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:4px;font-size:11px;border:1px solid rgba(255,255,255,0.25);">ESC to Finish</kbd>
+    `;
+    document.body.appendChild(pill);
+
+    const onKeyEsc = e => {
+      if (e.key === "Escape") {
+        cancelRequested = true;
+        const msgEl = pill ? pill.querySelector("#sp-bfs-msg") : null;
+        if (msgEl) msgEl.textContent = "Finalizing recorded states...";
+      }
+    };
+    window.addEventListener("keydown", onKeyEsc, true);
+
+    // Prevent external navigation during crawler clicking
+    const onNavIntercept = e => {
+      const link = e.target.closest ? e.target.closest("a") : null;
+      if (link && link.href) {
+        const href = link.getAttribute("href") || "";
+        if (!href.startsWith("#") && !href.startsWith("javascript:")) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    window.addEventListener("click", onNavIntercept, true);
+
+    const prevBeforeUnload = window.onbeforeunload;
+    window.onbeforeunload = e => { e.preventDefault(); return ""; };
+
+    let bidCounter = 1;
+    let cidCounter = 1;
+    const visitedBids = new Set();
+    const branchStates = [];
+    const maxClicks = 60;
+    let totalClicks = 0;
+
+    function isCandidateTrigger(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (isOwn(el) || (el.closest && el.closest("#sp-root"))) return false;
+      if (el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+
+      // Skip destructive buttons
+      const txt = (el.textContent || el.value || el.getAttribute("title") || el.getAttribute("aria-label") || "").trim().toLowerCase();
+      if (/^(log\s*out|sign\s*out|delete|remove|clear\s*data|cancel|destroy|buy\s*now|checkout|pay\b)/i.test(txt)) {
+        return false;
+      }
+
+      // Skip external links
+      if (el.tagName === "A") {
+        const href = el.getAttribute("href") || "";
+        if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+          return false;
+        }
+      }
+
+      // Check tag and role
+      const tag = el.tagName.toLowerCase();
+      const role = el.getAttribute("role");
+      if (["button", "summary"].includes(tag)) return true;
+      if (["button", "tab", "switch", "menuitem"].includes(role)) return true;
+      if (el.hasAttribute("data-toggle") || el.hasAttribute("data-bs-toggle") || el.hasAttribute("aria-expanded") || el.hasAttribute("aria-controls")) return true;
+      if (el.classList && (el.classList.contains("tab") || el.classList.contains("nav-link") || el.classList.contains("accordion-button"))) return true;
+
+      // Check computed pointer cursor
+      try {
+        const cs = window.getComputedStyle(el);
+        if (cs.cursor === "pointer" && el.offsetWidth >= 12 && el.offsetHeight >= 12) {
+          if (el.offsetWidth < window.innerWidth * 0.92 && el.offsetHeight < window.innerHeight * 0.92) {
+            return true;
+          }
+        }
+      } catch (e) {}
+
+      return false;
+    }
+
+    function ensureBid(el) {
+      if (!el.getAttribute("data-sp-bid")) {
+        el.setAttribute("data-sp-bid", `b-${bidCounter++}`);
+      }
+      return el.getAttribute("data-sp-bid");
+    }
+
+    function ensureCid(el) {
+      if (!el.getAttribute("data-sp-cid")) {
+        el.setAttribute("data-sp-cid", `c-${cidCounter++}`);
+      }
+      return el.getAttribute("data-sp-cid");
+    }
+
+    function dispatchRealisticClick(el) {
+      try {
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+      } catch(e) {}
+      const opts = { bubbles: true, cancelable: true, view: window };
+      el.dispatchEvent(new PointerEvent("pointerdown", opts));
+      el.dispatchEvent(new MouseEvent("mousedown", opts));
+      el.dispatchEvent(new PointerEvent("pointerup", opts));
+      el.dispatchEvent(new MouseEvent("mouseup", opts));
+      try { el.click(); } catch (e) {}
+    }
+
+    function getTriggerLabel(el) {
+      let l = (el.textContent || el.getAttribute("title") || el.getAttribute("aria-label") || el.value || "").trim().replace(/\s+/g, " ");
+      if (l.length > 28) l = l.slice(0, 26) + "…";
+      return l || el.tagName.toLowerCase();
+    }
+
+    try {
+      // Find visible candidate triggers at page start
+      const allInitialTriggers = Array.from(document.querySelectorAll("*")).filter(el => {
+        if (!isCandidateTrigger(el)) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+
+      const level1Queue = [];
+      allInitialTriggers.forEach(el => {
+        const bid = ensureBid(el);
+        level1Queue.push({ el, bid, path: [bid], depth: 1 });
+      });
+
+      const level2Queue = [];
+      const level3Queue = [];
+
+      // ── Process Level 1: "clear the first level of all buttons it can see" ──
+      for (let i = 0; i < level1Queue.length; i++) {
+        if (cancelRequested || totalClicks >= maxClicks) break;
+        const item = level1Queue[i];
+        if (visitedBids.has(item.bid)) continue;
+        visitedBids.add(item.bid);
+
+        const lbl = getTriggerLabel(item.el);
+        if (pill) {
+          const msgEl = pill.querySelector("#sp-bfs-msg");
+          if (msgEl) msgEl.textContent = `Level 1: Clearing branch ${i + 1}/${level1Queue.length} ("${lbl}")`;
+        }
+
+        const capturedMutations = [];
+        const observer = new MutationObserver(records => {
+          for (const rec of records) {
+            const tgt = rec.target;
+            if (!tgt || isOwn(tgt) || (tgt.closest && tgt.closest("#sp-root"))) continue;
+            const cid = ensureCid(tgt);
+            if (rec.type === "attributes") {
+              capturedMutations.push({
+                cid,
+                type: "attr",
+                attr: rec.attributeName,
+                val: tgt.getAttribute(rec.attributeName),
+                className: tgt.className
+              });
+            } else if (rec.type === "childList") {
+              capturedMutations.push({
+                cid,
+                type: "child",
+                innerHTML: tgt.innerHTML
+              });
+            }
+          }
+        });
+
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ["class", "style", "aria-expanded", "aria-selected", "aria-hidden", "hidden", "open"],
+          childList: true,
+          subtree: true
+        });
+
+        dispatchRealisticClick(item.el);
+        totalClicks++;
+        await new Promise(r => setTimeout(r, 150));
+        observer.disconnect();
+
+        // Query newly revealed candidate triggers inside this branch
+        const childBids = [];
+        const currentlyVisibleTriggers = Array.from(document.querySelectorAll("*")).filter(el => {
+          if (!isCandidateTrigger(el)) return false;
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+
+        currentlyVisibleTriggers.forEach(childEl => {
+          const childBid = ensureBid(childEl);
+          if (!visitedBids.has(childBid)) {
+            childBids.push(childBid);
+            if (!level2Queue.some(q => q.bid === childBid)) {
+              level2Queue.push({
+                el: childEl,
+                bid: childBid,
+                path: [...item.path, childBid],
+                parentBid: item.bid,
+                depth: 2
+              });
+            }
+          }
+        });
+
+        branchStates.push({
+          bid: item.bid,
+          path: item.path,
+          label: lbl,
+          depth: 1,
+          mutations: capturedMutations,
+          childBids
+        });
+      }
+
+      // ── Process Level 2: "before going deep in the tree" ──
+      if (!cancelRequested && level2Queue.length > 0) {
+        for (let i = 0; i < level2Queue.length; i++) {
+          if (cancelRequested || totalClicks >= maxClicks) break;
+          const item = level2Queue[i];
+          if (visitedBids.has(item.bid)) continue;
+          visitedBids.add(item.bid);
+
+          const lbl = getTriggerLabel(item.el);
+          if (pill) {
+            const msgEl = pill.querySelector("#sp-bfs-msg");
+            if (msgEl) msgEl.textContent = `Level 2: Exploring sub-branch ${i + 1}/${level2Queue.length} ("${lbl}")`;
+          }
+
+          // Ensure parent branch is active
+          if (item.parentBid) {
+            const parentEl = document.querySelector(`[data-sp-bid="${item.parentBid}"]`);
+            if (parentEl) {
+              dispatchRealisticClick(parentEl);
+              await new Promise(r => setTimeout(r, 100));
+            }
+          }
+
+          const capturedMutations = [];
+          const observer = new MutationObserver(records => {
+            for (const rec of records) {
+              const tgt = rec.target;
+              if (!tgt || isOwn(tgt) || (tgt.closest && tgt.closest("#sp-root"))) continue;
+              const cid = ensureCid(tgt);
+              if (rec.type === "attributes") {
+                capturedMutations.push({
+                  cid,
+                  type: "attr",
+                  attr: rec.attributeName,
+                  val: tgt.getAttribute(rec.attributeName),
+                  className: tgt.className
+                });
+              } else if (rec.type === "childList") {
+                capturedMutations.push({
+                  cid,
+                  type: "child",
+                  innerHTML: tgt.innerHTML
+                });
+              }
+            }
+          });
+
+          observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ["class", "style", "aria-expanded", "aria-selected", "aria-hidden", "hidden", "open"],
+            childList: true,
+            subtree: true
+          });
+
+          const currentTarget = document.querySelector(`[data-sp-bid="${item.bid}"]`) || item.el;
+          dispatchRealisticClick(currentTarget);
+          totalClicks++;
+          await new Promise(r => setTimeout(r, 150));
+          observer.disconnect();
+
+          const childBids = [];
+          const currentlyVisibleTriggers = Array.from(document.querySelectorAll("*")).filter(el => {
+            if (!isCandidateTrigger(el)) return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+
+          currentlyVisibleTriggers.forEach(childEl => {
+            const childBid = ensureBid(childEl);
+            if (!visitedBids.has(childBid)) {
+              childBids.push(childBid);
+              if (!level3Queue.some(q => q.bid === childBid)) {
+                level3Queue.push({
+                  el: childEl,
+                  bid: childBid,
+                  path: [...item.path, childBid],
+                  parentPath: item.path,
+                  depth: 3
+                });
+              }
+            }
+          });
+
+          branchStates.push({
+            bid: item.bid,
+            path: item.path,
+            label: lbl,
+            depth: 2,
+            mutations: capturedMutations,
+            childBids
+          });
+        }
+      }
+
+      // ── Process Level 3 (Deep branches) ──
+      if (!cancelRequested && level3Queue.length > 0) {
+        for (let i = 0; i < level3Queue.length; i++) {
+          if (cancelRequested || totalClicks >= maxClicks) break;
+          const item = level3Queue[i];
+          if (visitedBids.has(item.bid)) continue;
+          visitedBids.add(item.bid);
+
+          const lbl = getTriggerLabel(item.el);
+          if (pill) {
+            const msgEl = pill.querySelector("#sp-bfs-msg");
+            if (msgEl) msgEl.textContent = `Level 3: Deep branch ${i + 1}/${level3Queue.length} ("${lbl}")`;
+          }
+
+          if (item.parentPath) {
+            for (const ancestorBid of item.parentPath) {
+              const ancEl = document.querySelector(`[data-sp-bid="${ancestorBid}"]`);
+              if (ancEl) {
+                dispatchRealisticClick(ancEl);
+                await new Promise(r => setTimeout(r, 90));
+              }
+            }
+          }
+
+          const capturedMutations = [];
+          const observer = new MutationObserver(records => {
+            for (const rec of records) {
+              const tgt = rec.target;
+              if (!tgt || isOwn(tgt) || (tgt.closest && tgt.closest("#sp-root"))) continue;
+              const cid = ensureCid(tgt);
+              if (rec.type === "attributes") {
+                capturedMutations.push({
+                  cid,
+                  type: "attr",
+                  attr: rec.attributeName,
+                  val: tgt.getAttribute(rec.attributeName),
+                  className: tgt.className
+                });
+              } else if (rec.type === "childList") {
+                capturedMutations.push({
+                  cid,
+                  type: "child",
+                  innerHTML: tgt.innerHTML
+                });
+              }
+            }
+          });
+
+          observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ["class", "style", "aria-expanded", "aria-selected", "aria-hidden", "hidden", "open"],
+            childList: true,
+            subtree: true
+          });
+
+          const currentTarget = document.querySelector(`[data-sp-bid="${item.bid}"]`) || item.el;
+          dispatchRealisticClick(currentTarget);
+          totalClicks++;
+          await new Promise(r => setTimeout(r, 150));
+          observer.disconnect();
+
+          branchStates.push({
+            bid: item.bid,
+            path: item.path,
+            label: lbl,
+            depth: 3,
+            mutations: capturedMutations,
+            childBids: []
+          });
+        }
+      }
+
+      // Re-activate first level 1 trigger to restore natural view
+      if (level1Queue.length > 0) {
+        const firstEl = document.querySelector(`[data-sp-bid="${level1Queue[0].bid}"]`);
+        if (firstEl) {
+          dispatchRealisticClick(firstEl);
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+
+    } catch (err) {
+      console.warn("BFS State Crawl warning:", err);
+    } finally {
+      window.removeEventListener("keydown", onKeyEsc, true);
+      window.removeEventListener("click", onNavIntercept, true);
+      window.onbeforeunload = prevBeforeUnload;
+      if (pill) {
+        try { pill.remove(); } catch(e) {}
+      }
+    }
+
+    return branchStates;
+  }
+
+  /* ══════════════════════════════════════════════════════════
      Full-Page Site Auto-Scroll Capture & Download (Clean, No Extension Artifacts)
      ══════════════════════════════════════════════════════════ */
   async function captureVisibleViewport() {
-    showToast("📸 Auto-scrolling down to capture complete full-page site...");
+    showToast("📸 Auto-scrolling & exploring interactive panel branches...");
 
     const origScrollX = window.scrollX || window.pageXOffset || 0;
     const origScrollY = window.scrollY || window.pageYOffset || 0;
@@ -2906,21 +3337,24 @@ gsap.to("${selector}", {
       const step = Math.max(300, Math.floor(window.innerHeight * 0.75));
       for (let pos = 0; pos < scrollHeight; pos += step) {
         window.scrollTo(0, pos);
-        await new Promise(r => setTimeout(r, 60));
+        await new Promise(r => setTimeout(r, 50));
       }
       window.scrollTo(0, scrollHeight);
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 120));
       window.scrollTo(origScrollX, origScrollY);
       await new Promise(r => setTimeout(r, 80));
     } catch (e) {}
 
-    // 2. Hide any active extension toasts & popovers before cloning
+    // 2. Run Breadth-First Search (BFS) Interactive Branch State Exploration
+    const recordedBranches = await exploreAndRecordAllBranchStates();
+
+    // 3. Hide any active extension toasts & popovers before cloning
     if (toast) toast.classList.remove("sp-show");
     if (selectBox) selectBox.style.display = "none";
     if (hoverBox) hoverBox.style.display = "none";
     if (hoverLbl) hoverLbl.style.display = "none";
 
-    // 3. Detach StylePeek root completely from live DOM
+    // 4. Detach StylePeek root completely from live DOM
     root.remove();
     const docClone = document.documentElement.cloneNode(true);
 
@@ -2928,19 +3362,25 @@ gsap.to("${selector}", {
     document.documentElement.appendChild(root);
     if (isEnabled && selectedEl) updateSelectBox(selectedEl);
 
-    // 4. Purge scripts, iframes, and StylePeek extension elements
+    // Clean up temporary live attributes from active page
+    document.querySelectorAll("[data-sp-bid]").forEach(el => el.removeAttribute("data-sp-bid"));
+    document.querySelectorAll("[data-sp-cid]").forEach(el => el.removeAttribute("data-sp-cid"));
+
+    // 5. Purge scripts, iframes, and StylePeek extension elements
     docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
     docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
     docClone.querySelectorAll("#sp-root, [id^='sp-'], [class^='sp-'], [class*=' sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal, #sp-toast, #sp-select-box, #sp-hover-box, #sp-hover-label").forEach(e => e.remove());
 
-    // 5. Clean residual attributes and verify ZERO extension UI text remains in the clone
+    // 6. Clean residual attributes, preserving data-sp-bid and data-sp-cid for the offline runtime
     const allClonedNodes = Array.from(docClone.querySelectorAll("*"));
     for (const node of allClonedNodes) {
       if (!node.parentNode) continue;
 
-      // Strip temporary data attributes
+      // Strip temporary data attributes (preserve sp-bid & sp-cid for offline runtime)
       Array.from(node.attributes || []).forEach(attr => {
-        if (attr.name.startsWith("data-sp-")) node.removeAttribute(attr.name);
+        if (attr.name.startsWith("data-sp-") && attr.name !== "data-sp-bid" && attr.name !== "data-sp-cid") {
+          node.removeAttribute(attr.name);
+        }
       });
 
       // Strip extension classes
@@ -2964,7 +3404,7 @@ gsap.to("${selector}", {
       }
     }
 
-    // 6. Inlining Images into Base64 / Absolute URLs
+    // 7. Inlining Images into Base64 / Absolute URLs
     const cloneBody = docClone.querySelector("body") || docClone;
     const origImages = Array.from(document.querySelectorAll("img"));
     const cloneImages = Array.from(cloneBody.querySelectorAll("img"));
@@ -2991,7 +3431,7 @@ gsap.to("${selector}", {
       }
     }
 
-    // 7. Inlining Stylesheets & Presets (Full Page)
+    // 8. Inlining Stylesheets & Presets (Full Page)
     let fullCSS = `
 /* ── StylePeek Studio: Full-Page Clean Site Export ── */
 * { box-sizing: border-box; }
@@ -3019,7 +3459,7 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       fullCSS += "\n" + st.textContent + "\n";
     }
 
-    // 8. Configure Head
+    // 9. Configure Head
     let cloneHead = docClone.querySelector("head");
     if (!cloneHead) {
       cloneHead = document.createElement("head");
@@ -3046,7 +3486,94 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
     styleEl.textContent = fullCSS;
     cloneHead.appendChild(styleEl);
 
-    // 9. Download full page file cleanly
+    // 10. Inject Offline Interactive State Data and Engine
+    const stateDataScript = document.createElement("script");
+    stateDataScript.id = "sp-state-data";
+    stateDataScript.type = "application/json";
+    stateDataScript.textContent = JSON.stringify(recordedBranches || []);
+    cloneBody.appendChild(stateDataScript);
+
+    const offlineRuntimeScript = document.createElement("script");
+    offlineRuntimeScript.id = "sp-offline-runtime";
+    offlineRuntimeScript.textContent = `
+(function() {
+  try {
+    var raw = document.getElementById("sp-state-data");
+    if (!raw) return;
+    var states = JSON.parse(raw.textContent || "[]");
+    if (!states.length) return;
+    var stateMap = {};
+    states.forEach(function(s) { stateMap[s.bid] = s; });
+
+    var isExpandedAll = false;
+    var originalStyles = new Map();
+
+    var badge = document.createElement("div");
+    badge.id = "sp-offline-badge";
+    badge.style.cssText = "position:fixed;bottom:16px;right:16px;background:rgba(15,23,42,0.92);color:#F8FAFC;border:1px solid #38BDF8;box-shadow:0 8px 24px rgba(0,0,0,0.5);border-radius:12px;padding:8px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;z-index:999999;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px);user-select:none;";
+    badge.innerHTML = '<span>⚡ StylePeek Offline App (<b>' + states.length + '</b> States)</span><span id="sp-cur-state" style="color:#38BDF8;font-weight:600;">Active: Default</span><button id="sp-btn-expand-all" style="background:#38BDF8;color:#0F172A;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;">Expand All</button>';
+    document.body.appendChild(badge);
+
+    var curStateLabel = badge.querySelector("#sp-cur-state");
+    var btnExpand = badge.querySelector("#sp-btn-expand-all");
+
+    btnExpand.addEventListener("click", function() {
+      isExpandedAll = !isExpandedAll;
+      btnExpand.textContent = isExpandedAll ? "Collapse" : "Expand All";
+      btnExpand.style.background = isExpandedAll ? "#F43F5E" : "#38BDF8";
+      btnExpand.style.color = isExpandedAll ? "#FFF" : "#0F172A";
+
+      var panels = document.querySelectorAll("[data-sp-cid]");
+      panels.forEach(function(p) {
+        if (isExpandedAll) {
+          if (!originalStyles.has(p)) originalStyles.set(p, p.style.cssText);
+          p.style.setProperty("display", "block", "important");
+          p.style.setProperty("opacity", "1", "important");
+          p.style.setProperty("visibility", "visible", "important");
+        } else {
+          if (originalStyles.has(p)) {
+            p.style.cssText = originalStyles.get(p);
+          }
+        }
+      });
+    });
+
+    document.addEventListener("click", function(e) {
+      var trigger = e.target.closest("[data-sp-bid]");
+      if (!trigger) return;
+      var bid = trigger.getAttribute("data-sp-bid");
+      var state = stateMap[bid];
+      if (!state) return;
+
+      if (trigger.tagName === "A") {
+        var href = trigger.getAttribute("href") || "";
+        if (href.startsWith("#") || href.startsWith("javascript:")) {
+          e.preventDefault();
+        }
+      }
+
+      if (Array.isArray(state.mutations)) {
+        state.mutations.forEach(function(m) {
+          var target = document.querySelector('[data-sp-cid="' + m.cid + '"]');
+          if (!target) return;
+          if (m.className !== undefined) target.className = m.className;
+          if (m.attr && m.val !== undefined) target.setAttribute(m.attr, m.val);
+          if (m.innerHTML !== undefined) target.innerHTML = m.innerHTML;
+        });
+      }
+
+      if (curStateLabel) {
+        curStateLabel.textContent = "Active: " + (state.label || bid);
+      }
+    }, true);
+  } catch(e) {
+    console.error("StylePeek Offline Runtime init failed:", e);
+  }
+})();
+`;
+    cloneBody.appendChild(offlineRuntimeScript);
+
+    // 11. Download full page file cleanly
     const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
     const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -3062,6 +3589,6 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       try { URL.revokeObjectURL(url); } catch (e) {}
     }, 1500);
 
-    showToast(`✓ Downloaded full-page site cleanly (${a.download})!`);
+    showToast(`✓ Downloaded interactive offline site with ${recordedBranches.length} states (${a.download})!`);
   }
 })();

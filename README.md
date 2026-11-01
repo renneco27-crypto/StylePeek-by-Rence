@@ -4,7 +4,7 @@
 ### Visual Inspector, Live Editor, Viewport Extractor & Layer Stacking Studio
 **Built for Chrome & Microsoft Edge (Manifest V3)**
 
-[![Version](https://img.shields.io/badge/Version-1.8.2-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
+[![Version](https://img.shields.io/badge/Version-1.8.3-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 [![License](https://img.shields.io/badge/License-MIT-00E5CC?style=for-the-badge)](LICENSE)
 [![Remote Debugging](https://img.shields.io/badge/Remote_Debug-CDP_Ready-F5A623?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 
@@ -133,9 +133,10 @@ The **Pinpoint Backgrounds** engine solves this automatically:
   * Real-time dual-pane editor (State A & State B) with GSAP timeline generator.
   * Live isolated component preview sandbox.
   * Strict CSP compliance (zero `eval` or `new Function`).
-* **📸 Visible Phone/Desktop Viewport Extractor (`Alt+C`)**:
-  * Captures only what is currently rendered in your visible viewport, automatically pruning offscreen, hidden, or deleted DOM nodes.
-  * Exports self-contained HTML/CSS ready to open or import.
+* **📸 Full-Page Site Auto-Scroll & Interactive State Crawler (`Alt+C`)**:
+  * **BFS Tree Branch Exploration**: Scans and clicks every button, tab, accordion, and panel trigger breadth-first (clearing all Level 1 siblings across panels before descending into sub-branch trees).
+  * **Offline State Mutation & Slot Engine**: Injects a self-contained offline runtime into the exported HTML file. When opened offline, clicking tabs, accordions, and buttons dynamically updates active classes and renders recorded panel content like a real interactive web app!
+  * **Expand All Panels Mode**: Offline badge includes an **Expand All** toggle that forces all recorded tabs and hidden sub-panels visible simultaneously for comprehensive review.
 * **🔒 Target Lock & Misclick Protection**:
   * Protects selected elements from accidental canvas misclicks while editing in the drawer.
   * Immediate selection pass-through for children inside the active target.
