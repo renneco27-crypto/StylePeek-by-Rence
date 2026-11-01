@@ -6,11 +6,90 @@
   let panes = {}, activeTab = "html", animatedAncestor = null;
   let panelPos = { top: "20px", right: "20px", left: null };
   let siblingsMode = false;
+  let activeToolMode = "inspect"; // "inspect", "move", "palette", "typo", "delete"
+  const undoStack = [];
 
   /* ── scaffold ── */
   const root = document.createElement("div");
   root.id = "sp-root";
   root.innerHTML = `
+
+    <!-- Palette Popover -->
+    <div id="sp-palette-popover" class="sp-popover">
+      <div class="sp-pop-header">
+        <span>🎨 Color Palette</span>
+        <button class="sp-pop-close" id="sp-pal-close">✕</button>
+      </div>
+      <div class="sp-pop-row">
+        <label>Text</label>
+        <input type="color" class="sp-color-picker" id="sp-pal-text-picker" value="#ffffff">
+        <input type="text" class="sp-pop-input" id="sp-pal-text-hex" style="width:75px" value="#ffffff">
+      </div>
+      <div class="sp-pop-row">
+        <label>Background</label>
+        <input type="color" class="sp-color-picker" id="sp-pal-bg-picker" value="#000000">
+        <input type="text" class="sp-pop-input" id="sp-pal-bg-hex" style="width:75px" value="#000000">
+      </div>
+      <div class="sp-pop-row">
+        <label>Border</label>
+        <input type="color" class="sp-color-picker" id="sp-pal-border-picker" value="#3b82f6">
+        <input type="text" class="sp-pop-input" id="sp-pal-border-hex" style="width:75px" value="#3b82f6">
+      </div>
+      <div class="sp-swatches">
+        <div class="sp-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
+        <div class="sp-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark"></div>
+        <div class="sp-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue"></div>
+        <div class="sp-swatch" style="background:#10b981" data-col="#10b981" title="Emerald"></div>
+        <div class="sp-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
+        <div class="sp-swatch" style="background:#ef4444" data-col="#ef4444" title="Rose"></div>
+        <div class="sp-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
+        <div class="sp-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
+      </div>
+    </div>
+
+    <!-- Typography Popover -->
+    <div id="sp-typo-popover" class="sp-popover">
+      <div class="sp-pop-header">
+        <span>🔤 Typography</span>
+        <button class="sp-pop-close" id="sp-typo-close">✕</button>
+      </div>
+      <div class="sp-pop-row">
+        <label>Size</label>
+        <input type="range" id="sp-typo-size-slider" min="10" max="72" value="16" style="flex:1">
+        <span id="sp-typo-size-val" style="width:36px;text-align:right;font-size:11px">16px</span>
+      </div>
+      <div class="sp-pop-row">
+        <label>Weight</label>
+        <select class="sp-pop-input" id="sp-typo-weight" style="flex:1">
+          <option value="300">Light (300)</option>
+          <option value="400">Regular (400)</option>
+          <option value="500">Medium (500)</option>
+          <option value="600">Semibold (600)</option>
+          <option value="700">Bold (700)</option>
+          <option value="800">Extrabold (800)</option>
+        </select>
+      </div>
+      <div class="sp-pop-row">
+        <label>Family</label>
+        <select class="sp-pop-input" id="sp-typo-family" style="flex:1">
+          <option value="inherit">Inherit</option>
+          <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">System Sans</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'Roboto', sans-serif">Roboto</option>
+          <option value="Georgia, serif">Georgia / Serif</option>
+          <option value="'SFMono-Regular', Menlo, Monaco, monospace">Monospace</option>
+        </select>
+      </div>
+      <div class="sp-pop-row">
+        <label>Align</label>
+        <div style="display:flex;gap:4px">
+          <button class="sp-pop-input" id="sp-align-left" style="cursor:pointer" title="Left">⬅</button>
+          <button class="sp-pop-input" id="sp-align-center" style="cursor:pointer" title="Center">⬌</button>
+          <button class="sp-pop-input" id="sp-align-right" style="cursor:pointer" title="Right">➡</button>
+        </div>
+      </div>
+    </div>
+
     <div id="sp-hover-box"></div>
     <div id="sp-hover-label"></div>
     <div id="sp-select-box"></div>
@@ -36,9 +115,16 @@
       </div>
       <div id="sp-pane">
         <div id="sp-copy-bar">
-          <span id="sp-copy-label"></span>
-          <button id="sp-copy-btn">Copy</button>
+          <div style="display:flex;align-items:center">
+            <span id="sp-copy-label"></span>
+            <span id="sp-live-badge" class="sp-live-indicator" style="display:none"><span class="sp-live-dot"></span>Live</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button id="sp-apply-btn">Apply (Ctrl+Enter)</button>
+            <button id="sp-copy-btn">Copy</button>
+          </div>
         </div>
+        <textarea id="sp-code-editor" spellcheck="false"></textarea>
         <pre id="sp-code"></pre>
       </div>
       <div id="sp-footer">
@@ -56,11 +142,17 @@
   const elTag       = root.querySelector("#sp-el-tag");
   const elName      = root.querySelector("#sp-el-name");
   const codeEl      = root.querySelector("#sp-code");
+  const codeEditor  = root.querySelector("#sp-code-editor");
+  const applyBtn    = root.querySelector("#sp-apply-btn");
+  const liveBadge   = root.querySelector("#sp-live-badge");
   const copyBtn     = root.querySelector("#sp-copy-btn");
   const copyLabel   = root.querySelector("#sp-copy-label");
   const ancestorBar = root.querySelector("#sp-ancestor-bar");
   const ancestorMsg = root.querySelector("#sp-ancestor-msg");
   const ancestorBtn = root.querySelector("#sp-ancestor-btn");
+
+  const palPopover   = root.querySelector("#sp-palette-popover");
+  const typoPopover  = root.querySelector("#sp-typo-popover");
 
   function applyPanelPos() {
     if (panelPos.left !== null) {
@@ -85,11 +177,89 @@
   });
 
   function showPane(tab) {
-    codeEl.textContent = panes[tab] || "";
     copyLabel.textContent = tab.toUpperCase();
     copyBtn.textContent = "Copy";
     copyBtn.classList.remove("sp-copied");
+
+    if (tab === "html" || tab === "css") {
+      codeEl.style.display = "none";
+      codeEditor.style.display = "block";
+      codeEditor.value = panes[tab] || "";
+      applyBtn.style.display = "inline-flex";
+      liveBadge.style.display = "inline-flex";
+    } else {
+      codeEditor.style.display = "none";
+      codeEl.style.display = "block";
+      codeEl.textContent = panes[tab] || "";
+      applyBtn.style.display = "none";
+      liveBadge.style.display = "none";
+    }
   }
+
+  function applyLiveChanges() {
+    if (!selectedEl) return;
+    if (activeTab === "html") {
+      const newHtml = codeEditor.value.trim();
+      if (!newHtml) return;
+      try {
+        const wrap = document.createElement("div");
+        wrap.innerHTML = newHtml;
+        const newEl = wrap.firstElementChild;
+        if (newEl && selectedEl.parentNode) {
+          undoStack.push({ type: "html", oldEl: selectedEl, newEl: newEl, parent: selectedEl.parentNode });
+          selectedEl.parentNode.replaceChild(newEl, selectedEl);
+          selectedEl = newEl;
+          panes.html = selectedEl.outerHTML;
+
+          const r = selectedEl.getBoundingClientRect();
+          selectBox.style.cssText = `display:block;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+          elTag.textContent  = selectedEl.tagName.toLowerCase();
+          elName.textContent = tag(selectedEl);
+
+          applyBtn.textContent = "Applied ✓";
+          applyBtn.classList.add("sp-applied");
+          setTimeout(() => {
+            applyBtn.textContent = "Apply (Ctrl+Enter)";
+            applyBtn.classList.remove("sp-applied");
+          }, 1200);
+        }
+      } catch (err) {
+        console.error("StylePeek HTML parse error:", err);
+      }
+    } else if (activeTab === "css") {
+      const newCSS = codeEditor.value;
+      panes.css = newCSS;
+      let styleEl = document.getElementById("sp-live-override");
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "sp-live-override";
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = newCSS;
+
+      applyBtn.textContent = "Applied ✓";
+      applyBtn.classList.add("sp-applied");
+      setTimeout(() => {
+        applyBtn.textContent = "Apply (Ctrl+Enter)";
+        applyBtn.classList.remove("sp-applied");
+      }, 1200);
+    }
+  }
+
+  applyBtn.addEventListener("click", applyLiveChanges);
+
+  codeEditor.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      applyLiveChanges();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const start = codeEditor.selectionStart;
+      const end = codeEditor.selectionEnd;
+      codeEditor.value = codeEditor.value.substring(0, start) + "  " + codeEditor.value.substring(end);
+      codeEditor.selectionStart = codeEditor.selectionEnd = start + 2;
+    }
+  });
 
   copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText(panes[activeTab] || "").then(() => {
@@ -148,10 +318,481 @@
 
   /* ── messaging ── */
   chrome.runtime.onMessage.addListener((msg, _, res) => {
-    if (msg.action === "toggleInspect") { inspecting ? stopInspecting() : startInspecting(); res({ inspecting }); }
-    else if (msg.action === "getStatus") { res({ inspecting, hasSelection: !!selectedEl }); }
+    if (msg.action === "toggleInspect") {
+      inspecting ? setToolMode("none") : setToolMode("inspect");
+      res({ inspecting: activeToolMode === "inspect", mode: activeToolMode });
+    } else if (msg.action === "startTool") {
+      setToolMode(msg.mode);
+      res({ success: true, mode: activeToolMode });
+    } else if (msg.action === "captureViewport") {
+      captureVisibleViewport();
+      res({ success: true });
+    } else if (msg.action === "getStatus") {
+      res({ inspecting: activeToolMode === "inspect", mode: activeToolMode, hasSelection: !!selectedEl });
+    }
     return true;
   });
+
+  function showToast(msg, duration = 2400) {
+    toast.innerHTML = `<span class="sp-dot"></span>${msg}`;
+    toast.classList.add("sp-show");
+    if (toast._timer) clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.classList.remove("sp-show"); }, duration);
+  }
+
+  /* ── Tool Popover Controls ── */
+  root.querySelector("#sp-pal-close").addEventListener("click", () => palPopover.classList.remove("sp-pop-open"));
+  root.querySelector("#sp-typo-close").addEventListener("click", () => typoPopover.classList.remove("sp-pop-open"));
+
+  let currentToolTarget = null;
+
+  function setToolMode(mode) {
+    if (activeToolMode === mode && mode !== "none") {
+      mode = "none";
+    }
+    activeToolMode = mode;
+    palPopover.classList.remove("sp-pop-open");
+    typoPopover.classList.remove("sp-pop-open");
+    hoverBox.style.display = "none";
+    hoverLbl.style.display = "none";
+
+    if (mode === "inspect") {
+      startInspecting();
+      showToast("🔍 Inspect Mode: Hover & click to view/edit code (Esc to exit)");
+    } else if (mode === "move") {
+      stopInspecting();
+      showToast("✋ Move Mode: Drag elements to reorder • Alt for free drag (Esc to exit)");
+    } else if (mode === "palette") {
+      stopInspecting();
+      showToast("🎨 Palette Mode: Click any element to adjust colors (Esc to exit)");
+    } else if (mode === "typo") {
+      stopInspecting();
+      showToast("🔤 Typography Mode: Click any element to adjust fonts (Esc to exit)");
+    } else if (mode === "delete") {
+      stopInspecting();
+      showToast("✂️ Delete Mode: Click element to delete • Ctrl+Z undo (Esc to exit)");
+    } else {
+      stopInspecting();
+      showToast("Normal Mode: Interact with buttons & page freely");
+    }
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb || rgb === "transparent" || rgb === "rgba(0, 0, 0, 0)") return "#000000";
+    const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return rgb.startsWith("#") ? rgb : "#000000";
+    return "#" + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, "0")).join("");
+  }
+
+  function positionPopover(popover, targetEl) {
+    const r = targetEl.getBoundingClientRect();
+    let top = r.bottom + 8;
+    let left = Math.max(10, Math.min(window.innerWidth - 270, r.left));
+    if (top + 230 > window.innerHeight) {
+      top = Math.max(10, r.top - 240);
+    }
+    popover.style.top = top + "px";
+    popover.style.left = left + "px";
+    popover.classList.add("sp-pop-open");
+  }
+
+  /* Palette Popover Binding */
+  const palTextPicker = root.querySelector("#sp-pal-text-picker");
+  const palTextHex    = root.querySelector("#sp-pal-text-hex");
+  const palBgPicker   = root.querySelector("#sp-pal-bg-picker");
+  const palBgHex      = root.querySelector("#sp-pal-bg-hex");
+  const palBorderPicker = root.querySelector("#sp-pal-border-picker");
+  const palBorderHex    = root.querySelector("#sp-pal-border-hex");
+
+  function openPalette(el) {
+    currentToolTarget = el;
+    const cs = getComputedStyle(el);
+    const hexColor = rgbToHex(cs.color);
+    const hexBg    = rgbToHex(cs.backgroundColor);
+    const hexBdr   = rgbToHex(cs.borderColor);
+
+    palTextPicker.value = hexColor; palTextHex.value = hexColor;
+    palBgPicker.value = hexBg; palBgHex.value = hexBg;
+    palBorderPicker.value = hexBdr; palBorderHex.value = hexBdr;
+    positionPopover(palPopover, el);
+  }
+
+  palTextPicker.addEventListener("input", e => {
+    if (currentToolTarget) { currentToolTarget.style.color = e.target.value; palTextHex.value = e.target.value; }
+  });
+  palTextHex.addEventListener("change", e => {
+    if (currentToolTarget) { currentToolTarget.style.color = e.target.value; palTextPicker.value = e.target.value; }
+  });
+  palBgPicker.addEventListener("input", e => {
+    if (currentToolTarget) { currentToolTarget.style.backgroundColor = e.target.value; palBgHex.value = e.target.value; }
+  });
+  palBgHex.addEventListener("change", e => {
+    if (currentToolTarget) { currentToolTarget.style.backgroundColor = e.target.value; palBgPicker.value = e.target.value; }
+  });
+  palBorderPicker.addEventListener("input", e => {
+    if (currentToolTarget) {
+      currentToolTarget.style.borderColor = e.target.value;
+      if (getComputedStyle(currentToolTarget).borderStyle === "none") currentToolTarget.style.borderStyle = "solid";
+      palBorderHex.value = e.target.value;
+    }
+  });
+  palBorderHex.addEventListener("change", e => {
+    if (currentToolTarget) {
+      currentToolTarget.style.borderColor = e.target.value;
+      if (getComputedStyle(currentToolTarget).borderStyle === "none") currentToolTarget.style.borderStyle = "solid";
+      palBorderPicker.value = e.target.value;
+    }
+  });
+
+  root.querySelectorAll(".sp-swatch").forEach(sw => {
+    sw.addEventListener("click", () => {
+      if (!currentToolTarget) return;
+      const col = sw.dataset.col;
+      currentToolTarget.style.backgroundColor = col;
+      if (col !== "transparent") {
+        palBgPicker.value = col;
+        palBgHex.value = col;
+      } else {
+        palBgHex.value = "transparent";
+      }
+    });
+  });
+
+  /* Typography Popover Binding */
+  const typoSizeSlider = root.querySelector("#sp-typo-size-slider");
+  const typoSizeVal    = root.querySelector("#sp-typo-size-val");
+  const typoWeight     = root.querySelector("#sp-typo-weight");
+  const typoFamily     = root.querySelector("#sp-typo-family");
+
+  function openTypo(el) {
+    currentToolTarget = el;
+    const cs = getComputedStyle(el);
+    const sz = parseInt(cs.fontSize) || 16;
+    typoSizeSlider.value = sz;
+    typoSizeVal.textContent = sz + "px";
+    typoWeight.value = cs.fontWeight || "400";
+    positionPopover(typoPopover, el);
+  }
+
+  typoSizeSlider.addEventListener("input", e => {
+    if (currentToolTarget) {
+      currentToolTarget.style.fontSize = e.target.value + "px";
+      typoSizeVal.textContent = e.target.value + "px";
+    }
+  });
+  typoWeight.addEventListener("change", e => {
+    if (currentToolTarget) currentToolTarget.style.fontWeight = e.target.value;
+  });
+  typoFamily.addEventListener("change", e => {
+    if (currentToolTarget && e.target.value !== "inherit") currentToolTarget.style.fontFamily = e.target.value;
+  });
+  root.querySelector("#sp-align-left").addEventListener("click", () => {
+    if (currentToolTarget) currentToolTarget.style.textAlign = "left";
+  });
+  root.querySelector("#sp-align-center").addEventListener("click", () => {
+    if (currentToolTarget) currentToolTarget.style.textAlign = "center";
+  });
+  root.querySelector("#sp-align-right").addEventListener("click", () => {
+    if (currentToolTarget) currentToolTarget.style.textAlign = "right";
+  });
+
+  /* Move Tool (Flow Reorder + Free Drag) */
+  let isMoving = false, moveStart = { x: 0, y: 0 }, moveEl = null, moveParent = null, moveSibling = null;
+  let originTransform = "";
+
+  document.addEventListener("mousedown", e => {
+    if (isOwn(e.target)) return;
+    if (activeToolMode === "move") {
+      moveEl = e.target;
+      isMoving = true;
+      moveStart = { x: e.clientX, y: e.clientY };
+      moveParent = moveEl.parentNode;
+      moveSibling = moveEl.nextSibling;
+      originTransform = moveEl.style.transform || "";
+      moveEl.classList.add("sp-dragging-active");
+      e.preventDefault();
+    }
+  }, true);
+
+  document.addEventListener("mousemove", e => {
+    if (!isMoving || !moveEl) return;
+    if (e.altKey) {
+      // Free drag with Alt
+      const dx = e.clientX - moveStart.x;
+      const dy = e.clientY - moveStart.y;
+      moveEl.style.position = "relative";
+      moveEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    } else {
+      // Flow Reorder among siblings
+      const over = document.elementFromPoint(e.clientX, e.clientY);
+      if (over && over !== moveEl && !isOwn(over) && over.parentNode === moveEl.parentNode) {
+        const r = over.getBoundingClientRect();
+        const midY = r.top + r.height / 2;
+        if (e.clientY < midY) {
+          over.parentNode.insertBefore(moveEl, over);
+        } else {
+          over.parentNode.insertBefore(moveEl, over.nextSibling);
+        }
+      }
+    }
+  }, true);
+
+  document.addEventListener("mouseup", () => {
+    if (isMoving && moveEl) {
+      moveEl.classList.remove("sp-dragging-active");
+      undoStack.push({
+        type: "move",
+        node: moveEl,
+        parent: moveParent,
+        sibling: moveSibling,
+        transform: originTransform
+      });
+      isMoving = false;
+      moveEl = null;
+    }
+  }, true);
+
+  /* Unified Tool Click Handler */
+  document.addEventListener("click", e => {
+    if (isOwn(e.target)) return;
+    if (activeToolMode === "palette") {
+      e.preventDefault(); e.stopPropagation();
+      openPalette(e.target);
+    } else if (activeToolMode === "typo") {
+      e.preventDefault(); e.stopPropagation();
+      openTypo(e.target);
+    } else if (activeToolMode === "delete") {
+      e.preventDefault(); e.stopPropagation();
+      const target = e.target;
+      undoStack.push({
+        type: "delete",
+        node: target,
+        parent: target.parentNode,
+        next: target.nextSibling
+      });
+      target.remove();
+      showToast("✂️ Element deleted. Press Ctrl+Z to undo.");
+    }
+  }, true);
+
+  /* Undo & Keyboard Shortcuts */
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if (palPopover.classList.contains("sp-pop-open") || typoPopover.classList.contains("sp-pop-open")) {
+        palPopover.classList.remove("sp-pop-open");
+        typoPopover.classList.remove("sp-pop-open");
+      } else if (activeToolMode !== "none") {
+        setToolMode("none");
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+      if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+      if (undoStack.length > 0) {
+        e.preventDefault();
+        const action = undoStack.pop();
+        if (action.type === "delete" && action.parent) {
+          action.parent.insertBefore(action.node, action.next || null);
+          showToast("Restored deleted element");
+        } else if (action.type === "html" && action.parent) {
+          action.parent.replaceChild(action.oldEl, action.newEl);
+          selectedEl = action.oldEl;
+          panes.html = selectedEl.outerHTML;
+          showToast("Restored previous HTML");
+        } else if (action.type === "move" && action.parent) {
+          action.parent.insertBefore(action.node, action.sibling || null);
+          action.node.style.transform = action.transform || "";
+          showToast("Restored element position");
+        }
+      }
+    } else if (e.altKey && e.code === "KeyC") {
+      e.preventDefault();
+      captureVisibleViewport();
+    }
+  });
+
+  /* ── Visible Phone Viewport Extractor ── */
+  async function captureVisibleViewport() {
+    showToast("📸 Capturing rendered phone viewport...");
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // 1. Mark elements on the live DOM to ensure 100% accurate node-by-node mapping
+    const allBodyEls = Array.from(document.body.querySelectorAll("*"));
+    for (const el of allBodyEls) {
+      if (el.id === "sp-root" || (el.closest && el.closest("#sp-root"))) continue;
+
+      const cs = window.getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden" || parseFloat(cs.opacity) === 0) {
+        el.setAttribute("data-sp-prune", "true");
+        continue;
+      }
+
+      // Check if offscreen (has dimension and is outside viewport)
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        const isOutside = (r.bottom <= 0 || r.top >= vh || r.right <= 0 || r.left >= vw);
+        if (isOutside) {
+          el.setAttribute("data-sp-offscreen", "true");
+        }
+      }
+    }
+
+    // 2. Safely detach StylePeek root so it CANNOT be in the clone
+    root.remove();
+    const docClone = document.documentElement.cloneNode(true);
+    document.documentElement.appendChild(root);
+
+    // 3. Remove temporary attributes from live DOM immediately
+    for (const el of allBodyEls) {
+      el.removeAttribute("data-sp-prune");
+      el.removeAttribute("data-sp-offscreen");
+    }
+
+    // 4. In docClone, purge scripts, iframes, and any leftover StylePeek artifacts
+    docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
+    docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock").forEach(e => e.remove());
+
+    // 5. Prune hidden and offscreen elements cleanly
+    docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());
+    const offscreenNodes = Array.from(docClone.querySelectorAll("[data-sp-offscreen='true']"));
+    for (let i = offscreenNodes.length - 1; i >= 0; i--) {
+      const node = offscreenNodes[i];
+      if (!node.parentNode) continue;
+      // If it contains on-screen children, keep the container so layout doesn't collapse
+      const hasOnscreenChild = node.querySelector(":not([data-sp-offscreen='true'])");
+      if (!hasOnscreenChild) {
+        node.remove();
+      } else {
+        node.removeAttribute("data-sp-offscreen");
+      }
+    }
+    docClone.querySelectorAll("[data-sp-offscreen]").forEach(e => e.removeAttribute("data-sp-offscreen"));
+
+    // 6. Inlining Images into Base64 Data URLs
+    const cloneBody = docClone.querySelector("body") || docClone;
+    const origImages = Array.from(document.querySelectorAll("img"));
+    const cloneImages = Array.from(cloneBody.querySelectorAll("img"));
+
+    for (let i = 0; i < cloneImages.length; i++) {
+      const cImg = cloneImages[i];
+      const srcAttr = cImg.getAttribute("src") || "";
+      const oImg = origImages.find(img => img.getAttribute("src") === srcAttr || img.src === cImg.src) || origImages[i];
+      if (oImg) {
+        try {
+          if (oImg.naturalWidth && oImg.complete) {
+            const canvas = document.createElement("canvas");
+            canvas.width = oImg.naturalWidth;
+            canvas.height = oImg.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(oImg, 0, 0);
+            cImg.src = canvas.toDataURL("image/png");
+          } else {
+            cImg.src = new URL(srcAttr, window.location.href).href;
+          }
+        } catch (err) {
+          try { cImg.src = new URL(srcAttr, window.location.href).href; } catch(e){}
+        }
+      }
+    }
+
+    // 7. Comprehensive Stylesheet Inlining (Tailwind, scoped CSS, fonts)
+    let fullCSS = `
+/* ── StylePeek Studio: Mobile Fluid Viewport Export (${vw}x${vh}) ── */
+* { box-sizing: border-box; }
+html {
+  margin: 0 auto;
+  max-width: 100%;
+  min-height: 100vh;
+}
+body {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+}
+`;
+
+    // Fetch and inline all external <link rel="stylesheet"> files
+    const styleLinks = Array.from(document.querySelectorAll("link[rel='stylesheet']"));
+    for (const link of styleLinks) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      try {
+        const absUrl = new URL(href, window.location.href).href;
+        const res = await fetch(absUrl);
+        if (res.ok) {
+          const text = await res.text();
+          fullCSS += `\n/* Inlined from ${href} */\n` + text + "\n";
+        }
+      } catch (e) {
+        console.warn("Could not inline CSS link:", href, e);
+      }
+    }
+
+    // Inline all inline <style> blocks from the page
+    const styleTags = Array.from(document.querySelectorAll("style"));
+    for (const st of styleTags) {
+      if (st.id === "sp-live-override") continue;
+      if (st.closest && st.closest("#sp-root")) continue;
+      fullCSS += "\n" + st.textContent + "\n";
+    }
+
+    // Include any live design override
+    const liveStyle = document.getElementById("sp-live-override");
+    if (liveStyle) {
+      fullCSS += "\n/* ── Live Design Overrides ── */\n" + liveStyle.textContent + "\n";
+    }
+
+    // 8. Configure Head with Base tag and Inlined Styles
+    let cloneHead = docClone.querySelector("head");
+    if (!cloneHead) {
+      cloneHead = document.createElement("head");
+      docClone.insertBefore(cloneHead, cloneBody);
+    }
+    // Remove existing link stylesheets and style tags since they are now inlined
+    cloneHead.querySelectorAll("link[rel='stylesheet'], style").forEach(el => el.remove());
+
+    // Base tag so all relative font/image assets resolve
+    let baseEl = cloneHead.querySelector("base");
+    if (!baseEl) {
+      baseEl = document.createElement("base");
+      cloneHead.insertBefore(baseEl, cloneHead.firstChild);
+    }
+    baseEl.href = window.location.origin + "/";
+
+    let metaVp = cloneHead.querySelector("meta[name='viewport']");
+    if (!metaVp) {
+      metaVp = document.createElement("meta");
+      metaVp.name = "viewport";
+      cloneHead.appendChild(metaVp);
+    }
+    metaVp.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
+
+    const styleEl = document.createElement("style");
+    styleEl.textContent = fullCSS;
+    cloneHead.appendChild(styleEl);
+
+    const titleEl = cloneHead.querySelector("title") || document.createElement("title");
+    titleEl.textContent = `Phone Viewport (${vw}x${vh}) - StylePeek`;
+    if (!cloneHead.querySelector("title")) cloneHead.appendChild(titleEl);
+
+    // 9. Generate Final HTML and Download
+    const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
+    const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.download = `phone-viewport-${vw}x${vh}-${timestamp}.html`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try { a.remove(); } catch (e) {}
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    }, 1500);
+
+    showToast(`✓ Downloaded ${a.download}`);
+  }
 
   /* ── inspect ── */
   function startInspecting() {
@@ -815,7 +1456,7 @@ body {
     form.appendChild(inp);
     document.body.appendChild(form);
     form.submit();
-    document.body.removeChild(form);
+    try { form.remove(); } catch (e) {}
   }
 
   /* ── helpers ── */

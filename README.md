@@ -34,13 +34,17 @@ Currently working on **Style Peek** — a Chrome extension that lets you click a
 <tr>
 <td width="50%">
 
-### 🔍 Style Peek
+### 🔍 Style Peek Studio
 **Chrome Extension**
 
-Click any element → get its code → send to CodePen.
-Extracts HTML, CSS, animations (including parent-driven hover states), and real inline scripts.
+Visual inspector, live editor, and visible-only viewport extractor.
+- **Visible Viewport Extractor**: Download only what is currently rendered in your phone/desktop screen (`Alt+C`). Prunes offscreen, hidden, or deleted elements.
+- **Studio Popup Controls**: Clean on-demand tools launched directly from the StylePeek popup (Move/Reorder, Live Color Palette, Typography, and Delete) with zero canvas clutter.
+- **On-Demand Injection**: Never injects background scripts into websites automatically; operates strictly on the active tab when invoked.
+- **Live Code Editor**: Click any element, type/paste new HTML markup or CSS rules, and hot-reload the design live on screen.
+- **Undo Engine**: Press `Ctrl+Z` to undo any deletion, move, or HTML swap.
 
-`Chrome Extension` `DevTools` `Vanilla JS`
+`Chrome Extension` `DevTools` `Vanilla JS` `Visual Design` `Viewport Extractor`
 
 </td>
 <td width="50%">

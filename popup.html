@@ -20,13 +20,37 @@
       <span id="toggleLabel">Start inspecting</span>
     </button>
 
+    <button id="captureBtn" class="secondary-btn" title="Capture & download what is rendered in screen (Alt+C)">
+      <span>📸 Capture Viewport</span>
+      <kbd>Alt+C</kbd>
+    </button>
+
     <p id="statusMsg" class="status"></p>
 
+    <div class="features-grid">
+      <button class="feat-btn" id="toolMove" title="Drag to reorder elements or hold Alt for free move">
+        <span class="feat-icon">✋</span>
+        <div class="feat-text"><strong>Move</strong><span>reorder/drag</span></div>
+      </button>
+      <button class="feat-btn" id="toolColor" title="Click element to tweak text/bg/border colors">
+        <span class="feat-icon">🎨</span>
+        <div class="feat-text"><strong>Color</strong><span>live palette</span></div>
+      </button>
+      <button class="feat-btn" id="toolFont" title="Click element to adjust font size & family">
+        <span class="feat-icon">🔤</span>
+        <div class="feat-text"><strong>Font</strong><span>typography</span></div>
+      </button>
+      <button class="feat-btn" id="toolDelete" title="Click element to delete (Ctrl+Z to undo)">
+        <span class="feat-icon">✂️</span>
+        <div class="feat-text"><strong>Delete</strong><span>remove node</span></div>
+      </button>
+    </div>
+
     <ol class="steps">
-      <li>Click <strong>Start inspecting</strong></li>
-      <li>Hover the page to find your element</li>
-      <li>Click it to see HTML, CSS &amp; JS hooks</li>
-      <li>Press <kbd>Esc</kbd> anytime to cancel</li>
+      <li>Click any tool above or <strong>Start inspecting</strong></li>
+      <li>Click hamburger or buttons to open mobile menus/drawers</li>
+      <li>Press <strong>Capture Viewport</strong> (<kbd>Alt+C</kbd>) to download</li>
+      <li>Press <kbd>Esc</kbd> anytime to exit mode</li>
     </ol>
 
     <div class="highlight-box">
