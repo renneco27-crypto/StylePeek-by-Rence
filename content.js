@@ -34,6 +34,7 @@
       <button class="sp-dock-btn sp-dock-active" data-tool="inspect" title="Inspect & Select Element (I)">🔍</button>
       <button class="sp-dock-btn" data-tool="move" title="Free Live Drag (M)">✋</button>
       <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">↔️</button>
+      <button class="sp-dock-btn add-btn" data-tool="add" id="sp-dock-add" title="Add Element or Picture (A)">➕</button>
       <button class="sp-dock-btn" data-tool="style" title="Colors & Border Styling (C)">🎨</button>
       <button class="sp-dock-btn" data-tool="layers" title="Layers, Backgrounds & Send to Back (L)">🥞</button>
       <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">💻</button>
@@ -41,6 +42,74 @@
       <div class="sp-dock-sep"></div>
       <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Phone Viewport (Alt+C)">📸</button>
       <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Turn OFF StylePeek">⭕</button>
+    </div>
+
+    <!-- Add Element or Picture Modal (Hallmark Spacious UX) -->
+    <div id="sp-add-element-modal">
+      <div class="sp-add-modal-header">
+        <span class="sp-add-modal-title">➕ ADD ELEMENT OR PICTURE</span>
+        <button class="sp-modal-x" id="sp-add-modal-close" title="Close">✕</button>
+      </div>
+      <div class="sp-add-modal-body">
+        <!-- Photo / Picture Card -->
+        <div class="sp-add-card">
+          <div class="sp-add-card-header">
+            <span class="sp-add-card-icon">🖼️</span>
+            <div class="sp-add-card-info">
+              <strong>Add Photo / Picture</strong>
+              <span>Upload image from your computer or enter URL to place on canvas</span>
+            </div>
+          </div>
+          <div class="sp-add-input-row">
+            <input type="text" class="sp-input" id="sp-add-img-url" placeholder="Paste image URL (https://...) or data:image...">
+            <button class="sp-primary-btn" id="sp-btn-insert-img-url">Insert URL</button>
+          </div>
+          <div class="sp-add-file-row">
+            <label class="sp-file-label" title="Upload image from computer">
+              📁 Choose Picture from Computer
+              <input type="file" id="sp-add-img-file" accept="image/*" style="display:none">
+            </label>
+          </div>
+        </div>
+
+        <!-- Quick Elements Grid -->
+        <div class="sp-add-card-grid">
+          <div class="sp-add-card mini">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="sp-add-card-icon">📦</span>
+              <div class="sp-add-card-info">
+                <strong>Styled Card / Div</strong>
+                <span>Container with padding & border</span>
+              </div>
+            </div>
+            <button class="sp-secondary-btn" id="sp-btn-insert-box">+ Insert</button>
+          </div>
+
+          <div class="sp-add-card mini">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="sp-add-card-icon">🔤</span>
+              <div class="sp-add-card-info">
+                <strong>Heading / Text</strong>
+                <span>Typography headline block</span>
+              </div>
+            </div>
+            <button class="sp-secondary-btn" id="sp-btn-insert-heading">+ Insert</button>
+          </div>
+        </div>
+
+        <!-- Custom Code Card -->
+        <div class="sp-add-card">
+          <div class="sp-add-card-header">
+            <span class="sp-add-card-icon">💻</span>
+            <div class="sp-add-card-info">
+              <strong>Custom HTML Snippet</strong>
+              <span>Paste custom HTML markup to render directly</span>
+            </div>
+          </div>
+          <textarea class="sp-code-area-mini" id="sp-add-html-code" placeholder="<div class='custom-card'>Hello World</div>"></textarea>
+          <button class="sp-primary-btn" id="sp-btn-insert-html" style="align-self:flex-end;">Insert HTML</button>
+        </div>
+      </div>
     </div>
 
     <!-- Dedicated Floating Live Inspect Preview Panel (Independent from Code Tab) -->
@@ -263,6 +332,16 @@
   const btnContextToggle  = root.querySelector("#sp-btn-context-toggle");
   const btnRefreshPreview = root.querySelector("#sp-btn-refresh-preview");
 
+  const addModal          = root.querySelector("#sp-add-element-modal");
+  const addModalClose     = root.querySelector("#sp-add-modal-close");
+  const addImgUrlInput    = root.querySelector("#sp-add-img-url");
+  const btnInsertImgUrl   = root.querySelector("#sp-btn-insert-img-url");
+  const addImgFileInput   = root.querySelector("#sp-add-img-file");
+  const btnInsertBox      = root.querySelector("#sp-btn-insert-box");
+  const btnInsertHeading  = root.querySelector("#sp-btn-insert-heading");
+  const addHtmlCodeArea   = root.querySelector("#sp-add-html-code");
+  const btnInsertHtml     = root.querySelector("#sp-btn-insert-html");
+
   const toast             = root.querySelector("#sp-toast");
   const toastText         = root.querySelector("#sp-toast-text");
   const drawer            = root.querySelector("#sp-drawer");
@@ -353,7 +432,10 @@
       syncDockUI(tool);
       document.body.classList.toggle("sp-mode-move", tool === "move");
 
-      if (tool === "style") {
+      if (tool === "add") {
+        openAddModal();
+        return;
+      } else if (tool === "style") {
         drawer.classList.add("sp-open");
         root.querySelector(".sp-drawer-tab[data-tab='style']").click();
       } else if (tool === "layers") {
@@ -865,19 +947,27 @@
   });
 
   /* ══════════════════════════════════════════════════════════
-     Layers Tab: Add Custom Elements (Photos, Divs, Code)
+     Add Custom Elements Modal & Insertion Handlers
      ══════════════════════════════════════════════════════════ */
-  btnAddImage.addEventListener("click", () => {
-    const url = prompt("Enter Image URL (or paste data URI):", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800");
-    if (!url) return;
+  function openAddModal() {
+    addModal.classList.add("sp-show");
+  }
+  function closeAddModal() {
+    addModal.classList.remove("sp-show");
+  }
+
+  addModalClose.addEventListener("click", closeAddModal);
+
+  function insertCustomImage(src) {
+    if (!src) return;
     const img = document.createElement("img");
-    img.src = url;
+    img.src = src;
     img.className = "sp-custom-element";
     img.style.position = "relative";
-    img.style.width = "300px";
+    img.style.width = "320px";
     img.style.height = "auto";
-    img.style.borderRadius = "8px";
-    img.style.boxShadow = "0 8px 30px rgba(0,0,0,0.5)";
+    img.style.borderRadius = "10px";
+    img.style.boxShadow = "0 12px 36px rgba(0,0,0,0.5)";
     img.style.display = "block";
     img.style.margin = "20px auto";
 
@@ -887,21 +977,44 @@
 
     selectElement(img);
     undoStack.push({ type: "delete", node: img, parent: insertParent });
-    showToast("🖼️ Inserted photo layer • Drag corner to stretch or Send to Back");
+    closeAddModal();
+    showToast("🖼️ Inserted picture! Drag corners to stretch, or click '⬇ Send to Back'!");
+  }
+
+  addImgFileInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        insertCustomImage(ev.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   });
 
-  btnAddDiv.addEventListener("click", () => {
+  btnInsertImgUrl.addEventListener("click", () => {
+    const url = addImgUrlInput.value.trim();
+    if (url) {
+      insertCustomImage(url);
+      addImgUrlInput.value = "";
+    } else {
+      showToast("Please enter an image URL");
+    }
+  });
+
+  btnInsertBox.addEventListener("click", () => {
     const box = document.createElement("div");
     box.className = "sp-custom-element";
-    box.textContent = "Custom Styled Layer";
+    box.textContent = "Custom Card Layer";
     box.style.position = "relative";
-    box.style.padding = "20px 24px";
-    box.style.background = "#1E293B";
+    box.style.padding = "24px 28px";
+    box.style.background = "#131C2E";
     box.style.color = "#F8FAFC";
     box.style.border = "2px solid #38BDF8";
-    box.style.borderRadius = "12px";
+    box.style.borderRadius = "14px";
     box.style.fontSize = "16px";
     box.style.fontWeight = "600";
+    box.style.boxShadow = "0 12px 30px rgba(0,0,0,0.4)";
     box.style.display = "inline-block";
     box.style.margin = "20px auto";
 
@@ -911,14 +1024,36 @@
 
     selectElement(box);
     undoStack.push({ type: "delete", node: box, parent: insertParent });
-    showToast("📦 Inserted custom div box • Edit colors or Send to Back");
+    closeAddModal();
+    showToast("📦 Inserted custom card box! Drag corners to stretch or edit style!");
   });
 
-  btnAddHtml.addEventListener("click", () => {
-    const rawHtml = prompt("Paste custom HTML snippet:", '<div class="banner">✨ Custom Highlight Banner</div>');
-    if (!rawHtml) return;
+  btnInsertHeading.addEventListener("click", () => {
+    const h = document.createElement("h2");
+    h.className = "sp-custom-element";
+    h.textContent = "New Headline";
+    h.style.position = "relative";
+    h.style.color = "#FFFFFF";
+    h.style.fontSize = "32px";
+    h.style.fontWeight = "800";
+    h.style.margin = "16px auto";
+    h.style.display = "block";
+
+    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
+      ? selectedEl.parentElement : document.body;
+    insertParent.appendChild(h);
+
+    selectElement(h);
+    undoStack.push({ type: "delete", node: h, parent: insertParent });
+    closeAddModal();
+    showToast("🔤 Inserted headline typography!");
+  });
+
+  btnInsertHtml.addEventListener("click", () => {
+    const raw = addHtmlCodeArea.value.trim();
+    if (!raw) return;
     const wrap = document.createElement("div");
-    wrap.innerHTML = rawHtml.trim();
+    wrap.innerHTML = raw;
     const newEl = wrap.firstElementChild || wrap;
     newEl.style.position = "relative";
 
@@ -928,8 +1063,13 @@
 
     selectElement(newEl);
     undoStack.push({ type: "delete", node: newEl, parent: insertParent });
-    showToast("💻 Inserted custom HTML element");
+    closeAddModal();
+    showToast("💻 Inserted custom HTML element!");
   });
+
+  btnAddImage.addEventListener("click", openAddModal);
+  btnAddDiv.addEventListener("click", openAddModal);
+  btnAddHtml.addEventListener("click", openAddModal);
 
   /* ══════════════════════════════════════════════════════════
      Layers Tab: Word-Style Send to Back & Stacking
@@ -1357,6 +1497,7 @@
       pendingAutoFixFn();
     }
     closeErrorModal();
+    closeAddModal();
     showToast("✓ Applied suggested code fix!");
   });
 
@@ -1645,6 +1786,9 @@ gsap.to("${selector}", {
     if (e.key === "Escape") {
       if (errorModal.classList.contains("sp-modal-show")) {
         closeErrorModal();
+    closeAddModal();
+      } else if (addModal.classList.contains("sp-show")) {
+        closeAddModal();
       } else if (drawer.classList.contains("sp-open") || previewPanel.classList.contains("sp-show")) {
         drawer.classList.remove("sp-open");
         previewPanel.classList.remove("sp-show");
@@ -1689,6 +1833,8 @@ gsap.to("${selector}", {
         activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("✋ Move Mode");
       } else if (k === "s") {
         activeToolMode = "resize"; syncDockUI("resize"); showToast("↔️ Resize / Stretch Mode");
+      } else if (k === "a") {
+        openAddModal();
       } else if (k === "c") {
         activeToolMode = "style"; syncDockUI("style"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']").click();
       } else if (k === "l") {
@@ -1732,6 +1878,7 @@ gsap.to("${selector}", {
     isTargetLocked = false;
     unlockPending = false;
     closeErrorModal();
+    closeAddModal();
 
     // Restore isolated layers if any
     document.querySelectorAll(".sp-layer-isolated").forEach(n => {
