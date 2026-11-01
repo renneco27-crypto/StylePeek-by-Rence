@@ -4,7 +4,7 @@
 ### Visual Inspector, Live Editor, Viewport Extractor & Layer Stacking Studio
 **Built for Chrome & Microsoft Edge (Manifest V3)**
 
-[![Version](https://img.shields.io/badge/Version-1.8.3-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
+[![Version](https://img.shields.io/badge/Version-1.8.4-8B5CF6?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 [![License](https://img.shields.io/badge/License-MIT-00E5CC?style=for-the-badge)](LICENSE)
 [![Remote Debugging](https://img.shields.io/badge/Remote_Debug-CDP_Ready-F5A623?style=for-the-badge)](https://github.com/renneco27-crypto/StylePeek-by-Rence)
 
@@ -137,6 +137,17 @@ The **Pinpoint Backgrounds** engine solves this automatically:
   * **BFS Tree Branch Exploration**: Scans and clicks every button, tab, accordion, and panel trigger breadth-first (clearing all Level 1 siblings across panels before descending into sub-branch trees).
   * **Offline State Mutation & Slot Engine**: Injects a self-contained offline runtime into the exported HTML file. When opened offline, clicking tabs, accordions, and buttons dynamically updates active classes and renders recorded panel content like a real interactive web app!
   * **Expand All Panels Mode**: Offline badge includes an **Expand All** toggle that forces all recorded tabs and hidden sub-panels visible simultaneously for comprehensive review.
+* **📐 Word-Style Snap Margins & Magnetic Alignment Guides**:
+  * Free-dragging elements features magnetic snapping to starting origin and parent container margins with visual cyan dashed guidelines.
+  * Accidental nudges effortlessly snap right back to their original position.
+* **↩️ Dedicated Undo Actions**:
+  * One-click **↩ Undo** button on both the floating dock (`#sp-dock-undo`) and drawer header (`#sp-btn-undo`), plus <kbd>Ctrl+Z</kbd>.
+  * Instantly reverts moves, word edits, deletions, resizes, background changes, and HTML modifications.
+* **✏️ Word Document-Style Text & Multi-Font Preservation**:
+  * Double-clicking text targets exact leaf spans and containers without destroying sibling styling.
+  * Typing past elements with different fonts automatically inherits their font family, size, weight, and color.
+  * Pressing <kbd>Enter</kbd> creates a new line `<div>` inheriting the exact computed font attributes of the line.
+  * All single-letter shortcuts (<kbd>A</kbd>, <kbd>M</kbd>, <kbd>C</kbd>, etc.) are strictly suppressed while editing words, preventing modal popups.
 * **🔒 Target Lock & Misclick Protection**:
   * Protects selected elements from accidental canvas misclicks while editing in the drawer.
   * Immediate selection pass-through for children inside the active target.

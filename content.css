@@ -811,6 +811,38 @@ body.sp-mode-move * {
   border-color: #22D3EE;
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
 }
+.sp-dock-btn.undo-btn {
+  color: #F59E0B;
+}
+.sp-dock-btn.undo-btn:hover {
+  background: #2E2214;
+  border-color: #F59E0B;
+  color: #FBBF24;
+}
+
+/* ── Word-Style Snap Margin Guidelines ── */
+#sp-snap-guide-h, #sp-snap-guide-v {
+  position: fixed;
+  display: none;
+  pointer-events: none;
+  z-index: 2147483645;
+  transition: opacity 0.08s ease;
+}
+#sp-snap-guide-h {
+  left: 0;
+  right: 0;
+  height: 0px;
+  border-top: 1.5px dashed #38BDF8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+#sp-snap-guide-v {
+  top: 0;
+  bottom: 0;
+  width: 0px;
+  border-left: 1.5px dashed #38BDF8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+
 .sp-dock-sep {
   width: 24px;
   height: 1px;

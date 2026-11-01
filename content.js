@@ -28,6 +28,10 @@
       <div class="sp-resize-handle sw" data-dir="sw" title="Drag corner to stretch"></div>
     </div>
 
+    <!-- Word Document-Style Magnetic Snap Guidelines -->
+    <div id="sp-snap-guide-h"></div>
+    <div id="sp-snap-guide-v"></div>
+
     <!-- Floating Tool Sidebar Dock (Visible ONLY when StylePeek is ON) -->
     <div id="sp-sidebar-dock">
       <div id="sp-dock-handle" title="Drag dock">⋮⋮</div>
@@ -39,6 +43,7 @@
       <button class="sp-dock-btn" data-tool="layers" title="Layers, Backgrounds & Send to Back (L)">🥞</button>
       <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">💻</button>
       <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">✂️</button>
+      <button class="sp-dock-btn undo-btn" id="sp-dock-undo" title="Undo Last Action (Ctrl+Z)">↩️</button>
       <div class="sp-dock-sep"></div>
       <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Phone Viewport (Alt+C)">📸</button>
       <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Turn OFF StylePeek">⭕</button>
@@ -152,6 +157,7 @@
           <span id="sp-drawer-name">.element</span>
           <button class="sp-lock-tag" id="sp-btn-edit-text" title="Click to edit words live directly on the element" style="color:#38BDF8;border-color:#1E3A5F;">✏️ Edit Words</button>
           <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">🔒 Locked</button>
+          <button class="sp-lock-tag" id="sp-btn-undo" title="Undo last change (Ctrl+Z)" style="color:#F59E0B;border-color:#451A03;">↩ Undo</button>
           <button class="sp-lock-tag" id="sp-btn-deselect" title="Deselect element / reset target" style="color:#F87171;border-color:#4B1D24;">✕ Reset</button>
         </div>
 
@@ -434,6 +440,10 @@
   const sidebarDock       = root.querySelector("#sp-sidebar-dock");
   const dockCaptureBtn    = root.querySelector("#sp-dock-capture");
   const dockPowerBtn      = root.querySelector("#sp-dock-power");
+  const dockUndoBtn       = root.querySelector("#sp-dock-undo");
+  const drawerUndoBtn     = root.querySelector("#sp-btn-undo");
+  const snapGuideH        = root.querySelector("#sp-snap-guide-h");
+  const snapGuideV        = root.querySelector("#sp-snap-guide-v");
 
   const previewPanel      = root.querySelector("#sp-inspect-preview-panel");
   const previewCloseBtn   = root.querySelector("#sp-preview-close");
@@ -2377,7 +2387,9 @@ gsap.to("${selector}", {
     if (!targetEl || isOwn(targetEl)) return;
     if (!isTextEditableCandidate(targetEl)) return;
 
-    // Find the text-bearing node (element with direct text, or the element itself)
+    // Word Document-Style Precise Text Selection:
+    // If the clicked target is or has a specific leaf text node/span, edit THAT specific element directly
+    // so neighboring spans with different fonts in the same div are NEVER overwritten!
     let textEl = targetEl;
     if (targetEl.childNodes.length === 1 && targetEl.childNodes[0].nodeType === Node.TEXT_NODE) {
       textEl = targetEl;
@@ -2395,6 +2407,7 @@ gsap.to("${selector}", {
     }
 
     activeEditingNode = textEl;
+    textEl._spOriginalHtml = textEl.innerHTML;
     textEl._spOriginalText = textEl.innerText;
     textEl.contentEditable = "true";
     textEl.classList.add("sp-inline-editing");
@@ -2412,46 +2425,122 @@ gsap.to("${selector}", {
       }
     } catch (err) {}
 
-    showToast("✏️ Editing words live • Type new text, press Enter to finish");
+    showToast("✏️ Editing words live • Enter for new line div with matching font, Esc to cancel");
 
     function onBlur() {
       finishInlineTextEdit(textEl);
       textEl.removeEventListener("blur", onBlur);
       textEl.removeEventListener("keydown", onKey);
+      textEl.removeEventListener("beforeinput", onBeforeInput);
     }
 
+    // When writing past a different font, inherit its font attributes just like Microsoft Word
+    function onBeforeInput(ev) {
+      if (ev.inputType === "insertText" && ev.data) {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (range.collapsed) {
+          let refNode = null;
+          if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            refNode = range.startContainer.parentElement;
+          } else if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+            const children = range.startContainer.childNodes;
+            if (range.startOffset > 0 && children[range.startOffset - 1]) {
+              refNode = children[range.startOffset - 1];
+            } else if (children[range.startOffset]) {
+              refNode = children[range.startOffset];
+            }
+          }
+
+          if (refNode && refNode.nodeType === Node.ELEMENT_NODE && refNode !== textEl) {
+            const cs = window.getComputedStyle(refNode);
+            // If typing outside the styled span, wrap into a matching span so the font is preserved
+            if (range.startContainer === textEl) {
+              ev.preventDefault();
+              const newSpan = document.createElement("span");
+              newSpan.style.fontFamily = cs.fontFamily;
+              newSpan.style.fontSize = cs.fontSize;
+              newSpan.style.fontWeight = cs.fontWeight;
+              newSpan.style.fontStyle = cs.fontStyle;
+              newSpan.style.color = cs.color;
+              newSpan.textContent = ev.data;
+              range.insertNode(newSpan);
+
+              const newRange = document.createRange();
+              newRange.setStart(newSpan.firstChild, newSpan.textContent.length);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          }
+        }
+      }
+    }
+
+    // Word Document-Style Enter Key: creates a new div line inheriting current font attributes!
     function onKey(ev) {
       if (ev.key === "Escape") {
-        textEl.innerText = textEl._spOriginalText;
+        textEl.innerHTML = textEl._spOriginalHtml;
         textEl.blur();
-      } else if (ev.key === "Enter" && !ev.shiftKey && !["P", "DIV"].includes(textEl.tagName)) {
-        ev.preventDefault();
-        textEl.blur();
+      } else if (ev.key === "Enter") {
+        if (!ev.shiftKey) {
+          ev.preventDefault();
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            let caretNode = range.startContainer;
+            if (caretNode.nodeType === Node.TEXT_NODE) caretNode = caretNode.parentElement;
+            const cs = window.getComputedStyle(caretNode || textEl);
+
+            const newLine = document.createElement("div");
+            newLine.style.fontFamily = cs.fontFamily;
+            newLine.style.fontSize = cs.fontSize;
+            newLine.style.fontWeight = cs.fontWeight;
+            newLine.style.fontStyle = cs.fontStyle;
+            newLine.style.color = cs.color;
+            newLine.style.lineHeight = cs.lineHeight;
+            newLine.innerHTML = "<br>";
+
+            range.deleteContents();
+            range.insertNode(newLine);
+
+            const newRange = document.createRange();
+            newRange.setStart(newLine, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+          }
+        }
       }
     }
 
     textEl.addEventListener("blur", onBlur);
     textEl.addEventListener("keydown", onKey);
+    textEl.addEventListener("beforeinput", onBeforeInput);
   }
 
   function finishInlineTextEdit(node) {
     if (!node) return;
     node.contentEditable = "false";
     node.classList.remove("sp-inline-editing");
-    if (node._spOriginalText !== undefined && node.innerText !== node._spOriginalText) {
-      const oldText = node._spOriginalText;
-      const newText = node.innerText;
+    if (node._spOriginalHtml !== undefined && node.innerHTML !== node._spOriginalHtml) {
+      const oldHtml = node._spOriginalHtml;
+      const newHtml = node.innerHTML;
       undoStack.push({
         type: "text",
         node,
-        oldText,
-        newText
+        oldHtml,
+        newHtml,
+        oldText: node._spOriginalText,
+        newText: node.innerText
       });
+      delete node._spOriginalHtml;
       delete node._spOriginalText;
       updateSandboxPreview(selectedEl);
       populateDualCodePanes(selectedEl);
       updateSelectBox(selectedEl);
-      showToast("✓ Saved word edits to live site!");
+      showToast("✓ Saved word edits • Formatted lines & fonts preserved!");
     }
     if (activeEditingNode === node) activeEditingNode = null;
   }
@@ -2582,8 +2671,98 @@ gsap.to("${selector}", {
         const dScrollX = curScrollX - dragOrigin.scrollX;
         const dScrollY = curScrollY - dragOrigin.scrollY;
 
-        const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX) + dScrollX;
-        const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
+        let rawDx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX) + dScrollX;
+        let rawDy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
+
+        let dx = rawDx;
+        let dy = rawDy;
+
+        let snappedH = false;
+        let snappedV = false;
+        let snapLineY = 0;
+        let snapLineX = 0;
+
+        const SNAP_THRESHOLD = 10;
+
+        // 1. Magnetic snap to original starting position (Word Document-style accidental nudge protection)
+        if (Math.abs(rawDx - dragOrigin.elemX) <= SNAP_THRESHOLD) {
+          dx = dragOrigin.elemX;
+          snappedV = true;
+          snapLineX = dragOrigin.mouseX;
+        }
+        if (Math.abs(rawDy - dragOrigin.elemY) <= SNAP_THRESHOLD) {
+          dy = dragOrigin.elemY;
+          snappedH = true;
+          snapLineY = dragOrigin.mouseY;
+        }
+
+        // 2. Snap to parent container margins or center (Word Document margin guides)
+        const parent = dragTarget.parentElement;
+        if (parent && !isOwn(parent)) {
+          const pRect = parent.getBoundingClientRect();
+          const tRect = dragTarget.getBoundingClientRect();
+          const curTransX = (dragTarget._spTranslate ? dragTarget._spTranslate.x : 0);
+          const curTransY = (dragTarget._spTranslate ? dragTarget._spTranslate.y : 0);
+
+          const proposedLeft = tRect.left + (dx - curTransX);
+          const proposedRight = proposedLeft + tRect.width;
+          const proposedCenterX = proposedLeft + tRect.width / 2;
+
+          if (!snappedV) {
+            if (Math.abs(proposedLeft - pRect.left) <= SNAP_THRESHOLD) {
+              dx += (pRect.left - proposedLeft);
+              snappedV = true;
+              snapLineX = pRect.left;
+            } else if (Math.abs(proposedCenterX - (pRect.left + pRect.width / 2)) <= SNAP_THRESHOLD) {
+              dx += ((pRect.left + pRect.width / 2) - proposedCenterX);
+              snappedV = true;
+              snapLineX = pRect.left + pRect.width / 2;
+            } else if (Math.abs(proposedRight - pRect.right) <= SNAP_THRESHOLD) {
+              dx += (pRect.right - proposedRight);
+              snappedV = true;
+              snapLineX = pRect.right;
+            }
+          }
+
+          const proposedTop = tRect.top + (dy - curTransY);
+          const proposedBottom = proposedTop + tRect.height;
+          const proposedCenterY = proposedTop + tRect.height / 2;
+
+          if (!snappedH) {
+            if (Math.abs(proposedTop - pRect.top) <= SNAP_THRESHOLD) {
+              dy += (pRect.top - proposedTop);
+              snappedH = true;
+              snapLineY = pRect.top;
+            } else if (Math.abs(proposedCenterY - (pRect.top + pRect.height / 2)) <= SNAP_THRESHOLD) {
+              dy += ((pRect.top + pRect.height / 2) - proposedCenterY);
+              snappedH = true;
+              snapLineY = pRect.top + pRect.height / 2;
+            } else if (Math.abs(proposedBottom - pRect.bottom) <= SNAP_THRESHOLD) {
+              dy += (pRect.bottom - proposedBottom);
+              snappedH = true;
+              snapLineY = pRect.bottom;
+            }
+          }
+        }
+
+        // Show/hide visual snap guidelines
+        if (snapGuideV) {
+          if (snappedV) {
+            snapGuideV.style.display = "block";
+            snapGuideV.style.left = snapLineX + "px";
+          } else {
+            snapGuideV.style.display = "none";
+          }
+        }
+        if (snapGuideH) {
+          if (snappedH) {
+            snapGuideH.style.display = "block";
+            snapGuideH.style.top = snapLineY + "px";
+          } else {
+            snapGuideH.style.display = "none";
+          }
+        }
+
         dragTarget._spTranslate = { x: dx, y: dy };
         dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
         updateSelectBox(dragTarget);
@@ -2593,6 +2772,9 @@ gsap.to("${selector}", {
         }
       }
     } else if (isEnabled && !isDragging && !isResizing) {
+      if (snapGuideH) snapGuideH.style.display = "none";
+      if (snapGuideV) snapGuideV.style.display = "none";
+
       // Suppress hoverBox completely when an element is already selected:
       // This enforces ONE DIV ONLY (the target outline) with ZERO conflicting outlines!
       if (selectedEl) {
@@ -2632,15 +2814,19 @@ gsap.to("${selector}", {
     }
     lastDragMouseEvent = null;
 
+    if (snapGuideH) snapGuideH.style.display = "none";
+    if (snapGuideV) snapGuideV.style.display = "none";
+
     if (isDragCandidate) {
       if (isDragging && dragTarget) {
         dragTarget.classList.remove("sp-free-dragging");
         undoStack.push({
           type: "move",
           node: dragTarget,
+          oldTranslate: { x: dragOrigin.elemX, y: dragOrigin.elemY },
           translate: { ...dragTarget._spTranslate }
         });
-        showToast("✓ Moved element!");
+        showToast("✓ Moved element • Click ↩ Undo or Ctrl+Z to revert");
       }
       isDragging = false;
       isDragCandidate = false;
@@ -2715,15 +2901,95 @@ gsap.to("${selector}", {
   }, true);
 
   /* ══════════════════════════════════════════════════════════
+     Undo Engine & Actions
+     ══════════════════════════════════════════════════════════ */
+  function performUndo() {
+    if (!undoStack.length) {
+      showToast("Nothing to undo");
+      return;
+    }
+    const action = undoStack.pop();
+    if (action.type === "delete" && action.parent) {
+      action.parent.insertBefore(action.node, action.next || null);
+      showToast("↺ Restored deleted element");
+    } else if (action.type === "html" && action.parent) {
+      action.parent.replaceChild(action.oldEl, action.newEl);
+      selectedEl = action.oldEl;
+      selectElement(selectedEl);
+      showToast("↺ Restored previous HTML");
+    } else if (action.type === "text" && action.node) {
+      if (action.oldHtml !== undefined) {
+        action.node.innerHTML = action.oldHtml;
+      } else if (action.oldText !== undefined) {
+        action.node.innerText = action.oldText;
+      }
+      updateSandboxPreview(action.node);
+      populateDualCodePanes(action.node);
+      updateSelectBox(action.node);
+      showToast("↺ Restored original words & fonts");
+    } else if (action.type === "move" && action.node) {
+      const prev = action.oldTranslate || { x: 0, y: 0 };
+      action.node._spTranslate = { ...prev };
+      if (prev.x !== 0 || prev.y !== 0) {
+        action.node.style.transform = `translate(${prev.x}px, ${prev.y}px)`;
+      } else {
+        action.node.style.transform = "";
+      }
+      updateSelectBox(action.node);
+      showToast("↺ Restored original position");
+    } else if (action.type === "resize" && action.node) {
+      action.node.style.width = action.oldW;
+      action.node.style.height = action.oldH;
+      updateSelectBox(action.node);
+      updateSandboxPreview(action.node);
+      showToast("↺ Restored original dimensions");
+    } else if (action.type === "img-replace" && action.node) {
+      action.node.src = action.oldSrc;
+      updateSelectBox(action.node);
+      updateSandboxPreview(action.node);
+      populateDualCodePanes(action.node);
+      showToast("↺ Restored original image");
+    } else if (action.type === "style" && action.node) {
+      if (action.oldVal !== undefined) action.node.style[action.prop] = action.oldVal;
+      updateSelectBox(action.node);
+      updateSandboxPreview(action.node);
+      showToast(`↺ Restored original ${action.prop}`);
+    } else if (action.type === "bg-image" && action.node) {
+      if (action.oldBgImage !== undefined) action.node.style.backgroundImage = action.oldBgImage;
+      if (action.oldBgSize !== undefined) action.node.style.backgroundSize = action.oldBgSize;
+      if (action.oldBgPosition !== undefined) action.node.style.backgroundPosition = action.oldBgPosition;
+      if (action.oldBgRepeat !== undefined) action.node.style.backgroundRepeat = action.oldBgRepeat;
+      updateSelectBox(action.node);
+      updateSandboxPreview(action.node);
+      showToast("↺ Restored previous background");
+    }
+  }
+
+  if (dockUndoBtn) dockUndoBtn.addEventListener("click", performUndo);
+  if (drawerUndoBtn) drawerUndoBtn.addEventListener("click", performUndo);
+
+  /* ══════════════════════════════════════════════════════════
      Global Shortcuts
      ══════════════════════════════════════════════════════════ */
   window.addEventListener("keydown", e => {
-    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+    // Suppress single-letter shortcuts when typing in inputs or contenteditable text:
+    const isTyping = e.target.tagName === "TEXTAREA" ||
+                     e.target.tagName === "INPUT" ||
+                     e.target.isContentEditable ||
+                     (e.target.closest && e.target.closest("[contenteditable='true']")) ||
+                     activeEditingNode;
+
+    if (isTyping) {
+      if (e.key === "Escape" && activeEditingNode) {
+        finishInlineTextEdit(activeEditingNode);
+      }
+      return;
+    }
 
     if (e.key === "Escape") {
       if (errorModal.classList.contains("sp-modal-show")) {
         closeErrorModal();
-    closeAddModal();
+        closeAddModal();
       } else if (addModal.classList.contains("sp-show")) {
         closeAddModal();
       } else if (drawer.classList.contains("sp-open") || previewPanel.classList.contains("sp-show")) {
@@ -2735,50 +3001,8 @@ gsap.to("${selector}", {
         turnOffStylePeek();
       }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
-      if (undoStack.length > 0) {
-        e.preventDefault();
-        const action = undoStack.pop();
-        if (action.type === "delete" && action.parent) {
-          action.parent.insertBefore(action.node, action.next || null);
-          showToast("↺ Restored deleted element");
-        } else if (action.type === "html" && action.parent) {
-          action.parent.replaceChild(action.oldEl, action.newEl);
-          selectedEl = action.oldEl;
-          selectElement(selectedEl);
-          showToast("↺ Restored previous HTML");
-        } else if (action.type === "text" && action.node) {
-          action.node.innerText = action.oldText;
-          updateSandboxPreview(action.node);
-          populateDualCodePanes(action.node);
-          updateSelectBox(action.node);
-          showToast("↺ Restored original words");
-        } else if (action.type === "move" && action.node) {
-          action.node._spTranslate = { x: 0, y: 0 };
-          action.node.style.transform = "";
-          updateSelectBox(action.node);
-          showToast("↺ Restored original position");
-        } else if (action.type === "resize" && action.node) {
-          action.node.style.width = action.oldW;
-          action.node.style.height = action.oldH;
-          updateSelectBox(action.node);
-          updateSandboxPreview(action.node);
-          showToast("↺ Restored original dimensions");
-        } else if (action.type === "img-replace" && action.node) {
-          action.node.src = action.oldSrc;
-          updateSelectBox(action.node);
-          updateSandboxPreview(action.node);
-          populateDualCodePanes(action.node);
-          showToast("↺ Restored original image");
-        } else if (action.type === "bg-image" && action.node) {
-          if (action.oldBgImage !== undefined) action.node.style.backgroundImage = action.oldBgImage;
-          if (action.oldBgSize !== undefined) action.node.style.backgroundSize = action.oldBgSize;
-          if (action.oldBgPosition !== undefined) action.node.style.backgroundPosition = action.oldBgPosition;
-          if (action.oldBgRepeat !== undefined) action.node.style.backgroundRepeat = action.oldBgRepeat;
-          updateSelectBox(action.node);
-          updateSandboxPreview(action.node);
-          showToast("↺ Restored previous background");
-        }
-      }
+      e.preventDefault();
+      performUndo();
     } else if (e.altKey && e.code === "KeyC") {
       e.preventDefault();
       captureVisibleViewport();
