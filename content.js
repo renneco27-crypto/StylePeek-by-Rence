@@ -2075,6 +2075,10 @@ gsap.to("${selector}", {
     } else if (e.data.type === "STYLEPEEK_OPEN_ADD") {
       if (!isEnabled) turnOnStylePeek("inspect");
       openAddModal();
+    } else if (e.data.type === "STYLEPEEK_SELECT") {
+      if (!isEnabled) turnOnStylePeek("inspect");
+      const target = e.data.selector ? document.querySelector(e.data.selector) : null;
+      if (target) selectElement(target);
     }
   });
 
