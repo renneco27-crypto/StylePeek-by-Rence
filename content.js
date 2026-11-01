@@ -1911,6 +1911,19 @@ gsap.to("${selector}", {
     return true;
   });
 
+  /* ── Window PostMessage API (DevTools / Console / Scripting bridge) ── */
+  window.addEventListener("message", e => {
+    if (!e.data || typeof e.data !== "object") return;
+    if (e.data.type === "STYLEPEEK_TURN_ON") {
+      turnOnStylePeek(e.data.mode || "inspect");
+    } else if (e.data.type === "STYLEPEEK_TURN_OFF") {
+      turnOffStylePeek();
+    } else if (e.data.type === "STYLEPEEK_OPEN_ADD") {
+      if (!isEnabled) turnOnStylePeek("inspect");
+      openAddModal();
+    }
+  });
+
   /* ══════════════════════════════════════════════════════════
      Visible Phone Viewport Extractor
      ══════════════════════════════════════════════════════════ */
