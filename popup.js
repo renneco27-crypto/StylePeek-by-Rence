@@ -1,12 +1,36 @@
-const btn = document.getElementById("toggleBtn");
-const captureBtn = document.getElementById("captureBtn");
-const label = document.getElementById("toggleLabel");
-const statusMsg = document.getElementById("statusMsg");
+const masterToggle     = document.getElementById("masterToggle");
+const masterSwitchCard = document.querySelector(".master-switch-card");
+const statusDot        = document.getElementById("statusDot");
+const switchTitle      = document.getElementById("switchTitle");
+const switchDesc       = document.getElementById("switchDesc");
+const captureBtn       = document.getElementById("captureBtn");
+const statusMsg        = document.getElementById("statusMsg");
 
-function setActiveUI(isActive) {
-  btn.classList.toggle("active", isActive);
-  label.textContent = isActive ? "Stop inspecting" : "Start inspecting";
-  statusMsg.textContent = isActive ? "Hover the page, then click an element." : "";
+const tools = {
+  inspect: document.getElementById("toolInspect"),
+  move:    document.getElementById("toolMove"),
+  color:   document.getElementById("toolColor"),
+  layers:  document.getElementById("toolLayers"),
+  code:    document.getElementById("toolCode"),
+  delete:  document.getElementById("toolDelete"),
+};
+
+function updateSwitchUI(isOn, activeMode = "inspect") {
+  masterToggle.checked = isOn;
+  masterSwitchCard.classList.toggle("active", isOn);
+  statusDot.classList.toggle("active", isOn);
+  if (isOn) {
+    switchTitle.textContent = "StylePeek: ON";
+    switchDesc.textContent = `Active (${activeMode.toUpperCase()}) • Hover & click elements`;
+  } else {
+    switchTitle.textContent = "StylePeek: OFF";
+    switchDesc.textContent = "Normal browsing • Canvas untouched";
+  }
+
+  Object.entries(tools).forEach(([mode, btn]) => {
+    if (!btn) return;
+    btn.classList.toggle("active", isOn && activeMode === mode);
+  });
 }
 
 async function getActiveTab() {
@@ -19,69 +43,85 @@ function isRestrictedUrl(url) {
 }
 
 async function ensureContentScript(tabId) {
-  await chrome.scripting.insertCSS({ target: { tabId }, files: ["content.css"] });
-  await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+  try {
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ["content.css"] });
+  } catch (e) {}
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+  } catch (e) {}
 }
 
-async function sendMessage(tabId, message) {
+async function sendTabMessage(tabId, message) {
   try {
     return await chrome.tabs.sendMessage(tabId, message);
   } catch (err) {
-    // content script probably isn't injected yet (e.g. page loaded before install)
+    // If not injected, inject and retry
     await ensureContentScript(tabId);
     return await chrome.tabs.sendMessage(tabId, message);
   }
 }
 
-const toolButtons = {
-  move: document.getElementById("toolMove"),
-  palette: document.getElementById("toolColor"),
-  typo: document.getElementById("toolFont"),
-  delete: document.getElementById("toolDelete"),
-};
-
-function setToolUI(activeMode) {
-  Object.entries(toolButtons).forEach(([mode, el]) => {
-    if (!el) return;
-    el.classList.toggle("active", activeMode === mode);
-  });
-}
-
 async function init() {
   const tab = await getActiveTab();
   if (!tab || isRestrictedUrl(tab.url)) {
-    statusMsg.textContent = "This page can't be inspected (browser/system pages aren't supported).";
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    btn.style.cursor = "not-allowed";
+    switchTitle.textContent = "Unavailable";
+    switchDesc.textContent = "Browser system pages cannot be inspected";
+    masterToggle.disabled = true;
+    captureBtn.disabled = true;
+    captureBtn.style.opacity = "0.5";
     return;
   }
+
   try {
     const res = await chrome.tabs.sendMessage(tab.id, { action: "getStatus" });
-    const isInspecting = !!(res && res.inspecting);
-    setActiveUI(isInspecting);
-    if (res && res.mode && res.mode !== "none") {
-      setToolUI(res.mode);
-      statusMsg.textContent = `${res.mode.toUpperCase()} mode active • Press Esc to exit`;
+    if (res && res.active) {
+      updateSwitchUI(true, res.mode || "inspect");
+      statusMsg.textContent = `StylePeek is running (${res.mode || "inspect"})`;
     } else {
-      setToolUI(null);
+      updateSwitchUI(false);
     }
   } catch (err) {
-    setActiveUI(false);
-    setToolUI(null);
+    updateSwitchUI(false);
   }
 }
 
-Object.entries(toolButtons).forEach(([mode, btnEl]) => {
-  if (!btnEl) return;
-  btnEl.addEventListener("click", async () => {
+masterToggle.addEventListener("change", async () => {
+  const tab = await getActiveTab();
+  if (!tab || isRestrictedUrl(tab.url)) return;
+
+  const wantOn = masterToggle.checked;
+  if (wantOn) {
+    updateSwitchUI(true, "inspect");
+    statusMsg.textContent = "Activating StylePeek...";
+    try {
+      await sendTabMessage(tab.id, { action: "turnOn", mode: "inspect" });
+      statusMsg.textContent = "StylePeek ON • Click an element on page";
+      setTimeout(() => window.close(), 600);
+    } catch (e) {
+      statusMsg.textContent = "Failed to activate. Reload the page.";
+    }
+  } else {
+    updateSwitchUI(false);
+    try {
+      await sendTabMessage(tab.id, { action: "turnOff" });
+      statusMsg.textContent = "StylePeek OFF • Page restored";
+    } catch (e) {}
+  }
+});
+
+Object.entries(tools).forEach(([mode, btn]) => {
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
     const tab = await getActiveTab();
     if (!tab || isRestrictedUrl(tab.url)) return;
+
+    updateSwitchUI(true, mode);
+    statusMsg.textContent = `Activating ${mode.toUpperCase()} mode...`;
     try {
-      await sendMessage(tab.id, { action: "startTool", mode });
-      window.close(); // Close popup immediately so user can work on the page
+      await sendTabMessage(tab.id, { action: "startTool", mode });
+      window.close(); // Immediate focus on the page
     } catch (err) {
-      statusMsg.textContent = "Could not activate tool. Reload page and try again.";
+      statusMsg.textContent = "Could not activate tool. Reload page.";
     }
   });
 });
@@ -91,23 +131,11 @@ captureBtn.addEventListener("click", async () => {
   if (!tab || isRestrictedUrl(tab.url)) return;
   try {
     statusMsg.textContent = "Capturing rendered viewport...";
-    await sendMessage(tab.id, { action: "captureViewport" });
+    await sendTabMessage(tab.id, { action: "captureViewport" });
     statusMsg.textContent = "Viewport downloaded!";
     setTimeout(() => window.close(), 1000);
   } catch (err) {
     statusMsg.textContent = "Capture failed. Try reloading the page first.";
-  }
-});
-
-btn.addEventListener("click", async () => {
-  const tab = await getActiveTab();
-  if (!tab || isRestrictedUrl(tab.url)) return;
-  try {
-    const res = await sendMessage(tab.id, { action: "toggleInspect" });
-    setActiveUI(!!(res && res.inspecting));
-    if (res && res.inspecting) window.close(); // let the person see the page immediately
-  } catch (err) {
-    statusMsg.textContent = "Couldn't start on this page. Try reloading it once, then try again.";
   }
 });
 

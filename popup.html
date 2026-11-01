@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Style Peek</title>
+  <title>Style Peek Studio</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -10,56 +10,72 @@
     <header>
       <img src="icons/icon48.png" alt="" class="logo" />
       <div>
-        <h1>Style Peek</h1>
-        <p class="tag">CSS · HTML · JS inspector</p>
+        <h1>Style Peek Studio</h1>
+        <p class="tag">Visual Inspector & Viewport Extractor</p>
       </div>
     </header>
 
-    <button id="toggleBtn" class="primary-btn">
-      <span class="dot"></span>
-      <span id="toggleLabel">Start inspecting</span>
-    </button>
+    <!-- Master ON / OFF Toggle Switch -->
+    <div class="master-switch-card">
+      <div class="switch-info">
+        <div class="switch-title-row">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="switch-title" id="switchTitle">StylePeek: OFF</span>
+        </div>
+        <span class="switch-desc" id="switchDesc">Normal browsing • Canvas untouched</span>
+      </div>
+      <label class="switch-label" title="Toggle StylePeek ON/OFF">
+        <input type="checkbox" id="masterToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
 
-    <button id="captureBtn" class="secondary-btn" title="Capture & download what is rendered in screen (Alt+C)">
+    <button id="captureBtn" class="capture-btn" title="Capture & download what is rendered in screen (Alt+C)">
       <span>📸 Capture Viewport</span>
       <kbd>Alt+C</kbd>
     </button>
 
-    <p id="statusMsg" class="status"></p>
+    <div class="section-title">STUDIO TOOLS (ACTIVE WHEN ON)</div>
 
     <div class="features-grid">
-      <button class="feat-btn" id="toolMove" title="Drag to reorder elements or hold Alt for free move">
+      <button class="feat-btn" id="toolInspect" title="Click element to open floating editor popup">
+        <span class="feat-icon">🔍</span>
+        <div class="feat-text"><strong>Inspect</strong><span>editor popup</span></div>
+      </button>
+      <button class="feat-btn" id="toolMove" title="Free live drag anywhere on canvas">
         <span class="feat-icon">✋</span>
-        <div class="feat-text"><strong>Move</strong><span>reorder/drag</span></div>
+        <div class="feat-text"><strong>Move</strong><span>free live drag</span></div>
       </button>
-      <button class="feat-btn" id="toolColor" title="Click element to tweak text/bg/border colors">
+      <button class="feat-btn" id="toolColor" title="Hex color & gradient builder">
         <span class="feat-icon">🎨</span>
-        <div class="feat-text"><strong>Color</strong><span>live palette</span></div>
+        <div class="feat-text"><strong>Gradient</strong><span>hex & gradients</span></div>
       </button>
-      <button class="feat-btn" id="toolFont" title="Click element to adjust font size & family">
-        <span class="feat-icon">🔤</span>
-        <div class="feat-text"><strong>Font</strong><span>typography</span></div>
+      <button class="feat-btn" id="toolLayers" title="Push to back, bring to front, DOM hierarchy">
+        <span class="feat-icon">🥞</span>
+        <div class="feat-text"><strong>Layers</strong><span>z-index & tree</span></div>
+      </button>
+      <button class="feat-btn" id="toolCode" title="Live HTML & CSS hot-reload">
+        <span class="feat-icon">💻</span>
+        <div class="feat-text"><strong>Code</strong><span>live HTML/CSS</span></div>
       </button>
       <button class="feat-btn" id="toolDelete" title="Click element to delete (Ctrl+Z to undo)">
         <span class="feat-icon">✂️</span>
-        <div class="feat-text"><strong>Delete</strong><span>remove node</span></div>
+        <div class="feat-text"><strong>Delete</strong><span>Ctrl+Z undo</span></div>
       </button>
     </div>
 
+    <p id="statusMsg" class="status"></p>
+
     <ol class="steps">
-      <li>Click any tool above or <strong>Start inspecting</strong></li>
-      <li>Click hamburger or buttons to open mobile menus/drawers</li>
-      <li>Press <strong>Capture Viewport</strong> (<kbd>Alt+C</kbd>) to download</li>
-      <li>Press <kbd>Esc</kbd> anytime to exit mode</li>
+      <li>Turn <strong>ON</strong> or pick a tool above</li>
+      <li>Hover any element for outline; click for editor popup</li>
+      <li>Drag elements freely in <strong>Move</strong> mode</li>
+      <li>Push to back or bring to front in <strong>Layers</strong></li>
+      <li>Press <kbd>Alt+C</kbd> to capture fluid viewport</li>
+      <li>Press <kbd>Esc</kbd> or switch OFF to return to normal</li>
     </ol>
 
-    <div class="highlight-box">
-      <span class="spark">✦</span>
-      Animations get their own tab — durations, easing, and the full
-      <code>@keyframes</code> block, ready to copy.
-    </div>
-
-    <footer>Free for everyone · no account · nothing collected</footer>
+    <footer>StylePeek Studio · Free & Open Source · No telemetry</footer>
   </div>
   <script src="popup.js"></script>
 </body>
