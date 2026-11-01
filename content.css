@@ -756,55 +756,90 @@ body.sp-mode-move * {
 }
 
 /* ══════════════════════════════════════════════════════════
-   Interactive Live Component Sandbox Preview
+   Dedicated Floating Inspect Live Preview Panel
    ══════════════════════════════════════════════════════════ */
-.sp-sandbox-wrapper {
-  background: #080A0F;
-  border: 1px solid #1E2638;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  overflow: hidden;
-  display: flex;
+#sp-inspect-preview-panel {
+  position: fixed;
+  top: 80px;
+  left: 24px;
+  width: 440px;
+  max-width: calc(100vw - 48px);
+  max-height: 420px;
+  background: #0E121A;
+  border: 1px solid #2B384E;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  z-index: 2147483645;
+  display: none;
   flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  transition: opacity 0.15s ease;
 }
-.sp-sandbox-header {
-  background: #10141F;
-  border-bottom: 1px solid #1E2638;
-  padding: 6px 10px;
+
+#sp-inspect-preview-panel.sp-show {
+  display: flex;
+}
+
+.sp-preview-panel-header {
+  background: #141824;
+  border-bottom: 1px solid #22293A;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font: 700 10.5px SFMono-Regular, monospace;
-  color: #94A3B8;
+  gap: 8px;
+  user-select: none;
+  cursor: grab;
 }
-.sp-sandbox-controls {
+.sp-preview-panel-header:active {
+  cursor: grabbing;
+}
+
+#sp-preview-drag-handle {
+  color: #64748B;
+  font-size: 13px;
+  cursor: grab;
+}
+.sp-preview-panel-title {
+  font: 700 11px SFMono-Regular, monospace;
+  color: #22D3EE;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-preview-panel-actions {
   display: flex;
-  gap: 6px;
   align-items: center;
+  gap: 6px;
 }
-.sp-sandbox-btn {
-  background: #161D2B;
-  border: 1px solid #283348;
-  color: #38BDF8;
-  font: 600 10px -apple-system, sans-serif;
-  padding: 3px 8px;
-  border-radius: 4px;
+.sp-preview-close-btn {
+  background: #1E2536;
+  border: 1px solid #2B3548;
+  color: #8492A6;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.12s;
 }
-.sp-sandbox-btn:hover {
-  background: #202A3E;
-  border-color: #38BDF8;
+.sp-preview-close-btn:hover {
+  color: #EF4444;
+  border-color: #EF4444;
 }
-.sp-sandbox-btn.active {
-  background: #0284C7;
-  color: #FFFFFF;
-  border-color: #38BDF8;
-}
+
+/* ══════════════════════════════════════════════════════════
+   Interactive Live Component Sandbox Preview
+   ══════════════════════════════════════════════════════════ */
 .sp-sandbox-viewport {
   padding: 16px;
-  min-height: 80px;
-  max-height: 160px;
+  min-height: 120px;
+  max-height: 320px;
   overflow: auto;
   display: flex;
   align-items: center;
@@ -820,6 +855,158 @@ body.sp-mode-move * {
   max-width: 100% !important;
   max-height: 100% !important;
   pointer-events: auto !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Border Options Row & Selectors
+   ══════════════════════════════════════════════════════════ */
+.sp-border-options-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sp-border-select {
+  flex: 1;
+  background: #161B28;
+  border: 1px solid #2A344A;
+  color: #F1F5F9;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font: 11px -apple-system, sans-serif;
+  outline: none;
+}
+.sp-border-select:focus {
+  border-color: #22D3EE;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Layers: Background Pinpointing & HTML Themes
+   ══════════════════════════════════════════════════════════ */
+.sp-bg-pinpoint-card {
+  background: #121622;
+  border: 1px solid #202738;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+#sp-bg-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.sp-bg-layer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #161B28;
+  border: 1px solid #252F42;
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.sp-bg-layer-name {
+  font: 700 11px SFMono-Regular, monospace;
+  color: #38BDF8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sp-bg-layer-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #475569;
+}
+.sp-theme-color-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0D1017;
+  border: 1px solid #1E2638;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Layers: Add Custom Elements
+   ══════════════════════════════════════════════════════════ */
+.sp-add-elements-card {
+  background: #10141F;
+  border: 1px solid #1E273A;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.sp-add-btn-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sp-add-btn {
+  flex: 1;
+  background: #182030;
+  border: 1px solid #28354A;
+  color: #F1F5F9;
+  padding: 6px 4px;
+  border-radius: 6px;
+  font: 600 11px -apple-system, sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.12s;
+}
+.sp-add-btn:hover {
+  background: #222C42;
+  border-color: #22D3EE;
+  color: #22D3EE;
+}
+
+/* ── DOM Breadcrumbs Actions (Visibility & Solo) ── */
+.sp-crumb-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #181E2E;
+  border: 1px solid #28344C;
+  border-radius: 5px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.sp-crumb-tag {
+  background: transparent !important;
+  border: none !important;
+  color: #94A3B8;
+  font: 600 11px SFMono-Regular, monospace;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.sp-crumb-tag:hover { color: #22D3EE; }
+.sp-crumb-row.current {
+  background: #8B5CF6;
+  border-color: #A855F7;
+}
+.sp-crumb-row.current .sp-crumb-tag {
+  color: #FFFFFF;
+  font-weight: 700;
+}
+.sp-layer-eye-btn, .sp-layer-solo-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.sp-layer-eye-btn:hover, .sp-layer-solo-btn:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.15);
+}
+.sp-layer-hidden {
+  opacity: 0.4 !important;
 }
 
 /* ══════════════════════════════════════════════════════════

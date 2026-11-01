@@ -8,11 +8,12 @@
   let hoveredEl = null;
   const undoStack = [];
 
-  // Morphing States
+  // Morphing & Preview States
   let currentMorphState = "A";
   let sandboxMode = "component"; // "component" or "context"
+  let isolatedLayerNode = null;
 
-  /* ── Scaffold Studio Root, Dock, Drawer & Error Modal ── */
+  /* ── Scaffold Studio Root, Dock, Drawer, Floating Preview & Modal ── */
   const root = document.createElement("div");
   root.id = "sp-root";
   root.innerHTML = `
@@ -33,13 +34,27 @@
       <button class="sp-dock-btn sp-dock-active" data-tool="inspect" title="Inspect & Select Element (I)">🔍</button>
       <button class="sp-dock-btn" data-tool="move" title="Free Live Drag (M)">✋</button>
       <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">↔️</button>
-      <button class="sp-dock-btn" data-tool="style" title="Colors & Backgrounds (C)">🎨</button>
-      <button class="sp-dock-btn" data-tool="layers" title="Layers & Send to Back (L)">🥞</button>
+      <button class="sp-dock-btn" data-tool="style" title="Colors & Border Styling (C)">🎨</button>
+      <button class="sp-dock-btn" data-tool="layers" title="Layers, Backgrounds & Send to Back (L)">🥞</button>
       <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">💻</button>
       <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">✂️</button>
       <div class="sp-dock-sep"></div>
       <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Phone Viewport (Alt+C)">📸</button>
       <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Turn OFF StylePeek">⭕</button>
+    </div>
+
+    <!-- Dedicated Floating Live Inspect Preview Panel (Independent from Code Tab) -->
+    <div id="sp-inspect-preview-panel">
+      <div class="sp-preview-panel-header">
+        <div id="sp-preview-drag-handle" title="Drag preview window">⋮⋮</div>
+        <span class="sp-preview-panel-title">🔍 LIVE COMPONENT PREVIEW</span>
+        <div class="sp-preview-panel-actions">
+          <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Context">View: Component</button>
+          <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh">↺</button>
+          <button class="sp-preview-close-btn" id="sp-preview-close" title="Close Preview">✕</button>
+        </div>
+      </div>
+      <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
     </div>
 
     <!-- Toast Notification -->
@@ -80,7 +95,7 @@
       </div>
 
       <div id="sp-drawer-body">
-        <!-- Tab 1: Simplified Colors & Hex -->
+        <!-- Tab 1: Simplified Colors, Div Fill & Explicit Border Controls -->
         <div class="sp-tab-pane sp-active" id="pane-style">
           <div class="sp-color-grid">
             <div class="sp-color-card">
@@ -92,7 +107,7 @@
             </div>
 
             <div class="sp-color-card">
-              <span class="sp-color-label">Background</span>
+              <span class="sp-color-label">Div Background Fill</span>
               <div class="sp-color-input-row">
                 <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#000000">
                 <input type="color" class="sp-color-btn" id="sp-bg-color" value="#000000">
@@ -100,10 +115,26 @@
             </div>
 
             <div class="sp-color-card">
-              <span class="sp-color-label">Border Color</span>
+              <span class="sp-color-label">Border Color & Width</span>
               <div class="sp-color-input-row">
                 <input type="text" class="sp-hex-input" id="sp-border-hex" value="#3b82f6">
                 <input type="color" class="sp-color-btn" id="sp-border-color" value="#3b82f6">
+              </div>
+              <div class="sp-border-options-row">
+                <select class="sp-border-select" id="sp-border-width" title="Border Width">
+                  <option value="1px">1px</option>
+                  <option value="2px" selected>2px</option>
+                  <option value="3px">3px</option>
+                  <option value="4px">4px</option>
+                  <option value="6px">6px</option>
+                  <option value="0px">None (0px)</option>
+                </select>
+                <select class="sp-border-select" id="sp-border-style" title="Border Style">
+                  <option value="solid" selected>Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                </select>
               </div>
             </div>
           </div>
@@ -121,30 +152,45 @@
           </div>
         </div>
 
-        <!-- Tab 2: Layers, Background Controls & Word-style Send to Back -->
+        <!-- Tab 2: Layers, Background Pinpoint & Word-style Send to Back -->
         <div class="sp-tab-pane" id="pane-layers">
-          <!-- Background Manager Card -->
-          <div class="sp-bg-layer-card">
+          <!-- Root & Theme Background Pinpointing Card -->
+          <div class="sp-bg-pinpoint-card">
             <div class="sp-bg-layer-header">
-              <span>CANVAS / PAGE BACKGROUND</span>
-              <span class="sp-bg-badge" id="sp-bg-type-badge">Color</span>
+              <span>🎯 PINPOINT BACKGROUNDS & HTML THEMES</span>
+              <span class="sp-bg-badge" id="sp-bg-detected-count">Detected</span>
             </div>
-            <div class="sp-bg-input-group">
-              <input type="text" class="sp-bg-url-input" id="sp-bg-input-val" placeholder="Image URL (https://...) or hex / gradient...">
-              <button class="sp-bg-action-btn" id="sp-btn-apply-bg">Apply</button>
+            <div id="sp-bg-layers-list">
+              <!-- Dynamically populated background layers: <html>, <body>, wrapper -->
             </div>
-            <div class="sp-bg-quick-row">
-              <button class="sp-bg-action-btn" id="sp-btn-select-body" title="Select root page background (body)">🌐 Select Page Body</button>
-              <button class="sp-bg-action-btn" id="sp-btn-copy-bg" title="Copy background CSS property">📋 Copy Background</button>
+            <div class="sp-theme-color-row">
+              <span style="font-size:11px;color:#94A3B8;font-weight:600">Theme Background:</span>
+              <input type="text" class="sp-hex-input" id="sp-theme-hex" placeholder="#0f172a">
+              <input type="color" class="sp-color-btn" id="sp-theme-color" value="#0f172a">
+              <button class="sp-bg-action-btn" id="sp-btn-apply-theme" title="Apply background color to HTML & Body theme">Apply Theme</button>
             </div>
           </div>
 
+          <!-- Add Custom Elements to Page -->
+          <div class="sp-add-elements-card">
+            <div class="sp-tree-label">➕ ADD CUSTOM ELEMENT (DRAG & SEND TO BACK):</div>
+            <div class="sp-add-btn-row">
+              <button class="sp-add-btn" id="sp-btn-add-image">🖼️ Add Photo / Image</button>
+              <button class="sp-add-btn" id="sp-btn-add-div">📦 Add Box / Div</button>
+              <button class="sp-add-btn" id="sp-btn-add-html">💻 Add Custom HTML</button>
+            </div>
+          </div>
+
+          <!-- Send to Back & Stacking Controls -->
           <div class="sp-layers-controls">
             <button class="sp-layer-btn back" id="sp-btn-push-back" title="Send element to very back (Word document style)">
               <span>⬇ Send to Back</span>
             </button>
             <button class="sp-layer-btn front" id="sp-btn-bring-front" title="Bring element to top layer">
               <span>⬆ Bring to Front</span>
+            </button>
+            <button class="sp-layer-btn" id="sp-btn-send-canvas" title="Send element behind entire page as root background">
+              <span>🌐 To Canvas BG</span>
             </button>
 
             <div class="sp-zindex-box">
@@ -155,24 +201,12 @@
             </div>
           </div>
 
-          <div class="sp-tree-label">DOM LAYER HIERARCHY (CLICK TO JUMP LAYERS):</div>
+          <div class="sp-tree-label">DOM LAYER HIERARCHY (👁️ VISIBILITY · 🎯 ISOLATE · CLICK TO JUMP):</div>
           <div id="sp-dom-breadcrumbs"></div>
         </div>
 
-        <!-- Tab 3: Interactive Sandbox Preview & Dual-Editor (State A vs State B) -->
+        <!-- Tab 3: Split Dual-Editor (Full Height, Unobstructed) -->
         <div class="sp-tab-pane" id="pane-code">
-          <!-- Live Interactive Sandbox Preview -->
-          <div class="sp-sandbox-wrapper">
-            <div class="sp-sandbox-header">
-              <span>LIVE COMPONENT PREVIEW</span>
-              <div class="sp-sandbox-controls">
-                <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Neighbor Context">View: Component Only</button>
-                <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh Sandbox">↺ Refresh</button>
-              </div>
-            </div>
-            <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
-          </div>
-
           <div class="sp-split-container">
             <!-- Left Column: State A -->
             <div class="sp-split-col">
@@ -215,63 +249,72 @@
   document.documentElement.appendChild(root);
 
   /* ── Element References ── */
-  const hoverBox        = root.querySelector("#sp-hover-box");
-  const hoverLbl        = root.querySelector("#sp-hover-label");
-  const selectBox       = root.querySelector("#sp-select-box");
-  const selectBadge     = root.querySelector("#sp-select-badge");
-  const sidebarDock     = root.querySelector("#sp-sidebar-dock");
-  const dockCaptureBtn  = root.querySelector("#sp-dock-capture");
-  const dockPowerBtn    = root.querySelector("#sp-dock-power");
+  const hoverBox          = root.querySelector("#sp-hover-box");
+  const hoverLbl          = root.querySelector("#sp-hover-label");
+  const selectBox         = root.querySelector("#sp-select-box");
+  const selectBadge       = root.querySelector("#sp-select-badge");
+  const sidebarDock       = root.querySelector("#sp-sidebar-dock");
+  const dockCaptureBtn    = root.querySelector("#sp-dock-capture");
+  const dockPowerBtn      = root.querySelector("#sp-dock-power");
 
-  const toast           = root.querySelector("#sp-toast");
-  const toastText       = root.querySelector("#sp-toast-text");
-  const drawer          = root.querySelector("#sp-drawer");
-  const drawerTag       = root.querySelector("#sp-drawer-tag");
-  const drawerName      = root.querySelector("#sp-drawer-name");
-  const drawerClose     = root.querySelector("#sp-drawer-close");
-  const lockBtn         = root.querySelector("#sp-lock-btn");
-  const deselectBtn     = root.querySelector("#sp-btn-deselect");
+  const previewPanel      = root.querySelector("#sp-inspect-preview-panel");
+  const previewCloseBtn   = root.querySelector("#sp-preview-close");
+  const sandboxViewport   = root.querySelector("#sp-sandbox-viewport");
+  const btnContextToggle  = root.querySelector("#sp-btn-context-toggle");
+  const btnRefreshPreview = root.querySelector("#sp-btn-refresh-preview");
 
-  const errorModal      = root.querySelector("#sp-error-modal");
-  const errorModalX     = root.querySelector("#sp-modal-x");
-  const errorMsgEl      = root.querySelector("#sp-error-msg");
-  const errorFixEl      = root.querySelector("#sp-error-fix");
-  const modalDismiss    = root.querySelector("#sp-modal-dismiss");
-  const modalAutoFix    = root.querySelector("#sp-modal-auto-fix");
-  let pendingAutoFixFn  = null;
+  const toast             = root.querySelector("#sp-toast");
+  const toastText         = root.querySelector("#sp-toast-text");
+  const drawer            = root.querySelector("#sp-drawer");
+  const drawerTag         = root.querySelector("#sp-drawer-tag");
+  const drawerName        = root.querySelector("#sp-drawer-name");
+  const drawerClose       = root.querySelector("#sp-drawer-close");
+  const lockBtn           = root.querySelector("#sp-lock-btn");
+  const deselectBtn       = root.querySelector("#sp-btn-deselect");
 
-  const textHex         = root.querySelector("#sp-text-hex");
-  const textColor       = root.querySelector("#sp-text-color");
-  const bgHex           = root.querySelector("#sp-bg-hex");
-  const bgColor         = root.querySelector("#sp-bg-color");
-  const borderHex       = root.querySelector("#sp-border-hex");
-  const borderColor     = root.querySelector("#sp-border-color");
+  const errorModal        = root.querySelector("#sp-error-modal");
+  const errorModalX       = root.querySelector("#sp-modal-x");
+  const errorMsgEl        = root.querySelector("#sp-error-msg");
+  const errorFixEl        = root.querySelector("#sp-error-fix");
+  const modalDismiss      = root.querySelector("#sp-modal-dismiss");
+  const modalAutoFix      = root.querySelector("#sp-modal-auto-fix");
+  let pendingAutoFixFn    = null;
 
-  const bgInputVal      = root.querySelector("#sp-bg-input-val");
-  const bgTypeBadge     = root.querySelector("#sp-bg-type-badge");
-  const btnApplyBg      = root.querySelector("#sp-btn-apply-bg");
-  const btnSelectBody   = root.querySelector("#sp-btn-select-body");
-  const btnCopyBg       = root.querySelector("#sp-btn-copy-bg");
+  const textHex           = root.querySelector("#sp-text-hex");
+  const textColor         = root.querySelector("#sp-text-color");
+  const bgHex             = root.querySelector("#sp-bg-hex");
+  const bgColor           = root.querySelector("#sp-bg-color");
+  const borderHex         = root.querySelector("#sp-border-hex");
+  const borderColor       = root.querySelector("#sp-border-color");
+  const borderWidthSelect = root.querySelector("#sp-border-width");
+  const borderStyleSelect = root.querySelector("#sp-border-style");
 
-  const btnPushBack     = root.querySelector("#sp-btn-push-back");
-  const btnBringFront   = root.querySelector("#sp-btn-bring-front");
-  const zDownBtn        = root.querySelector("#sp-z-down");
-  const zUpBtn          = root.querySelector("#sp-z-up");
-  const zInput          = root.querySelector("#sp-zindex-val");
-  const breadcrumbs     = root.querySelector("#sp-dom-breadcrumbs");
+  const bgLayersList      = root.querySelector("#sp-bg-layers-list");
+  const bgDetectedCount   = root.querySelector("#sp-bg-detected-count");
+  const themeHex          = root.querySelector("#sp-theme-hex");
+  const themeColor        = root.querySelector("#sp-theme-color");
+  const btnApplyTheme     = root.querySelector("#sp-btn-apply-theme");
 
-  const sandboxViewport = root.querySelector("#sp-sandbox-viewport");
-  const btnContextToggle= root.querySelector("#sp-btn-context-toggle");
-  const btnRefreshPreview=root.querySelector("#sp-btn-refresh-preview");
+  const btnAddImage       = root.querySelector("#sp-btn-add-image");
+  const btnAddDiv         = root.querySelector("#sp-btn-add-div");
+  const btnAddHtml        = root.querySelector("#sp-btn-add-html");
 
-  const codeAreaA       = root.querySelector("#sp-code-a");
-  const codeAreaB       = root.querySelector("#sp-code-b");
-  const btnRunAnim      = root.querySelector("#sp-btn-run-anim");
-  const btnApplyCode    = root.querySelector("#sp-btn-apply-code");
-  const btnCopyGsap     = root.querySelector("#sp-btn-copy-gsap");
+  const btnPushBack       = root.querySelector("#sp-btn-push-back");
+  const btnBringFront     = root.querySelector("#sp-btn-bring-front");
+  const btnSendCanvas     = root.querySelector("#sp-btn-send-canvas");
+  const zDownBtn          = root.querySelector("#sp-z-down");
+  const zUpBtn            = root.querySelector("#sp-z-up");
+  const zInput            = root.querySelector("#sp-zindex-val");
+  const breadcrumbs       = root.querySelector("#sp-dom-breadcrumbs");
 
-  let isTargetLocked    = true;
-  let unlockPending     = false;
+  const codeAreaA         = root.querySelector("#sp-code-a");
+  const codeAreaB         = root.querySelector("#sp-code-b");
+  const btnRunAnim        = root.querySelector("#sp-btn-run-anim");
+  const btnApplyCode      = root.querySelector("#sp-btn-apply-code");
+  const btnCopyGsap       = root.querySelector("#sp-btn-copy-gsap");
+
+  let isTargetLocked      = true;
+  let unlockPending       = false;
 
   function showToast(msg, duration = 2400) {
     toastText.textContent = msg;
@@ -293,7 +336,7 @@
 
   function ensurePositioned(el) {
     const pos = window.getComputedStyle(el).position;
-    if (pos === "static") el.style.position = "relative";
+    if (pos === "static" || !pos) el.style.position = "relative";
   }
 
   /* ── Sidebar Dock Mode Switching & Sync ── */
@@ -321,6 +364,7 @@
         root.querySelector(".sp-drawer-tab[data-tab='code']").click();
       } else if (tool === "inspect") {
         showToast("🔍 Inspect Mode • Click any element to open editor");
+        if (selectedEl) previewPanel.classList.add("sp-show");
       } else if (tool === "move") {
         showToast("✋ Move Mode • Drag any element freely on canvas");
       } else if (tool === "resize") {
@@ -369,6 +413,39 @@
     });
   })();
 
+  /* ── Draggable Floating Live Preview Panel ── */
+  (function initDraggablePreview() {
+    const handle = root.querySelector("#sp-preview-drag-handle");
+    let isDraggingP = false, ox = 0, oy = 0;
+
+    handle.addEventListener("mousedown", e => {
+      isDraggingP = true;
+      const r = previewPanel.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      previewPanel.style.left = r.left + "px";
+      previewPanel.style.top = r.top + "px";
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    window.addEventListener("mousemove", e => {
+      if (!isDraggingP) return;
+      const left = Math.max(8, Math.min(window.innerWidth - previewPanel.offsetWidth - 8, e.clientX - ox));
+      const top  = Math.max(8, Math.min(window.innerHeight - previewPanel.offsetHeight - 8, e.clientY - oy));
+      previewPanel.style.left = left + "px";
+      previewPanel.style.top = top + "px";
+    }, true);
+
+    window.addEventListener("mouseup", () => {
+      isDraggingP = false;
+    });
+  })();
+
+  previewCloseBtn.addEventListener("click", () => {
+    previewPanel.classList.remove("sp-show");
+  });
+
   /* ── Tab Switching with Dynamic Width Expansion ── */
   root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -381,7 +458,6 @@
       // Expand drawer width in Code mode for split dual-editor
       if (btn.dataset.tab === "code") {
         drawer.classList.add("sp-expanded");
-        updateSandboxPreview(selectedEl);
       } else {
         drawer.classList.remove("sp-expanded");
       }
@@ -400,7 +476,7 @@
       unlockPending = false;
       updateLockBtnUI();
       if (selectedEl) updateSelectBox(selectedEl);
-      showToast(isTargetLocked ? "🔒 Target Locked (Safe from accidental misclicks)" : "🔓 Target Unlocked");
+      showToast(isTargetLocked ? "🔒 Target Locked (Safe from accidental clicks)" : "🔓 Target Unlocked");
     });
   }
 
@@ -409,6 +485,7 @@
       selectedEl = null;
       selectBox.style.display = "none";
       drawer.classList.remove("sp-open");
+      previewPanel.classList.remove("sp-show");
       isTargetLocked = false;
       unlockPending = false;
       showToast("✕ Selection cleared");
@@ -476,7 +553,7 @@
     drawerTag.textContent = tagStr;
     drawerName.textContent = idStr || clsStr || "";
 
-    // Read Styles for Color Tab
+    // Read Computed Styles
     const cs = window.getComputedStyle(el);
     const txtHex = rgbToHex(cs.color);
     textHex.value = txtHex; textColor.value = txtHex;
@@ -487,14 +564,18 @@
     const bdrH = rgbToHex(cs.borderColor);
     borderHex.value = bdrH; borderColor.value = bdrH;
 
-    // Read Background for Layers Background Card
-    if (cs.backgroundImage && cs.backgroundImage !== "none") {
-      const m = cs.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
-      bgInputVal.value = m ? m[1] : cs.backgroundImage;
-      bgTypeBadge.textContent = "Image";
+    // Read Border Width & Style
+    const bw = cs.borderWidth || "0px";
+    if (["0px", "1px", "2px", "3px", "4px", "6px", "8px"].includes(bw)) {
+      borderWidthSelect.value = bw;
     } else {
-      bgInputVal.value = bgH;
-      bgTypeBadge.textContent = "Color";
+      borderWidthSelect.value = "2px";
+    }
+    const bs = cs.borderStyle || "none";
+    if (["solid", "dashed", "dotted", "double"].includes(bs)) {
+      borderStyleSelect.value = bs;
+    } else {
+      borderStyleSelect.value = "solid";
     }
 
     // Read Z-Index & Build Hierarchy
@@ -502,11 +583,15 @@
     zInput.value = isNaN(currentZ) ? 0 : currentZ;
     buildBreadcrumbs(el);
 
+    // Scan & Pinpoint Background Layers
+    scanBackgroundLayers(el);
+
     // Build Combined All-in-One Code Blocks (State A & State B)
     populateDualCodePanes(el);
 
-    // Update Sandbox Live Component Preview
+    // Open dedicated live preview panel
     updateSandboxPreview(el);
+    previewPanel.classList.add("sp-show");
 
     drawer.classList.add("sp-open");
   }
@@ -561,17 +646,13 @@
     let newH = resizeStart.height;
 
     if (resizeDir === "se") {
-      newW += deltaX;
-      newH += deltaY;
+      newW += deltaX; newH += deltaY;
     } else if (resizeDir === "sw") {
-      newW -= deltaX;
-      newH += deltaY;
+      newW -= deltaX; newH += deltaY;
     } else if (resizeDir === "ne") {
-      newW += deltaX;
-      newH -= deltaY;
+      newW += deltaX; newH -= deltaY;
     } else if (resizeDir === "nw") {
-      newW -= deltaX;
-      newH -= deltaY;
+      newW -= deltaX; newH -= deltaY;
     }
 
     newW = Math.max(16, Math.round(newW));
@@ -598,126 +679,305 @@
     }
   }, true);
 
-  /* ── Live Color Binding ── */
+  /* ══════════════════════════════════════════════════════════
+     Style Tab: Explicit Border, Fill & Text Handlers
+     ══════════════════════════════════════════════════════════ */
+  function applyTextToElement(el, col) {
+    if (!el) return;
+    el.style.setProperty("color", col, "important");
+    if (el instanceof SVGElement && el.tagName.toLowerCase() === "text") {
+      el.style.setProperty("fill", col, "important");
+    }
+    updateSandboxPreview(el);
+  }
+
   textColor.addEventListener("input", e => {
     textHex.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.color = e.target.value;
-      updateSandboxPreview(selectedEl);
-    }
+    applyTextToElement(selectedEl, e.target.value);
   });
   textHex.addEventListener("input", e => {
     textColor.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.color = e.target.value;
-      updateSandboxPreview(selectedEl);
-    }
+    applyTextToElement(selectedEl, e.target.value);
   });
+
+  function applyBgToElement(el, col) {
+    if (!el) return;
+    el.style.setProperty("background-color", col, "important");
+    el.style.setProperty("background", col, "important");
+    if (el instanceof SVGElement) {
+      el.style.setProperty("fill", col, "important");
+    }
+    updateSandboxPreview(el);
+  }
 
   bgColor.addEventListener("input", e => {
     bgHex.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.backgroundColor = e.target.value;
-      bgInputVal.value = e.target.value;
-      bgTypeBadge.textContent = "Color";
-      updateSandboxPreview(selectedEl);
-    }
+    applyBgToElement(selectedEl, e.target.value);
   });
   bgHex.addEventListener("input", e => {
     bgColor.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.backgroundColor = e.target.value;
-      bgInputVal.value = e.target.value;
-      bgTypeBadge.textContent = "Color";
-      updateSandboxPreview(selectedEl);
-    }
+    applyBgToElement(selectedEl, e.target.value);
   });
+
+  function applyBorderToElement(el, col, width, style) {
+    if (!el) return;
+    const finalW = width || borderWidthSelect.value || "2px";
+    const finalS = style || borderStyleSelect.value || "solid";
+    el.style.setProperty("border-color", col, "important");
+    el.style.setProperty("border-style", finalS, "important");
+    el.style.setProperty("border-width", finalW, "important");
+    if (el instanceof SVGElement) {
+      el.style.setProperty("stroke", col, "important");
+      el.style.setProperty("stroke-width", finalW, "important");
+    }
+    updateSandboxPreview(el);
+  }
 
   borderColor.addEventListener("input", e => {
     borderHex.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.borderColor = e.target.value;
-      if (getComputedStyle(selectedEl).borderStyle === "none") selectedEl.style.borderStyle = "solid";
-      updateSandboxPreview(selectedEl);
-    }
+    applyBorderToElement(selectedEl, e.target.value);
   });
   borderHex.addEventListener("input", e => {
     borderColor.value = e.target.value;
-    if (selectedEl) {
-      selectedEl.style.borderColor = e.target.value;
-      if (getComputedStyle(selectedEl).borderStyle === "none") selectedEl.style.borderStyle = "solid";
-      updateSandboxPreview(selectedEl);
-    }
+    applyBorderToElement(selectedEl, e.target.value);
+  });
+  borderWidthSelect.addEventListener("change", e => {
+    applyBorderToElement(selectedEl, borderHex.value, e.target.value);
+  });
+  borderStyleSelect.addEventListener("change", e => {
+    applyBorderToElement(selectedEl, borderHex.value, null, e.target.value);
   });
 
   root.querySelectorAll(".sp-color-swatch").forEach(sw => {
     sw.addEventListener("click", () => {
       if (!selectedEl) return;
       const col = sw.dataset.col;
-      selectedEl.style.backgroundColor = col;
+      applyBgToElement(selectedEl, col);
       if (col !== "transparent") {
         bgHex.value = col; bgColor.value = col;
-        bgInputVal.value = col;
       } else {
         bgHex.value = "transparent";
-        bgInputVal.value = "transparent";
       }
-      updateSandboxPreview(selectedEl);
-      showToast(`Set background: ${col}`);
+      showToast(`Set background fill: ${col}`);
     });
   });
 
-  /* ── Background Controls in Layers Tab ── */
-  btnSelectBody.addEventListener("click", () => {
-    const rootBody = document.body;
-    selectElement(rootBody);
-    showToast("🌐 Selected Page Body (Canvas Background)");
-  });
+  /* ══════════════════════════════════════════════════════════
+     Layers Tab: Background Pinpointing & HTML Themes
+     ══════════════════════════════════════════════════════════ */
+  function scanBackgroundLayers(el) {
+    bgLayersList.innerHTML = "";
+    const bgLayers = [];
 
-  btnApplyBg.addEventListener("click", () => {
-    if (!selectedEl) return;
-    const val = bgInputVal.value.trim();
-    if (!val) return;
-    if (/^https?:\/\/|^data:image/i.test(val)) {
-      selectedEl.style.backgroundImage = `url("${val}")`;
-      selectedEl.style.backgroundSize = "cover";
-      selectedEl.style.backgroundPosition = "center";
-      bgTypeBadge.textContent = "Image";
-      showToast("🖼️ Applied Background Image!");
-    } else {
-      selectedEl.style.background = val;
-      bgTypeBadge.textContent = "Custom";
-      showToast("🎨 Applied Background Style!");
+    // 1. Root <html> Theme
+    const htmlEl = document.documentElement;
+    const htmlCs = window.getComputedStyle(htmlEl);
+    bgLayers.push({
+      label: "Root Theme (<html>)",
+      node: htmlEl,
+      color: rgbToHex(htmlCs.backgroundColor),
+      image: htmlCs.backgroundImage !== "none" ? htmlCs.backgroundImage : null
+    });
+
+    // 2. <body> Canvas
+    const bodyEl = document.body;
+    const bodyCs = window.getComputedStyle(bodyEl);
+    bgLayers.push({
+      label: "Document Canvas (<body>)",
+      node: bodyEl,
+      color: rgbToHex(bodyCs.backgroundColor),
+      image: bodyCs.backgroundImage !== "none" ? bodyCs.backgroundImage : null
+    });
+
+    // 3. Ancestor containers with background
+    let curr = el ? el.parentElement : null;
+    while (curr && curr !== bodyEl && curr !== htmlEl && !isOwn(curr)) {
+      const cs = window.getComputedStyle(curr);
+      const isOpaque = cs.backgroundColor && cs.backgroundColor !== "transparent" && cs.backgroundColor !== "rgba(0, 0, 0, 0)";
+      const hasBgImage = cs.backgroundImage && cs.backgroundImage !== "none";
+      if (isOpaque || hasBgImage) {
+        const tag = curr.tagName.toLowerCase();
+        const id = curr.id ? "#" + curr.id : "";
+        const cls = (typeof curr.className === "string" && curr.className.trim())
+          ? "." + curr.className.trim().split(/\s+/)[0] : "";
+        bgLayers.push({
+          label: `${tag}${id}${cls} (Container)`,
+          node: curr,
+          color: rgbToHex(cs.backgroundColor),
+          image: hasBgImage ? cs.backgroundImage : null
+        });
+      }
+      curr = curr.parentElement;
     }
-    updateSandboxPreview(selectedEl);
+
+    bgDetectedCount.textContent = `${bgLayers.length} Found`;
+
+    bgLayers.forEach(layer => {
+      const row = document.createElement("div");
+      row.className = "sp-bg-layer-item";
+
+      const left = document.createElement("div");
+      left.className = "sp-bg-layer-name";
+      left.innerHTML = `<span class="sp-bg-layer-swatch" style="background:${layer.color}"></span><span>${layer.label}</span>`;
+
+      const pickBtn = document.createElement("button");
+      pickBtn.className = "sp-bg-action-btn";
+      pickBtn.textContent = "Select";
+      pickBtn.addEventListener("click", () => {
+        selectElement(layer.node);
+        showToast(`Targeted: ${layer.label}`);
+      });
+
+      row.appendChild(left);
+      row.appendChild(pickBtn);
+      bgLayersList.appendChild(row);
+    });
+
+    // Initialize Theme Color Picker with current html/body background
+    themeHex.value = bgLayers[0].color || bgLayers[1].color || "#0f172a";
+    themeColor.value = themeHex.value.startsWith("#") ? themeHex.value : "#0f172a";
+  }
+
+  function setPageThemeBackground(col) {
+    document.documentElement.style.setProperty("background-color", col, "important");
+    document.documentElement.style.setProperty("background", col, "important");
+    document.body.style.setProperty("background-color", col, "important");
+    document.body.style.setProperty("background", col, "important");
+
+    // Tailwind & Next.js Theme Variables Override:
+    document.documentElement.style.setProperty("--background", col);
+    document.documentElement.style.setProperty("--bg", col);
+    document.documentElement.style.setProperty("--color-background", col);
+    document.documentElement.style.setProperty("--tw-bg-opacity", "1");
+
+    showToast(`🎨 Set Page Theme Background to ${col}`);
+  }
+
+  themeColor.addEventListener("input", e => {
+    themeHex.value = e.target.value;
+  });
+  themeHex.addEventListener("input", e => {
+    themeColor.value = e.target.value;
+  });
+  btnApplyTheme.addEventListener("click", () => {
+    const val = themeHex.value.trim();
+    if (val) setPageThemeBackground(val);
   });
 
-  btnCopyBg.addEventListener("click", () => {
-    if (!selectedEl) return;
-    const cs = window.getComputedStyle(selectedEl);
-    const bg = (cs.backgroundImage && cs.backgroundImage !== "none") ? cs.backgroundImage : cs.backgroundColor;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(bg);
-      showToast(`📋 Copied background: ${bg}`);
+  /* ══════════════════════════════════════════════════════════
+     Layers Tab: Add Custom Elements (Photos, Divs, Code)
+     ══════════════════════════════════════════════════════════ */
+  btnAddImage.addEventListener("click", () => {
+    const url = prompt("Enter Image URL (or paste data URI):", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800");
+    if (!url) return;
+    const img = document.createElement("img");
+    img.src = url;
+    img.className = "sp-custom-element";
+    img.style.position = "relative";
+    img.style.width = "300px";
+    img.style.height = "auto";
+    img.style.borderRadius = "8px";
+    img.style.boxShadow = "0 8px 30px rgba(0,0,0,0.5)";
+    img.style.display = "block";
+    img.style.margin = "20px auto";
+
+    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
+      ? selectedEl.parentElement : document.body;
+    insertParent.appendChild(img);
+
+    selectElement(img);
+    undoStack.push({ type: "delete", node: img, parent: insertParent });
+    showToast("🖼️ Inserted photo layer • Drag corner to stretch or Send to Back");
+  });
+
+  btnAddDiv.addEventListener("click", () => {
+    const box = document.createElement("div");
+    box.className = "sp-custom-element";
+    box.textContent = "Custom Styled Layer";
+    box.style.position = "relative";
+    box.style.padding = "20px 24px";
+    box.style.background = "#1E293B";
+    box.style.color = "#F8FAFC";
+    box.style.border = "2px solid #38BDF8";
+    box.style.borderRadius = "12px";
+    box.style.fontSize = "16px";
+    box.style.fontWeight = "600";
+    box.style.display = "inline-block";
+    box.style.margin = "20px auto";
+
+    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
+      ? selectedEl.parentElement : document.body;
+    insertParent.appendChild(box);
+
+    selectElement(box);
+    undoStack.push({ type: "delete", node: box, parent: insertParent });
+    showToast("📦 Inserted custom div box • Edit colors or Send to Back");
+  });
+
+  btnAddHtml.addEventListener("click", () => {
+    const rawHtml = prompt("Paste custom HTML snippet:", '<div class="banner">✨ Custom Highlight Banner</div>');
+    if (!rawHtml) return;
+    const wrap = document.createElement("div");
+    wrap.innerHTML = rawHtml.trim();
+    const newEl = wrap.firstElementChild || wrap;
+    newEl.style.position = "relative";
+
+    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
+      ? selectedEl.parentElement : document.body;
+    insertParent.appendChild(newEl);
+
+    selectElement(newEl);
+    undoStack.push({ type: "delete", node: newEl, parent: insertParent });
+    showToast("💻 Inserted custom HTML element");
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     Layers Tab: Word-Style Send to Back & Stacking
+     ══════════════════════════════════════════════════════════ */
+  function sendElementToBack(el) {
+    if (!el) return;
+    ensurePositioned(el);
+    el.style.setProperty("z-index", "-999999", "important");
+    if (el.parentElement) {
+      el.parentElement.insertBefore(el, el.parentElement.firstChild);
     }
-  });
+    zInput.value = -999999;
+    updateSelectBox(el);
+    showToast("⬇ Sent element to very back (Word-style)");
+  }
 
-  /* ── Layers Tab: Word-Style Send to Back & Breadcrumbs ── */
+  function bringElementToFront(el) {
+    if (!el) return;
+    ensurePositioned(el);
+    el.style.setProperty("z-index", "2147483640", "important");
+    if (el.parentElement) {
+      el.parentElement.appendChild(el);
+    }
+    zInput.value = 2147483640;
+    updateSelectBox(el);
+    showToast("⬆ Brought element to very front");
+  }
+
   btnPushBack.addEventListener("click", () => {
-    if (!selectedEl) return;
-    ensurePositioned(selectedEl);
-    // Word document style: send completely behind all elements
-    selectedEl.style.zIndex = "-9999";
-    zInput.value = -9999;
-    showToast("⬇ Sent to Back (Word-style • z-index: -9999)");
+    sendElementToBack(selectedEl);
   });
 
   btnBringFront.addEventListener("click", () => {
+    bringElementToFront(selectedEl);
+  });
+
+  btnSendCanvas.addEventListener("click", () => {
     if (!selectedEl) return;
-    ensurePositioned(selectedEl);
-    selectedEl.style.zIndex = "9999";
-    zInput.value = 9999;
-    showToast("⬆ Brought to Front (z-index: 9999)");
+    document.body.insertBefore(selectedEl, document.body.firstChild);
+    selectedEl.style.setProperty("position", "fixed", "important");
+    selectedEl.style.setProperty("top", "0", "important");
+    selectedEl.style.setProperty("left", "0", "important");
+    selectedEl.style.setProperty("width", "100vw", "important");
+    selectedEl.style.setProperty("height", "100vh", "important");
+    selectedEl.style.setProperty("z-index", "-999999", "important");
+    selectedEl.style.setProperty("object-fit", "cover", "important");
+    updateSelectBox(selectedEl);
+    showToast("🌐 Sent element behind entire site as Canvas Background!");
   });
 
   zUpBtn.addEventListener("click", () => {
@@ -725,7 +985,7 @@
     ensurePositioned(selectedEl);
     const next = (parseInt(zInput.value) || 0) + 1;
     zInput.value = next;
-    selectedEl.style.zIndex = next;
+    selectedEl.style.setProperty("z-index", next, "important");
   });
 
   zDownBtn.addEventListener("click", () => {
@@ -733,15 +993,16 @@
     ensurePositioned(selectedEl);
     const next = (parseInt(zInput.value) || 0) - 1;
     zInput.value = next;
-    selectedEl.style.zIndex = next;
+    selectedEl.style.setProperty("z-index", next, "important");
   });
 
   zInput.addEventListener("change", e => {
     if (!selectedEl) return;
     ensurePositioned(selectedEl);
-    selectedEl.style.zIndex = e.target.value;
+    selectedEl.style.setProperty("z-index", e.target.value, "important");
   });
 
+  /* ── DOM Breadcrumbs with 👁️ Visibility & 🎯 Solo Isolation ── */
   function buildBreadcrumbs(el) {
     breadcrumbs.innerHTML = "";
     const chain = [];
@@ -750,16 +1011,77 @@
       chain.unshift(curr);
       curr = curr.parentElement;
     }
+
     chain.forEach((node, idx) => {
       const tag = node.tagName.toLowerCase();
       const id = node.id ? "#" + node.id : "";
       const cls = (typeof node.className === "string" && node.className.trim())
         ? "." + node.className.trim().split(/\s+/)[0] : "";
+
+      const row = document.createElement("div");
+      row.className = "sp-crumb-row" + (node === el ? " current" : "");
+
+      // 👁️ Toggle Visibility Button
+      const eyeBtn = document.createElement("button");
+      eyeBtn.className = "sp-layer-eye-btn";
+      eyeBtn.title = "Toggle layer visibility (hide/show)";
+      eyeBtn.textContent = (node.style.visibility === "hidden" || node.style.display === "none") ? "🙈" : "👁️";
+      eyeBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (node.style.visibility === "hidden" || node.style.display === "none") {
+          node.style.visibility = "";
+          node.style.display = "";
+          eyeBtn.textContent = "👁️";
+          showToast(`Unhid layer: ${tag}${id}`);
+        } else {
+          node.style.visibility = "hidden";
+          eyeBtn.textContent = "🙈";
+          showToast(`Hid layer: ${tag}${id}`);
+        }
+      });
+
+      // 🎯 Solo Isolate Button
+      const soloBtn = document.createElement("button");
+      soloBtn.className = "sp-layer-solo-btn";
+      soloBtn.title = "Solo this layer (hide all other siblings)";
+      soloBtn.textContent = (isolatedLayerNode === node) ? "🎯 On" : "🎯";
+      soloBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (isolatedLayerNode === node) {
+          // Restore all
+          document.querySelectorAll(".sp-layer-isolated").forEach(n => {
+            n.classList.remove("sp-layer-isolated");
+            n.style.visibility = "";
+          });
+          isolatedLayerNode = null;
+          soloBtn.textContent = "🎯";
+          showToast("Restored all layers");
+        } else {
+          // Hide siblings
+          if (node.parentElement) {
+            Array.from(node.parentElement.children).forEach(child => {
+              if (child !== node && !isOwn(child)) {
+                child.classList.add("sp-layer-isolated");
+                child.style.visibility = "hidden";
+              }
+            });
+          }
+          isolatedLayerNode = node;
+          soloBtn.textContent = "🎯 On";
+          showToast(`🎯 Solo active: showing only ${tag}${id}`);
+        }
+      });
+
+      // Layer Selection Tag
       const btn = document.createElement("button");
-      btn.className = "sp-crumb-tag" + (node === el ? " current" : "");
+      btn.className = "sp-crumb-tag";
       btn.textContent = tag + id + cls;
       btn.addEventListener("click", () => selectElement(node));
-      breadcrumbs.appendChild(btn);
+
+      row.appendChild(eyeBtn);
+      row.appendChild(soloBtn);
+      row.appendChild(btn);
+      breadcrumbs.appendChild(row);
 
       if (idx < chain.length - 1) {
         const sep = document.createElement("span");
@@ -804,7 +1126,7 @@
 
   btnContextToggle.addEventListener("click", () => {
     sandboxMode = (sandboxMode === "component") ? "context" : "component";
-    btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component Only" : "View: Parent & Context";
+    btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component" : "View: Parent & Context";
     btnContextToggle.classList.toggle("active", sandboxMode === "context");
     updateSandboxPreview(selectedEl);
     showToast(`Sandbox view: ${sandboxMode.toUpperCase()}`);
@@ -844,7 +1166,7 @@
     if (!isTargetState) {
       return `<!-- State A (Initial HTML) -->\n${html}\n\n<style>\n/* State A Styles */\n${selector} {\n  ${inlineCss}\n}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
     } else {
-      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  background: #8b5cf6;\n  color: #ffffff;\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  backgroundColor: "#8b5cf6",\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
+      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
     }
   }
 
@@ -879,7 +1201,6 @@
   }
 
   function validateJsSyntaxSafely(jsCode) {
-    // Static bracket & quote parser without eval / new Function
     const stack = [];
     let inSingleQuote = false;
     let inDoubleQuote = false;
@@ -984,7 +1305,7 @@
       }
     }
 
-    // 2. CSS Validation (balanced braces)
+    // 2. CSS Validation
     if (parts.css) {
       const openCount = (parts.css.match(/\{/g) || []).length;
       const closeCount = (parts.css.match(/\}/g) || []).length;
@@ -1091,7 +1412,7 @@
     const rawB = codeAreaB.value.trim();
     const partsB = parseSnippetParts(rawB);
 
-    // If State B is left blank, directly apply State A!
+    // If State B is left blank, directly apply State A
     if (!partsB.html && !partsB.css && !partsB.js) {
       btnApplyCode.click();
       showToast("✓ Rendered State A to canvas & preview!");
@@ -1108,14 +1429,11 @@
       return;
     }
 
-    // Smooth CSS morph transition
     selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
 
     if (currentMorphState === "A") {
-      // Morph to State B
       currentMorphState = "B";
 
-      // Parse custom styles or apply preset morph
       if (partsB.css) {
         let liveMorphStyle = document.getElementById("sp-morph-override");
         if (!liveMorphStyle) {
@@ -1127,20 +1445,15 @@
       }
 
       selectedEl.style.transform = "scale(1.08) translateY(-6px)";
-      selectedEl.style.backgroundColor = "#8b5cf6";
-      selectedEl.style.color = "#ffffff";
       selectedEl.style.boxShadow = "0 12px 30px rgba(139, 92, 246, 0.45)";
       btnRunAnim.style.background = "linear-gradient(135deg, #06B6D4, #10B981)";
       showToast("✨ Morphed to State B (Active)!");
     } else {
-      // Morph back to State A
       currentMorphState = "A";
       const liveMorphStyle = document.getElementById("sp-morph-override");
       if (liveMorphStyle) liveMorphStyle.textContent = "";
 
       selectedEl.style.transform = "none";
-      selectedEl.style.backgroundColor = "";
-      selectedEl.style.color = "";
       selectedEl.style.boxShadow = "";
       btnRunAnim.style.background = "linear-gradient(135deg, #8B5CF6, #06B6D4)";
       showToast("✨ Morphed back to State A (Initial)!");
@@ -1158,7 +1471,6 @@
 gsap.to("${selector}", {
   scale: 1.08,
   y: -6,
-  backgroundColor: "#8b5cf6",
   duration: 0.4,
   ease: "back.out(1.5)"
 });`;
@@ -1219,7 +1531,6 @@ gsap.to("${selector}", {
       dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
       updateSelectBox(dragTarget);
     } else if (isEnabled && !isDragging && !isResizing) {
-      // Hover Outline Tracker
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
         hoverBox.style.display = "none";
@@ -1280,6 +1591,7 @@ gsap.to("${selector}", {
       target.remove();
       if (target === selectedEl) {
         drawer.classList.remove("sp-open");
+        previewPanel.classList.remove("sp-show");
         selectBox.style.display = "none";
         selectedEl = null;
       }
@@ -1289,13 +1601,12 @@ gsap.to("${selector}", {
 
     // Accidental Misclick Protection & Background Layer Trap Fix:
     if (selectedEl && isTargetLocked) {
-      // 1. If clicking the exact same target: keep selected
       if (target === selectedEl) {
         unlockPending = false;
         return;
       }
 
-      // 2. If user clicks a child element inside a selected parent/background layer:
+      // If user clicks a child element inside a selected parent/background layer:
       // IMMEDIATELY select the child! This fixes the purple outline getting stuck on layers.
       if (selectedEl.contains(target)) {
         unlockPending = false;
@@ -1303,14 +1614,13 @@ gsap.to("${selector}", {
         return;
       }
 
-      // 3. Clicked completely outside target:
+      // Clicked completely outside target:
       if (!unlockPending) {
         unlockPending = true;
         selectBadge.textContent = "🔓 Click again to switch target";
         showToast("Target protected • Click again to switch target", 1800);
         return;
       } else {
-        // Next click outside switches target cleanly
         unlockPending = false;
       }
     }
@@ -1335,8 +1645,9 @@ gsap.to("${selector}", {
     if (e.key === "Escape") {
       if (errorModal.classList.contains("sp-modal-show")) {
         closeErrorModal();
-      } else if (drawer.classList.contains("sp-open")) {
+      } else if (drawer.classList.contains("sp-open") || previewPanel.classList.contains("sp-show")) {
         drawer.classList.remove("sp-open");
+        previewPanel.classList.remove("sp-show");
         selectBox.style.display = "none";
         selectedEl = null;
       } else {
@@ -1416,10 +1727,19 @@ gsap.to("${selector}", {
     hoverLbl.style.display = "none";
     selectBox.style.display = "none";
     drawer.classList.remove("sp-open");
+    previewPanel.classList.remove("sp-show");
     selectedEl = null;
     isTargetLocked = false;
     unlockPending = false;
     closeErrorModal();
+
+    // Restore isolated layers if any
+    document.querySelectorAll(".sp-layer-isolated").forEach(n => {
+      n.classList.remove("sp-layer-isolated");
+      n.style.visibility = "";
+    });
+    isolatedLayerNode = null;
+
     root.style.display = "none"; // Completely hides dock, drawer, outlines
     showToast("StylePeek OFF • Page restored to normal");
   }
@@ -1488,7 +1808,7 @@ gsap.to("${selector}", {
     // 4. Purge scripts, iframes, and StylePeek artifacts
     docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
     docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-error-modal").forEach(e => e.remove());
+    docClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal").forEach(e => e.remove());
 
     // 5. Prune offscreen / unrendered nodes
     docClone.querySelectorAll("[data-sp-prune='true']").forEach(e => e.remove());
