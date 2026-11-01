@@ -569,18 +569,25 @@
     });
   })();
 
-  /* ── Draggable Floating Live Preview Panel ── */
+  /* ── Draggable Floating Live Preview Panel (Full Topbar Draggable) ── */
   (function initDraggablePreview() {
-    const handle = root.querySelector("#sp-preview-drag-handle");
+    const topbar = root.querySelector(".sp-preview-panel-header");
     let isDraggingP = false, ox = 0, oy = 0;
 
-    handle.addEventListener("mousedown", e => {
+    if (!topbar) return;
+
+    topbar.addEventListener("mousedown", e => {
+      // Don't drag if clicking buttons inside the actions container
+      if (e.target.closest("button") || e.target.closest(".sp-preview-panel-actions")) return;
+
       isDraggingP = true;
       const r = previewPanel.getBoundingClientRect();
       ox = e.clientX - r.left;
       oy = e.clientY - r.top;
       previewPanel.style.left = r.left + "px";
       previewPanel.style.top = r.top + "px";
+      previewPanel.style.right = "auto";
+      previewPanel.style.bottom = "auto";
       e.preventDefault();
       e.stopPropagation();
     });
@@ -591,6 +598,8 @@
       const top  = Math.max(8, Math.min(window.innerHeight - previewPanel.offsetHeight - 8, e.clientY - oy));
       previewPanel.style.left = left + "px";
       previewPanel.style.top = top + "px";
+      previewPanel.style.right = "auto";
+      previewPanel.style.bottom = "auto";
     }, true);
 
     window.addEventListener("mouseup", () => {
