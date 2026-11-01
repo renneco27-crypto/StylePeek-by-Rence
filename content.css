@@ -345,20 +345,23 @@ input[type="color"].sp-color-btn::-webkit-color-swatch { border: none; border-ra
 
 .sp-swatches-row {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 8px;
+  width: 100%;
 }
 .sp-color-swatch {
   flex: 1;
-  height: 22px;
-  border-radius: 5px;
+  height: 18px;
+  min-width: 0;
+  border-radius: 4px;
   border: 1px solid #263146;
   cursor: pointer;
-  transition: transform 0.12s ease;
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
 .sp-color-swatch:hover {
-  transform: scale(1.12);
+  transform: scale(1.18);
   border-color: #FFFFFF;
+  z-index: 2;
 }
 
 /* ── Tab 2: Layers & DOM Hierarchy ── */

@@ -167,23 +167,43 @@
         <!-- Tab 1: Simplified Colors, Div Fill & Explicit Border Controls -->
         <div class="sp-tab-pane sp-active" id="pane-style">
           <div class="sp-color-grid">
-            <div class="sp-color-card">
+            <div class="sp-color-card" id="sp-card-text">
               <span class="sp-color-label">Text Color</span>
               <div class="sp-color-input-row">
                 <input type="text" class="sp-hex-input" id="sp-text-hex" value="#ffffff">
                 <input type="color" class="sp-color-btn" id="sp-text-color" value="#ffffff">
               </div>
+              <div class="sp-swatches-row" data-target="text">
+                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
+                <div class="sp-color-swatch" style="background:#94a3b8" data-col="#94a3b8" title="Slate"></div>
+                <div class="sp-color-swatch" style="background:#e7dbff" data-col="#e7dbff" title="Lavender"></div>
+                <div class="sp-color-swatch" style="background:#38bdf8" data-col="#38bdf8" title="Sky Blue"></div>
+                <div class="sp-color-swatch" style="background:#34d399" data-col="#34d399" title="Emerald"></div>
+                <div class="sp-color-swatch" style="background:#fbbf24" data-col="#fbbf24" title="Amber"></div>
+                <div class="sp-color-swatch" style="background:#f87171" data-col="#f87171" title="Red"></div>
+                <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
+              </div>
             </div>
 
-            <div class="sp-color-card">
+            <div class="sp-color-card" id="sp-card-bg">
               <span class="sp-color-label">Div Background Fill</span>
               <div class="sp-color-input-row">
                 <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#000000">
                 <input type="color" class="sp-color-btn" id="sp-bg-color" value="#000000">
               </div>
+              <div class="sp-swatches-row" data-target="bg">
+                <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
+                <div class="sp-color-swatch" style="background:#1e293b" data-col="#1e293b" title="Slate 800"></div>
+                <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Red Fill"></div>
+                <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple Fill"></div>
+                <div class="sp-color-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue Fill"></div>
+                <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Emerald Fill"></div>
+                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White Fill"></div>
+                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
+              </div>
             </div>
 
-            <div class="sp-color-card">
+            <div class="sp-color-card" id="sp-card-border">
               <span class="sp-color-label">Border Color & Width</span>
               <div class="sp-color-input-row">
                 <input type="text" class="sp-hex-input" id="sp-border-hex" value="#3b82f6">
@@ -191,8 +211,8 @@
               </div>
               <div class="sp-border-options-row">
                 <select class="sp-border-select" id="sp-border-width" title="Border Width">
-                  <option value="1px">1px</option>
-                  <option value="2px" selected>2px</option>
+                  <option value="1px" selected>1px</option>
+                  <option value="2px">2px</option>
                   <option value="3px">3px</option>
                   <option value="4px">4px</option>
                   <option value="6px">6px</option>
@@ -205,19 +225,17 @@
                   <option value="double">Double</option>
                 </select>
               </div>
+              <div class="sp-swatches-row" data-target="border">
+                <div class="sp-color-swatch" style="background:#38bdf8" data-col="#38bdf8" title="Cyan Blue"></div>
+                <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
+                <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Red"></div>
+                <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Green"></div>
+                <div class="sp-color-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
+                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
+                <div class="sp-color-swatch" style="background:#334155" data-col="#334155" title="Slate"></div>
+                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="No Border"></div>
+              </div>
             </div>
-          </div>
-
-          <div class="sp-swatches-row">
-            <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
-            <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
-            <div class="sp-color-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue"></div>
-            <div class="sp-color-swatch" style="background:#06b6d4" data-col="#06b6d4" title="Cyan"></div>
-            <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Emerald"></div>
-            <div class="sp-color-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
-            <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Rose"></div>
-            <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
-            <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
           </div>
         </div>
 
@@ -702,7 +720,7 @@
     if (["0px", "1px", "2px", "3px", "4px", "6px", "8px"].includes(bw)) {
       borderWidthSelect.value = bw;
     } else {
-      borderWidthSelect.value = "2px";
+      borderWidthSelect.value = "1px";
     }
     const bs = cs.borderStyle || "none";
     if (["solid", "dashed", "dotted", "double"].includes(bs)) {
@@ -870,7 +888,7 @@
 
   function applyBorderToElement(el, col, width, style) {
     if (!el) return;
-    const finalW = width || borderWidthSelect.value || "2px";
+    const finalW = width || borderWidthSelect.value || "1px";
     const finalS = style || borderStyleSelect.value || "solid";
 
     // 1. Explicit CSS border properties
@@ -910,17 +928,38 @@
     applyBorderToElement(selectedEl, borderHex.value, null, e.target.value);
   });
 
-  root.querySelectorAll(".sp-color-swatch").forEach(sw => {
+  /* ── Dedicated Swatches for Text, Background & Border ── */
+  root.querySelectorAll(".sp-swatches-row .sp-color-swatch[data-col]").forEach(sw => {
     sw.addEventListener("click", () => {
       if (!selectedEl) return;
       const col = sw.dataset.col;
-      applyBgToElement(selectedEl, col);
-      if (col !== "transparent") {
-        bgHex.value = col; bgColor.value = col;
-      } else {
-        bgHex.value = "transparent";
+      const parentRow = sw.closest(".sp-swatches-row");
+      const target = parentRow ? parentRow.dataset.target : "bg";
+
+      if (target === "text") {
+        textHex.value = col;
+        textColor.value = (col === "transparent") ? "#ffffff" : col;
+        applyTextToElement(selectedEl, col);
+        showToast(`Set text color: ${col}`);
+      } else if (target === "bg") {
+        bgHex.value = col;
+        if (col !== "transparent") bgColor.value = col;
+        applyBgToElement(selectedEl, col);
+        showToast(`Set background fill: ${col}`);
+      } else if (target === "border") {
+        if (col === "transparent") {
+          borderHex.value = "transparent";
+          borderWidthSelect.value = "0px";
+          applyBorderToElement(selectedEl, "transparent", "0px", "none");
+          showToast("Removed border");
+        } else {
+          borderHex.value = col;
+          borderColor.value = col;
+          if (borderWidthSelect.value === "0px") borderWidthSelect.value = "1px";
+          applyBorderToElement(selectedEl, col, borderWidthSelect.value || "1px", borderStyleSelect.value || "solid");
+          showToast(`Set border: ${borderWidthSelect.value || "1px"} ${col}`);
+        }
       }
-      showToast(`Set background fill: ${col}`);
     });
   });
 
@@ -1037,6 +1076,34 @@
 
   addModalClose.addEventListener("click", closeAddModal);
 
+  function insertElementIntoLiveSite(newEl, toastMsg) {
+    if (!newEl) return;
+    ensurePositioned(newEl);
+
+    // If an element is currently selected on the page, insert immediately next to it!
+    if (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement)) {
+      selectedEl.insertAdjacentElement("afterend", newEl);
+    } else {
+      // Otherwise, insert at the top of the visible main content or body
+      const mainContainer = document.querySelector("main") || document.querySelector("#root") || document.querySelector("#__next") || document.body;
+      if (mainContainer.firstElementChild && !isOwn(mainContainer.firstElementChild)) {
+        mainContainer.firstElementChild.insertAdjacentElement("beforebegin", newEl);
+      } else {
+        mainContainer.prepend(newEl);
+      }
+    }
+
+    // Scroll the live site smoothly to the newly inserted element
+    try {
+      newEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {}
+
+    selectElement(newEl);
+    undoStack.push({ type: "delete", node: newEl, parent: newEl.parentElement });
+    closeAddModal();
+    if (toastMsg) showToast(toastMsg);
+  }
+
   function insertCustomImage(src) {
     if (!src) return;
     const img = document.createElement("img");
@@ -1050,14 +1117,7 @@
     img.style.display = "block";
     img.style.margin = "20px auto";
 
-    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
-      ? selectedEl.parentElement : document.body;
-    insertParent.appendChild(img);
-
-    selectElement(img);
-    undoStack.push({ type: "delete", node: img, parent: insertParent });
-    closeAddModal();
-    showToast("🖼️ Inserted picture! Drag corners to stretch, or click '⬇ Send to Back'!");
+    insertElementIntoLiveSite(img, "🖼️ Inserted picture! Drag corners to stretch, or click '⬇ Send to Back'!");
   }
 
   addImgFileInput.addEventListener("change", e => {
@@ -1089,7 +1149,7 @@
     box.style.padding = "24px 28px";
     box.style.background = "#131C2E";
     box.style.color = "#F8FAFC";
-    box.style.border = "2px solid #38BDF8";
+    box.style.border = "1px solid #38BDF8";
     box.style.borderRadius = "14px";
     box.style.fontSize = "16px";
     box.style.fontWeight = "600";
@@ -1097,14 +1157,7 @@
     box.style.display = "inline-block";
     box.style.margin = "20px auto";
 
-    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
-      ? selectedEl.parentElement : document.body;
-    insertParent.appendChild(box);
-
-    selectElement(box);
-    undoStack.push({ type: "delete", node: box, parent: insertParent });
-    closeAddModal();
-    showToast("📦 Inserted custom card box! Drag corners to stretch or edit style!");
+    insertElementIntoLiveSite(box, "📦 Inserted custom card box! Drag corners to stretch or edit style!");
   });
 
   btnInsertHeading.addEventListener("click", () => {
@@ -1118,14 +1171,7 @@
     h.style.margin = "16px auto";
     h.style.display = "block";
 
-    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
-      ? selectedEl.parentElement : document.body;
-    insertParent.appendChild(h);
-
-    selectElement(h);
-    undoStack.push({ type: "delete", node: h, parent: insertParent });
-    closeAddModal();
-    showToast("🔤 Inserted headline typography!");
+    insertElementIntoLiveSite(h, "🔤 Inserted headline typography!");
   });
 
   btnInsertHtml.addEventListener("click", () => {
@@ -1136,14 +1182,7 @@
     const newEl = wrap.firstElementChild || wrap;
     newEl.style.position = "relative";
 
-    const insertParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
-      ? selectedEl.parentElement : document.body;
-    insertParent.appendChild(newEl);
-
-    selectElement(newEl);
-    undoStack.push({ type: "delete", node: newEl, parent: insertParent });
-    closeAddModal();
-    showToast("💻 Inserted custom HTML element!");
+    insertElementIntoLiveSite(newEl, "💻 Inserted custom HTML element!");
   });
 
   if (btnAddImage) btnAddImage.addEventListener("click", openAddModal);

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Style Peek Studio — Visual Inspector, Live Editor & Viewport Extractor",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Inspect, move elements, edit colors/gradients/fonts live, write new code directly on the canvas, and download exactly what is rendered in your phone/desktop viewport.",
   "permissions": ["activeTab", "scripting", "downloads"],
   "host_permissions": ["<all_urls>"],
