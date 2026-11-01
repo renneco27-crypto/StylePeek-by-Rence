@@ -133,10 +133,8 @@ The **Pinpoint Backgrounds** engine solves this automatically:
   * Real-time dual-pane editor (State A & State B) with GSAP timeline generator.
   * Live isolated component preview sandbox.
   * Strict CSP compliance (zero `eval` or `new Function`).
-* **📸 Full-Page Site Auto-Scroll & Interactive State Crawler (`Alt+C`)**:
-  * **BFS Tree Branch Exploration**: Scans and clicks every button, tab, accordion, and panel trigger breadth-first (clearing all Level 1 siblings across panels before descending into sub-branch trees).
-  * **Offline State Mutation & Slot Engine**: Injects a self-contained offline runtime into the exported HTML file. When opened offline, clicking tabs, accordions, and buttons dynamically updates active classes and renders recorded panel content like a real interactive web app!
-  * **Expand All Panels Mode**: Offline badge includes an **Expand All** toggle that forces all recorded tabs and hidden sub-panels visible simultaneously for comprehensive review.
+* **📸 Single Slide & Viewport Site Extractor (`Alt+C`)**:
+  * Captures the exact rendered slide, viewport, and page content cleanly as standalone HTML/CSS without automated crawler disruption.
 * **📐 Word-Style Snap Margins & Magnetic Alignment Guides**:
   * Free-dragging elements features magnetic snapping to starting origin and parent container margins with visual cyan dashed guidelines.
   * Accidental nudges effortlessly snap right back to their original position.

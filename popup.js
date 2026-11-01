@@ -132,9 +132,10 @@ captureBtn.addEventListener("click", async () => {
   const tab = await getActiveTab();
   if (!tab || isRestrictedUrl(tab.url)) return;
   try {
-    statusMsg.textContent = "Exploring branches & capturing full site...";
+    statusMsg.textContent = "Capturing rendered viewport...";
     await sendTabMessage(tab.id, { action: "captureViewport" });
-    setTimeout(() => window.close(), 400);
+    statusMsg.textContent = "Viewport downloaded!";
+    setTimeout(() => window.close(), 1000);
   } catch (err) {
     statusMsg.textContent = "Capture failed. Try reloading the page first.";
   }
