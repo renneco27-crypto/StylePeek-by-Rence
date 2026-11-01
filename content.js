@@ -221,36 +221,9 @@
           </div>
         </div>
 
-        <!-- Tab 2: Layers, Background Pinpoint & Word-style Send to Back -->
+        <!-- Tab 2: Layers, Relatives Context & Word-Style Stacking -->
         <div class="sp-tab-pane" id="pane-layers">
-          <!-- Root & Theme Background Pinpointing Card -->
-          <div class="sp-bg-pinpoint-card">
-            <div class="sp-bg-layer-header">
-              <span>🎯 PINPOINT BACKGROUNDS & HTML THEMES</span>
-              <span class="sp-bg-badge" id="sp-bg-detected-count">Detected</span>
-            </div>
-            <div id="sp-bg-layers-list">
-              <!-- Dynamically populated background layers: <html>, <body>, wrapper -->
-            </div>
-            <div class="sp-theme-color-row">
-              <span style="font-size:11px;color:#94A3B8;font-weight:600">Theme Background:</span>
-              <input type="text" class="sp-hex-input" id="sp-theme-hex" placeholder="#0f172a">
-              <input type="color" class="sp-color-btn" id="sp-theme-color" value="#0f172a">
-              <button class="sp-bg-action-btn" id="sp-btn-apply-theme" title="Apply background color to HTML & Body theme">Apply Theme</button>
-            </div>
-          </div>
-
-          <!-- Add Custom Elements to Page -->
-          <div class="sp-add-elements-card">
-            <div class="sp-tree-label">➕ ADD CUSTOM ELEMENT (DRAG & SEND TO BACK):</div>
-            <div class="sp-add-btn-row">
-              <button class="sp-add-btn" id="sp-btn-add-image">🖼️ Add Photo / Image</button>
-              <button class="sp-add-btn" id="sp-btn-add-div">📦 Add Box / Div</button>
-              <button class="sp-add-btn" id="sp-btn-add-html">💻 Add Custom HTML</button>
-            </div>
-          </div>
-
-          <!-- Send to Back & Stacking Controls -->
+          <!-- Stacking & Canvas Depth Controls -->
           <div class="sp-layers-controls">
             <button class="sp-layer-btn back" id="sp-btn-push-back" title="Send element to very back (Word document style)">
               <span>⬇ Send to Back</span>
@@ -270,8 +243,60 @@
             </div>
           </div>
 
-          <div class="sp-tree-label">DOM LAYER HIERARCHY (👁️ VISIBILITY · 🎯 ISOLATE · CLICK TO JUMP):</div>
-          <div id="sp-dom-breadcrumbs"></div>
+          <!-- Focused Relatives Drawer (Parent, Current, Siblings, Inside Children) -->
+          <div class="sp-relatives-card">
+            <div class="sp-relatives-header">
+              <span class="sp-tree-label">DOM RELATIVES CONTEXT (NO CLUTTER)</span>
+              <span class="sp-bg-badge">Immediate Relatives</span>
+            </div>
+
+            <!-- Parent -->
+            <div class="sp-relative-row" id="sp-rel-parent-row">
+              <span class="sp-rel-type">⬆ Parent:</span>
+              <div class="sp-rel-chips" id="sp-rel-parent-chips"></div>
+            </div>
+
+            <!-- Current Layer -->
+            <div class="sp-relative-row active" id="sp-rel-current-row">
+              <span class="sp-rel-type">🎯 Current:</span>
+              <div class="sp-rel-current-box" id="sp-rel-current-box"></div>
+            </div>
+
+            <!-- Siblings / Neighbors -->
+            <div class="sp-relative-row" id="sp-rel-siblings-row">
+              <span class="sp-rel-type">⇄ Siblings:</span>
+              <div class="sp-rel-chips" id="sp-rel-siblings-chips"></div>
+            </div>
+
+            <!-- Inside Children (Letters, Icons, Nodes) -->
+            <div class="sp-relative-row" id="sp-rel-children-row">
+              <span class="sp-rel-type">⬇ Inside:</span>
+              <div class="sp-rel-chips" id="sp-rel-children-chips"></div>
+            </div>
+
+            <!-- Collapsible Ancestor Chain -->
+            <details class="sp-ancestors-drawer">
+              <summary class="sp-ancestors-summary">▾ Show Full Ancestor Tree (Ancestors & Root)</summary>
+              <div id="sp-ancestors-list" class="sp-ancestors-list"></div>
+            </details>
+          </div>
+
+          <!-- Root & Theme Background Pinpointing Card -->
+          <div class="sp-bg-pinpoint-card">
+            <div class="sp-bg-layer-header">
+              <span>🎯 PINPOINT BACKGROUNDS & HTML THEMES</span>
+              <span class="sp-bg-badge" id="sp-bg-detected-count">Detected</span>
+            </div>
+            <div id="sp-bg-layers-list">
+              <!-- Dynamically populated background layers: <html>, <body>, wrapper -->
+            </div>
+            <div class="sp-theme-color-row">
+              <span style="font-size:11px;color:#94A3B8;font-weight:600">Theme Background:</span>
+              <input type="text" class="sp-hex-input" id="sp-theme-hex" placeholder="#0f172a">
+              <input type="color" class="sp-color-btn" id="sp-theme-color" value="#0f172a">
+              <button class="sp-bg-action-btn" id="sp-btn-apply-theme" title="Apply background color to HTML & Body theme">Apply Theme</button>
+            </div>
+          </div>
         </div>
 
         <!-- Tab 3: Split Dual-Editor (Full Height, Unobstructed) -->
@@ -384,7 +409,11 @@
   const zDownBtn          = root.querySelector("#sp-z-down");
   const zUpBtn            = root.querySelector("#sp-z-up");
   const zInput            = root.querySelector("#sp-zindex-val");
-  const breadcrumbs       = root.querySelector("#sp-dom-breadcrumbs");
+  const relParentChips    = root.querySelector("#sp-rel-parent-chips");
+  const relCurrentBox     = root.querySelector("#sp-rel-current-box");
+  const relSiblingsChips  = root.querySelector("#sp-rel-siblings-chips");
+  const relChildrenChips  = root.querySelector("#sp-rel-children-chips");
+  const ancestorsList     = root.querySelector("#sp-ancestors-list");
 
   const codeAreaA         = root.querySelector("#sp-code-a");
   const codeAreaB         = root.querySelector("#sp-code-b");
@@ -787,10 +816,27 @@
      ══════════════════════════════════════════════════════════ */
   function applyTextToElement(el, col) {
     if (!el) return;
+    
+    // 1. Direct element text color
     el.style.setProperty("color", col, "important");
-    if (el instanceof SVGElement && el.tagName.toLowerCase() === "text") {
+
+    // 2. Set on all descendant text elements so the letters inside actually change!
+    const textEls = el.querySelectorAll("span, p, a, h1, h2, h3, h4, h5, h6, strong, b, em, i, small, label, button, div, li, td, th, input, textarea, code");
+    textEls.forEach(child => {
+      // If child has direct text or children, enforce color
+      if (child.textContent && child.textContent.trim().length > 0) {
+        child.style.setProperty("color", col, "important");
+      }
+    });
+
+    // 3. For SVGs / icons inside or if the target itself is an SVG
+    if (el instanceof SVGElement) {
       el.style.setProperty("fill", col, "important");
     }
+    el.querySelectorAll("svg, svg path, svg circle, svg rect, svg polygon, svg line").forEach(icon => {
+      icon.style.setProperty("fill", col, "important");
+    });
+
     updateSandboxPreview(el);
   }
 
@@ -826,9 +872,22 @@
     if (!el) return;
     const finalW = width || borderWidthSelect.value || "2px";
     const finalS = style || borderStyleSelect.value || "solid";
+
+    // 1. Explicit CSS border properties
     el.style.setProperty("border-color", col, "important");
     el.style.setProperty("border-style", finalS, "important");
     el.style.setProperty("border-width", finalW, "important");
+
+    // 2. Also set outline & box-shadow ring so it cuts through Tailwind resets, clipping, and child fills!
+    if (finalW !== "0px" && finalS !== "none") {
+      el.style.setProperty("outline", `${finalW} ${finalS} ${col}`, "important");
+      el.style.setProperty("box-shadow", `0 0 0 ${finalW} ${col}`, "important");
+    } else {
+      el.style.removeProperty("outline");
+      el.style.removeProperty("box-shadow");
+    }
+
+    // 3. For SVG strokes
     if (el instanceof SVGElement) {
       el.style.setProperty("stroke", col, "important");
       el.style.setProperty("stroke-width", finalW, "important");
@@ -876,7 +935,7 @@
     const htmlEl = document.documentElement;
     const htmlCs = window.getComputedStyle(htmlEl);
     bgLayers.push({
-      label: "Root Theme (<html>)",
+      label: "Root Theme (HTML)",
       node: htmlEl,
       color: rgbToHex(htmlCs.backgroundColor),
       image: htmlCs.backgroundImage !== "none" ? htmlCs.backgroundImage : null
@@ -886,7 +945,7 @@
     const bodyEl = document.body;
     const bodyCs = window.getComputedStyle(bodyEl);
     bgLayers.push({
-      label: "Document Canvas (<body>)",
+      label: "Document Canvas (Body)",
       node: bodyEl,
       color: rgbToHex(bodyCs.backgroundColor),
       image: bodyCs.backgroundImage !== "none" ? bodyCs.backgroundImage : null
@@ -1162,93 +1221,173 @@
     selectedEl.style.setProperty("z-index", e.target.value, "important");
   });
 
-  /* ── DOM Breadcrumbs with 👁️ Visibility & 🎯 Solo Isolation ── */
+  /* ── Focused Relatives Drawer (Parent, Current, Siblings, Inside) ── */
   function buildBreadcrumbs(el) {
-    breadcrumbs.innerHTML = "";
-    const chain = [];
-    let curr = el;
-    while (curr && curr !== document.documentElement && !isOwn(curr)) {
-      chain.unshift(curr);
-      curr = curr.parentElement;
-    }
+    if (!el) return;
+    if (relParentChips) relParentChips.innerHTML = "";
+    if (relCurrentBox) relCurrentBox.innerHTML = "";
+    if (relSiblingsChips) relSiblingsChips.innerHTML = "";
+    if (relChildrenChips) relChildrenChips.innerHTML = "";
+    if (ancestorsList) ancestorsList.innerHTML = "";
 
-    chain.forEach((node, idx) => {
+    function makeChip(node, isCurrent = false, labelPrefix = "") {
       const tag = node.tagName.toLowerCase();
       const id = (node.id && typeof node.id === "string") ? "#" + node.id : "";
       const cls = getPrimaryClass(node);
+      const textPreview = (node.childNodes.length === 1 && node.firstChild.nodeType === Node.TEXT_NODE && node.textContent.trim())
+        ? ` "${node.textContent.trim().slice(0, 14)}"` : "";
 
-      const row = document.createElement("div");
-      row.className = "sp-crumb-row" + (node === el ? " current" : "");
-
-      // 👁️ Toggle Visibility Button
-      const eyeBtn = document.createElement("button");
-      eyeBtn.className = "sp-layer-eye-btn";
-      eyeBtn.title = "Toggle layer visibility (hide/show)";
-      eyeBtn.textContent = (node.style.visibility === "hidden" || node.style.display === "none") ? "🙈" : "👁️";
-      eyeBtn.addEventListener("click", e => {
+      const chip = document.createElement("button");
+      chip.className = "sp-rel-chip" + (isCurrent ? " current" : "");
+      chip.textContent = `${labelPrefix}${tag}${id}${cls}${textPreview}`;
+      chip.title = `Click to select <${tag}>`;
+      chip.addEventListener("click", e => {
         e.stopPropagation();
-        if (node.style.visibility === "hidden" || node.style.display === "none") {
-          node.style.visibility = "";
-          node.style.display = "";
-          eyeBtn.textContent = "👁️";
-          showToast(`Unhid layer: ${tag}${id}`);
-        } else {
-          node.style.visibility = "hidden";
-          eyeBtn.textContent = "🙈";
-          showToast(`Hid layer: ${tag}${id}`);
-        }
+        selectElement(node);
       });
+      return chip;
+    }
 
-      // 🎯 Solo Isolate Button
-      const soloBtn = document.createElement("button");
-      soloBtn.className = "sp-layer-solo-btn";
-      soloBtn.title = "Solo this layer (hide all other siblings)";
-      soloBtn.textContent = (isolatedLayerNode === node) ? "🎯 On" : "🎯";
-      soloBtn.addEventListener("click", e => {
-        e.stopPropagation();
-        if (isolatedLayerNode === node) {
-          // Restore all
-          document.querySelectorAll(".sp-layer-isolated").forEach(n => {
-            n.classList.remove("sp-layer-isolated");
-            n.style.visibility = "";
-          });
-          isolatedLayerNode = null;
-          soloBtn.textContent = "🎯";
-          showToast("Restored all layers");
-        } else {
-          // Hide siblings
-          if (node.parentElement) {
-            Array.from(node.parentElement.children).forEach(child => {
-              if (child !== node && !isOwn(child)) {
-                child.classList.add("sp-layer-isolated");
-                child.style.visibility = "hidden";
-              }
-            });
-          }
-          isolatedLayerNode = node;
-          soloBtn.textContent = "🎯 On";
-          showToast(`🎯 Solo active: showing only ${tag}${id}`);
-        }
-      });
+    // 1. Parent Layer
+    const parent = el.parentElement;
+    if (parent && !isOwn(parent) && parent !== document.documentElement) {
+      if (relParentChips) relParentChips.appendChild(makeChip(parent, false, ""));
+    } else if (relParentChips) {
+      const empty = document.createElement("span");
+      empty.className = "sp-rel-empty";
+      empty.textContent = "Root Document (No Parent)";
+      relParentChips.appendChild(empty);
+    }
 
-      // Layer Selection Tag
-      const btn = document.createElement("button");
-      btn.className = "sp-crumb-tag";
-      btn.textContent = tag + id + cls;
-      btn.addEventListener("click", () => selectElement(node));
+    // 2. Current Layer Box (Eye 👁️, Solo 🎯, Tag Name, Dimensions)
+    const curTag = el.tagName.toLowerCase();
+    const curId = (el.id && typeof el.id === "string") ? "#" + el.id : "";
+    const curCls = getPrimaryClass(el);
+    const r = el.getBoundingClientRect();
 
-      row.appendChild(eyeBtn);
-      row.appendChild(soloBtn);
-      row.appendChild(btn);
-      breadcrumbs.appendChild(row);
-
-      if (idx < chain.length - 1) {
-        const sep = document.createElement("span");
-        sep.className = "sp-crumb-sep";
-        sep.textContent = ">";
-        breadcrumbs.appendChild(sep);
+    const eyeBtn = document.createElement("button");
+    eyeBtn.className = "sp-layer-eye-btn";
+    eyeBtn.title = "Toggle layer visibility (hide/show)";
+    eyeBtn.textContent = (el.style.visibility === "hidden" || el.style.display === "none") ? "🙈" : "👁️";
+    eyeBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (el.style.visibility === "hidden" || el.style.display === "none") {
+        el.style.visibility = "";
+        el.style.display = "";
+        eyeBtn.textContent = "👁️";
+        showToast(`Unhid layer: ${curTag}${curId}`);
+      } else {
+        el.style.visibility = "hidden";
+        eyeBtn.textContent = "🙈";
+        showToast(`Hid layer: ${curTag}${curId}`);
       }
+      updateSelectBox(el);
     });
+
+    const soloBtn = document.createElement("button");
+    soloBtn.className = "sp-layer-solo-btn";
+    soloBtn.title = "Solo this layer (hide all other siblings)";
+    soloBtn.textContent = (isolatedLayerNode === el) ? "🎯 Solo ON" : "🎯 Solo";
+    soloBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (isolatedLayerNode === el) {
+        document.querySelectorAll(".sp-layer-isolated").forEach(n => {
+          n.style.visibility = "";
+          n.classList.remove("sp-layer-isolated");
+        });
+        isolatedLayerNode = null;
+        soloBtn.textContent = "🎯 Solo";
+        showToast("Restored all sibling layers");
+      } else {
+        if (isolatedLayerNode) {
+          document.querySelectorAll(".sp-layer-isolated").forEach(n => {
+            n.style.visibility = "";
+            n.classList.remove("sp-layer-isolated");
+          });
+        }
+        isolatedLayerNode = el;
+        const siblings = parent ? Array.from(parent.children) : [];
+        siblings.forEach(sib => {
+          if (sib !== el && !isOwn(sib)) {
+            sib.style.visibility = "hidden";
+            sib.classList.add("sp-layer-isolated");
+          }
+        });
+        soloBtn.textContent = "🎯 Solo ON";
+        showToast(`Solo isolated: ${curTag}${curId}`);
+      }
+      updateSelectBox(el);
+    });
+
+    const curLabel = document.createElement("span");
+    curLabel.className = "sp-rel-cur-label";
+    curLabel.textContent = `${curTag}${curId}${curCls} (${Math.round(r.width)}×${Math.round(r.height)})`;
+
+    if (relCurrentBox) {
+      relCurrentBox.appendChild(eyeBtn);
+      relCurrentBox.appendChild(soloBtn);
+      relCurrentBox.appendChild(curLabel);
+    }
+
+    // 3. Siblings (Neighbors)
+    const siblings = parent ? Array.from(parent.children).filter(n => !isOwn(n) && n !== el) : [];
+    if (relSiblingsChips) {
+      if (siblings.length > 0) {
+        siblings.slice(0, 6).forEach(sib => {
+          relSiblingsChips.appendChild(makeChip(sib));
+        });
+        if (siblings.length > 6) {
+          const more = document.createElement("span");
+          more.className = "sp-rel-more";
+          more.textContent = `+${siblings.length - 6} more`;
+          relSiblingsChips.appendChild(more);
+        }
+      } else {
+        const empty = document.createElement("span");
+        empty.className = "sp-rel-empty";
+        empty.textContent = "No siblings in container";
+        relSiblingsChips.appendChild(empty);
+      }
+    }
+
+    // 4. Children (Inside / Letters / Icons)
+    const children = Array.from(el.children).filter(n => !isOwn(n));
+    if (relChildrenChips) {
+      if (children.length > 0) {
+        children.slice(0, 8).forEach(child => {
+          relChildrenChips.appendChild(makeChip(child));
+        });
+        if (children.length > 8) {
+          const more = document.createElement("span");
+          more.className = "sp-rel-more";
+          more.textContent = `+${children.length - 8} more`;
+          relChildrenChips.appendChild(more);
+        }
+      } else {
+        const empty = document.createElement("span");
+        empty.className = "sp-rel-empty";
+        const hasDirectText = el.textContent && el.textContent.trim().length > 0;
+        empty.textContent = hasDirectText ? `Text Content: "${el.textContent.trim().slice(0, 24)}"` : "Leaf element (No children)";
+        relChildrenChips.appendChild(empty);
+      }
+    }
+
+    // 5. Ancestor Tree in Collapsible Details
+    if (ancestorsList) {
+      const ancestors = [];
+      let up = parent;
+      while (up && up !== document.documentElement && !isOwn(up)) {
+        ancestors.unshift(up);
+        up = up.parentElement;
+      }
+      if (ancestors.length > 0) {
+        ancestors.forEach((anc, idx) => {
+          ancestorsList.appendChild(makeChip(anc, false, `${idx + 1}. `));
+        });
+      } else {
+        ancestorsList.textContent = "Direct child of document";
+      }
+    }
   }
 
   /* ══════════════════════════════════════════════════════════
