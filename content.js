@@ -409,6 +409,29 @@
     return "#" + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, "0")).join("");
   }
 
+  function getClassName(el) {
+    if (!el) return "";
+    if (typeof el.className === "string") return el.className;
+    if (el.className && typeof el.className.baseVal === "string") return el.className.baseVal;
+    if (typeof el.getAttribute === "function") return el.getAttribute("class") || "";
+    return "";
+  }
+
+  function getPrimaryClass(el) {
+    const raw = getClassName(el).trim();
+    if (!raw) return "";
+    const first = raw.split(/\s+/)[0];
+    return first ? `.${first}` : "";
+  }
+
+  function getElementSelector(el) {
+    if (!el || !el.tagName) return "div";
+    const tag = el.tagName.toLowerCase();
+    if (el.id && typeof el.id === "string") return `#${el.id}`;
+    const cls = getPrimaryClass(el);
+    return cls || tag;
+  }
+
   function isOwn(el) {
     return el === root || root.contains(el);
   }
@@ -628,9 +651,8 @@
     updateSelectBox(el);
 
     const tagStr = el.tagName.toLowerCase();
-    const idStr = el.id ? "#" + el.id : "";
-    const clsStr = (typeof el.className === "string" && el.className.trim())
-      ? "." + el.className.trim().split(/\s+/)[0] : "";
+    const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
+    const clsStr = getPrimaryClass(el);
 
     drawerTag.textContent = tagStr;
     drawerName.textContent = idStr || clsStr || "";
@@ -688,9 +710,8 @@
     selectBox.style.height = r.height + "px";
 
     const tagStr = el.tagName.toLowerCase();
-    const idStr = el.id ? "#" + el.id : "";
-    const clsStr = (typeof el.className === "string" && el.className.trim())
-      ? "." + el.className.trim().split(/\s+/)[0] : "";
+    const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
+    const clsStr = getPrimaryClass(el);
     const lockIcon = isTargetLocked ? " 🔒" : "";
     selectBadge.textContent = `${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}`;
   }
@@ -879,9 +900,8 @@
       const hasBgImage = cs.backgroundImage && cs.backgroundImage !== "none";
       if (isOpaque || hasBgImage) {
         const tag = curr.tagName.toLowerCase();
-        const id = curr.id ? "#" + curr.id : "";
-        const cls = (typeof curr.className === "string" && curr.className.trim())
-          ? "." + curr.className.trim().split(/\s+/)[0] : "";
+        const id = (curr.id && typeof curr.id === "string") ? "#" + curr.id : "";
+        const cls = getPrimaryClass(curr);
         bgLayers.push({
           label: `${tag}${id}${cls} (Container)`,
           node: curr,
@@ -1154,9 +1174,8 @@
 
     chain.forEach((node, idx) => {
       const tag = node.tagName.toLowerCase();
-      const id = node.id ? "#" + node.id : "";
-      const cls = (typeof node.className === "string" && node.className.trim())
-        ? "." + node.className.trim().split(/\s+/)[0] : "";
+      const id = (node.id && typeof node.id === "string") ? "#" + node.id : "";
+      const cls = getPrimaryClass(node);
 
       const row = document.createElement("div");
       row.className = "sp-crumb-row" + (node === el ? " current" : "");
@@ -1281,11 +1300,10 @@
      Combined All-in-One Format & Dual Code Panes (State A & B)
      ══════════════════════════════════════════════════════════ */
   function getConnectedJsForElement(el) {
-    const onclick = el.getAttribute("onclick") || "";
+    const onclick = (typeof el.getAttribute === "function" ? el.getAttribute("onclick") : "") || "";
     const cs = window.getComputedStyle(el);
     const animName = cs.animationName;
-    const tag = el.tagName.toLowerCase();
-    const selector = el.id ? `#${el.id}` : (el.className ? `.${el.className.trim().split(/\s+/)[0]}` : tag);
+    const selector = getElementSelector(el);
 
     if (onclick) {
       return `// Inline Click Event:\n${onclick}`;
@@ -1298,8 +1316,7 @@
 
   function generateSnippet(el, isTargetState = false) {
     const cs = window.getComputedStyle(el);
-    const tag = el.tagName.toLowerCase();
-    const selector = el.id ? `#${el.id}` : (el.className ? `.${el.className.trim().split(/\s+/)[0]}` : tag);
+    const selector = getElementSelector(el);
     const html = el.outerHTML;
     const inlineCss = el.getAttribute("style") || `background: ${cs.backgroundColor}; color: ${cs.color};`;
 
@@ -1606,8 +1623,7 @@
 
   btnCopyGsap.addEventListener("click", () => {
     if (!selectedEl) return;
-    const tag = selectedEl.tagName.toLowerCase();
-    const selector = selectedEl.id ? `#${selectedEl.id}` : (selectedEl.className ? `.${selectedEl.className.trim().split(/\s+/)[0]}` : tag);
+    const selector = getElementSelector(selectedEl);
     const code = `// ⚡ GSAP Production Animation (Morph A → B)
 gsap.to("${selector}", {
   scale: 1.08,
@@ -1687,9 +1703,8 @@ gsap.to("${selector}", {
       hoverBox.style.height = r.height + "px";
 
       const tagStr = el.tagName.toLowerCase();
-      const idStr = el.id ? "#" + el.id : "";
-      const clsStr = (typeof el.className === "string" && el.className.trim())
-        ? "." + el.className.trim().split(/\s+/)[0] : "";
+      const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
+      const clsStr = getPrimaryClass(el);
       hoverLbl.textContent = `${tagStr}${idStr}${clsStr}`;
       hoverLbl.style.display = "block";
       hoverLbl.style.top = Math.max(4, r.top - 24) + "px";
