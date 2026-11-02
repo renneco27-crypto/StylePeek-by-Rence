@@ -123,12 +123,31 @@
         <div id="sp-preview-drag-handle" title="Drag preview window">⋮⋮</div>
         <span class="sp-preview-panel-title">🔍 LIVE COMPONENT PREVIEW</span>
         <div class="sp-preview-panel-actions">
+          <button class="sp-sandbox-btn sp-preview-code-toggle" id="sp-btn-preview-code" title="See code & surrounding parent / neighbors">💻 See Code</button>
           <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Context">View: Component</button>
           <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh">↺</button>
           <button class="sp-preview-close-btn" id="sp-preview-close" title="Close Preview">✕</button>
         </div>
       </div>
       <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
+
+      <!-- Live Component Preview Code Drawer (Element, Parent & Neighbor Context) -->
+      <div class="sp-preview-code-drawer" id="sp-preview-code-drawer">
+        <div class="sp-preview-drawer-header">
+          <div class="sp-preview-drawer-tabs">
+            <button class="sp-pdrawer-tab sp-active" data-pview="element">🎯 Element</button>
+            <button class="sp-pdrawer-tab" data-pview="parent">👨‍👧 Parent & Surroundings</button>
+            <button class="sp-pdrawer-tab" data-pview="neighbors">🥞 Neighbors</button>
+          </div>
+          <div class="sp-preview-drawer-actions">
+            <button class="sp-pdrawer-btn" id="sp-btn-pdrawer-copy" title="Copy code">📋 Copy</button>
+            <button class="sp-pdrawer-btn apply" id="sp-btn-pdrawer-apply" title="Apply edited code live">✓ Apply</button>
+            <button class="sp-pdrawer-btn close" id="sp-btn-pdrawer-close" title="Collapse code drawer">✕</button>
+          </div>
+        </div>
+        <textarea class="sp-preview-code-editor" id="sp-preview-code-editor" spellcheck="false" placeholder="Component & Surrounding Code..."></textarea>
+        <div class="sp-preview-info-bar" id="sp-preview-info-bar">🎯 Inspected element code & styles</div>
+      </div>
     </div>
 
     <!-- Toast Notification -->
@@ -445,11 +464,19 @@
   const snapGuideH        = root.querySelector("#sp-snap-guide-h");
   const snapGuideV        = root.querySelector("#sp-snap-guide-v");
 
-  const previewPanel      = root.querySelector("#sp-inspect-preview-panel");
-  const previewCloseBtn   = root.querySelector("#sp-preview-close");
-  const sandboxViewport   = root.querySelector("#sp-sandbox-viewport");
-  const btnContextToggle  = root.querySelector("#sp-btn-context-toggle");
-  const btnRefreshPreview = root.querySelector("#sp-btn-refresh-preview");
+  const previewPanel         = root.querySelector("#sp-inspect-preview-panel");
+  const previewCloseBtn      = root.querySelector("#sp-preview-close");
+  const sandboxViewport      = root.querySelector("#sp-sandbox-viewport");
+  const btnContextToggle     = root.querySelector("#sp-btn-context-toggle");
+  const btnRefreshPreview    = root.querySelector("#sp-btn-refresh-preview");
+  const btnPreviewCode       = root.querySelector("#sp-btn-preview-code");
+  const previewCodeDrawer    = root.querySelector("#sp-preview-code-drawer");
+  const previewCodeEditor    = root.querySelector("#sp-preview-code-editor");
+  const previewInfoBar       = root.querySelector("#sp-preview-info-bar");
+  const btnPdrawerCopy       = root.querySelector("#sp-btn-pdrawer-copy");
+  const btnPdrawerApply      = root.querySelector("#sp-btn-pdrawer-apply");
+  const btnPdrawerClose      = root.querySelector("#sp-btn-pdrawer-close");
+  let previewDrawerTab       = "element"; // "element", "parent", "neighbors"
 
   const addModal          = root.querySelector("#sp-add-element-modal");
   const addModalClose     = root.querySelector("#sp-add-modal-close");
@@ -846,28 +873,44 @@
     }
 
     // Read Z-Index & Build Hierarchy
-    const currentZ = parseInt(cs.zIndex);
-    zInput.value = isNaN(currentZ) ? 0 : currentZ;
-    buildBreadcrumbs(el);
-
-    // Sync simplified layer background color inputs
-    if (layerBgColorHex && layerBgColorPicker) {
-      const currentBg = rgbToHex(cs.backgroundColor);
-      if (currentBg && currentBg.startsWith("#")) {
-        layerBgColorHex.value = currentBg;
-        layerBgColorPicker.value = currentBg;
-      }
+    try {
+      const currentZ = parseInt(cs.zIndex);
+      zInput.value = isNaN(currentZ) ? 0 : currentZ;
+      buildBreadcrumbs(el);
+    } catch (err) {
+      console.warn("[StylePeek] Hierarchy build warning:", err);
     }
 
+    // Sync simplified layer background color inputs
+    try {
+      if (layerBgColorHex && layerBgColorPicker) {
+        const currentBg = rgbToHex(cs.backgroundColor);
+        if (currentBg && currentBg.startsWith("#")) {
+          layerBgColorHex.value = currentBg;
+          layerBgColorPicker.value = currentBg;
+        }
+      }
+    } catch (err) {}
+
     // Scan & Pinpoint Background Layers
-    scanBackgroundLayers(el);
+    try {
+      scanBackgroundLayers(el);
+    } catch (err) {
+      console.warn("[StylePeek] Background scan warning:", err);
+    }
 
     // Build Combined All-in-One Code Blocks (State A & State B)
-    populateDualCodePanes(el);
+    try {
+      populateDualCodePanes(el);
+    } catch (err) {
+      console.warn("[StylePeek] Code pane generation warning:", err);
+    }
 
     // Open dedicated live preview panel
-    updateSandboxPreview(el);
-    previewPanel.classList.add("sp-show");
+    try {
+      updateSandboxPreview(el);
+      previewPanel.classList.add("sp-show");
+    } catch (err) {}
 
     drawer.classList.add("sp-open");
   }
@@ -885,7 +928,19 @@
     const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
     const clsStr = getPrimaryClass(el);
     const lockIcon = isTargetLocked ? " 🔒" : "";
-    selectBadge.textContent = `${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}`;
+
+    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}</span><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="View & Edit Code for this element">💻 Code</button>`;
+
+    const badgeCodeBtn = selectBadge.querySelector("#sp-badge-btn-code");
+    if (badgeCodeBtn) {
+      badgeCodeBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        drawer.classList.add("sp-open");
+        const codeTab = root.querySelector(".sp-drawer-tab[data-tab='code']");
+        if (codeTab) codeTab.click();
+      });
+    }
   }
 
   /* ── 4-Corner Live Resizing / Stretching ── */
@@ -1612,7 +1667,6 @@
     });
     if (!enable || !targetEl) {
       isolatedLayerNode = null;
-      if (soloBtn) soloBtn.classList.remove("active");
       if (btnSoloLayer) btnSoloLayer.classList.remove("active");
       if (soloLabel) soloLabel.textContent = "View Only This Layer (Solo View: OFF)";
       if (soloIcon) soloIcon.textContent = "👁️";
@@ -1632,7 +1686,6 @@
       }
       curr = p;
     }
-    if (soloBtn) soloBtn.classList.add("active");
     if (btnSoloLayer) btnSoloLayer.classList.add("active");
     if (soloLabel) soloLabel.textContent = "Viewing Only This Layer (Solo View: ON)";
     if (soloIcon) soloIcon.textContent = "🎯";
@@ -1937,23 +1990,6 @@
       layerBgColorHex.value = hex;
       layerBgColorPicker.value = hex.startsWith("#") ? hex : "#0f172a";
     }
-
-    // 5. Ancestor Tree in Collapsible Details
-    if (ancestorsList) {
-      const ancestors = [];
-      let up = parent;
-      while (up && up !== document.documentElement && !isOwn(up)) {
-        ancestors.unshift(up);
-        up = up.parentElement;
-      }
-      if (ancestors.length > 0) {
-        ancestors.forEach((anc, idx) => {
-          ancestorsList.appendChild(makeChip(anc, false, `${idx + 1}. `));
-        });
-      } else {
-        ancestorsList.textContent = "Direct child of document";
-      }
-    }
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -1986,6 +2022,10 @@
     } catch (e) {
       sandboxViewport.innerHTML = '<span style="color:#64748B;font-size:11px">Preview unavailable</span>';
     }
+
+    if (previewCodeDrawer && previewCodeDrawer.classList.contains("sp-pdrawer-open")) {
+      updatePreviewCodeDrawer(el);
+    }
   }
 
   btnContextToggle.addEventListener("click", () => {
@@ -2004,6 +2044,167 @@
   /* ══════════════════════════════════════════════════════════
      Combined All-in-One Format & Dual Code Panes (State A & B)
      ══════════════════════════════════════════════════════════ */
+  function formatHtmlCode(rawHtml) {
+    if (!rawHtml) return "";
+    let html = rawHtml.replace(/\s+/g, " ").replace(/> </g, "><").trim();
+    let formatted = "";
+    let indent = 0;
+    const tab = "  ";
+
+    const tagRegex = /(<\/[a-zA-Z0-9\-]+>)|(<[a-zA-Z0-9\-]+[^>]*\/>)|(<([a-zA-Z0-9\-]+)[^>]*>[^<]*<\/\4>)|(<[a-zA-Z0-9\-]+[^>]*>)|([^<]+)/g;
+    const tokens = html.match(tagRegex) || [html];
+
+    for (let token of tokens) {
+      token = token.trim();
+      if (!token) continue;
+
+      if (token.startsWith("</")) {
+        indent = Math.max(0, indent - 1);
+        formatted += tab.repeat(indent) + token + "\n";
+      } else if (token.startsWith("<") && token.endsWith("/>")) {
+        formatted += tab.repeat(indent) + token + "\n";
+      } else if (/^<([a-zA-Z0-9\-]+)[^>]*>[^<]*<\/\1>$/.test(token)) {
+        formatted += tab.repeat(indent) + token + "\n";
+      } else if (token.startsWith("<")) {
+        const tagNameMatch = token.match(/<([a-zA-Z0-9\-]+)/);
+        const isVoid = tagNameMatch && /^(img|input|br|hr|meta|link|col|embed|source|track|wbr)$/i.test(tagNameMatch[1]);
+        formatted += tab.repeat(indent) + token + "\n";
+        if (!isVoid) {
+          indent++;
+        }
+      } else {
+        formatted += tab.repeat(indent) + token + "\n";
+      }
+    }
+    return formatted.trim();
+  }
+
+  function getCleanOuterHtml(el) {
+    try {
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll("#sp-root, [id^='sp-'], .sp-layer-isolated").forEach(n => {
+        n.classList.remove("sp-layer-isolated");
+        if (n.id && n.id.startsWith("sp-")) n.remove();
+      });
+      return formatHtmlCode(clone.outerHTML);
+    } catch (e) {
+      return formatHtmlCode(el.outerHTML || "");
+    }
+  }
+
+  function getMatchedCSSRulesForElement(el) {
+    const matchedRules = [];
+    const seen = new Set();
+    const targets = [el];
+    if (el.children) {
+      const kids = Array.from(el.children).slice(0, 30);
+      targets.push(...kids);
+    }
+
+    try {
+      const sheets = Array.from(document.styleSheets || []);
+      for (const sheet of sheets) {
+        let rules;
+        try {
+          rules = sheet.cssRules || sheet.rules;
+        } catch (e) {
+          continue;
+        }
+        if (!rules) continue;
+
+        for (const rule of Array.from(rules)) {
+          try {
+            if (rule.type === 1 && rule.selectorText) {
+              for (const target of targets) {
+                if (typeof target.matches === "function" && target.matches(rule.selectorText)) {
+                  if (!seen.has(rule.cssText)) {
+                    seen.add(rule.cssText);
+                    matchedRules.push(rule.cssText);
+                  }
+                  break;
+                }
+              }
+            } else if (rule.type === 4 && rule.cssRules) {
+              for (const innerRule of Array.from(rule.cssRules)) {
+                if (innerRule.selectorText) {
+                  for (const target of targets) {
+                    if (typeof target.matches === "function" && target.matches(innerRule.selectorText)) {
+                      if (!seen.has(innerRule.cssText)) {
+                        seen.add(innerRule.cssText);
+                        matchedRules.push(`@media ${rule.conditionText || "screen"} {\n  ${innerRule.cssText}\n}`);
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    return matchedRules;
+  }
+
+  function getComputedVisualCSS(el, selector) {
+    const cs = window.getComputedStyle(el);
+    const props = [
+      "display", "position", "top", "right", "bottom", "left", "z-index", "box-sizing",
+      "width", "height", "min-width", "max-width", "min-height", "max-height",
+      "flex-direction", "justify-content", "align-items", "gap", "flex-wrap", "flex-grow", "flex-shrink",
+      "grid-template-columns", "grid-template-rows",
+      "padding", "margin", "overflow",
+      "background", "background-color", "background-image", "background-size", "background-position", "background-repeat",
+      "backdrop-filter", "-webkit-backdrop-filter", "clip-path",
+      "border", "border-radius", "box-shadow", "outline",
+      "color", "font-family", "font-size", "font-weight", "line-height", "letter-spacing", "text-align",
+      "transform", "opacity", "cursor", "transition"
+    ];
+
+    const defaultIgnore = {
+      "position": ["static"],
+      "top": ["auto"], "right": ["auto"], "bottom": ["auto"], "left": ["auto"],
+      "z-index": ["auto"],
+      "box-sizing": ["content-box"],
+      "min-width": ["0px", "auto"], "min-height": ["0px", "auto"],
+      "max-width": ["none"], "max-height": ["none"],
+      "flex-grow": ["0"], "flex-shrink": ["1"],
+      "margin": ["0px"],
+      "padding": ["0px"],
+      "border": ["0px none rgb(0, 0, 0)", "none"],
+      "border-radius": ["0px"],
+      "box-shadow": ["none"],
+      "outline": ["rgb(0, 0, 0) none 0px", "none"],
+      "clip-path": ["none"],
+      "backdrop-filter": ["none"],
+      "-webkit-backdrop-filter": ["none"],
+      "background-image": ["none"],
+      "transform": ["none"],
+      "opacity": ["1"],
+      "cursor": ["auto"],
+      "transition": ["all 0s ease 0s", "none"]
+    };
+
+    const lines = [];
+    for (const p of props) {
+      let val = "";
+      try {
+        val = cs.getPropertyValue(p) || cs[p] || "";
+      } catch (e) {}
+      if (!val) continue;
+      if (defaultIgnore[p] && defaultIgnore[p].includes(val)) continue;
+      lines.push(`  ${p}: ${val};`);
+    }
+
+    if (!lines.length) {
+      lines.push(`  background: ${cs.backgroundColor || "transparent"};`);
+      lines.push(`  color: ${cs.color || "inherit"};`);
+    }
+
+    return `${selector} {\n${lines.join("\n")}\n}`;
+  }
+
   function getConnectedJsForElement(el) {
     const onclick = (typeof el.getAttribute === "function" ? el.getAttribute("onclick") : "") || "";
     const cs = window.getComputedStyle(el);
@@ -2020,21 +2221,196 @@
   }
 
   function generateSnippet(el, isTargetState = false) {
-    const cs = window.getComputedStyle(el);
     const selector = getElementSelector(el);
-    const html = el.outerHTML;
-    const inlineCss = el.getAttribute("style") || `background: ${cs.backgroundColor}; color: ${cs.color};`;
+    const html = getCleanOuterHtml(el);
+    const matchedRules = getMatchedCSSRulesForElement(el);
+    const computedCss = getComputedVisualCSS(el, selector);
+    const inlineStyle = el.getAttribute("style");
+
+    let cssBlock = "";
+    if (matchedRules.length > 0) {
+      cssBlock += `/* === Document Stylesheet Rules === */\n` + matchedRules.join("\n\n") + "\n\n";
+    }
+    if (inlineStyle) {
+      cssBlock += `/* === Element Inline Style === */\n${selector} {\n  ${inlineStyle}\n}\n\n`;
+    }
+    cssBlock += `/* === Active Visual & Layout CSS === */\n` + computedCss;
 
     if (!isTargetState) {
-      return `<!-- State A (Initial HTML) -->\n${html}\n\n<style>\n/* State A Styles */\n${selector} {\n  ${inlineCss}\n}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
+      return `<!-- State A (Inspected Component Code) -->\n${html}\n\n<style>\n${cssBlock}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
     } else {
-      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  transform: scale(1.06) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.06,\n  y: -4,\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
+      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  transform: scale(1.05) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.05,\n  y: -4,\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
     }
   }
 
   function populateDualCodePanes(el) {
     codeAreaA.value = generateSnippet(el, false);
     codeAreaB.value = generateSnippet(el, true);
+    if (previewCodeDrawer && previewCodeDrawer.classList.contains("sp-pdrawer-open")) {
+      updatePreviewCodeDrawer(el);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Live Component Preview Drawer (Element Code, Parent & Neighbors)
+     ══════════════════════════════════════════════════════════ */
+  function updatePreviewCodeDrawer(el, targetTab = previewDrawerTab) {
+    if (!previewCodeEditor) return;
+    previewDrawerTab = targetTab;
+
+    root.querySelectorAll(".sp-pdrawer-tab").forEach(tab => {
+      tab.classList.toggle("sp-active", tab.dataset.pview === previewDrawerTab);
+    });
+
+    if (!el) {
+      previewCodeEditor.value = "<!-- No element selected -->";
+      if (previewInfoBar) previewInfoBar.textContent = "Select an element to view code & surroundings";
+      return;
+    }
+
+    const tagStr = el.tagName.toLowerCase();
+    const idStr = el.id ? "#" + el.id : "";
+    const clsStr = getPrimaryClass(el);
+
+    if (previewDrawerTab === "element") {
+      previewCodeEditor.value = generateSnippet(el, false);
+      if (previewInfoBar) previewInfoBar.textContent = `🎯 Element Code: <${tagStr}${idStr}${clsStr}> + Matching Stylesheet Rules`;
+    } else if (previewDrawerTab === "parent") {
+      const parent = el.parentElement;
+      if (!parent || parent === document.documentElement || isOwn(parent)) {
+        previewCodeEditor.value = `<!-- Element is attached directly to root document body -->\n${getCleanOuterHtml(el)}`;
+        if (previewInfoBar) previewInfoBar.textContent = "Root element (No higher parent container)";
+      } else {
+        const parentTag = parent.tagName.toLowerCase();
+        const parentCls = getPrimaryClass(parent);
+        let parentMarkup = "";
+        try {
+          const parentClone = parent.cloneNode(true);
+          parentClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-layer-isolated").forEach(n => n.remove());
+          parentMarkup = formatHtmlCode(parentClone.outerHTML);
+        } catch (e) {
+          parentMarkup = formatHtmlCode(parent.outerHTML || "");
+        }
+
+        const parentRules = getMatchedCSSRulesForElement(parent);
+        const parentCss = getComputedVisualCSS(parent, getElementSelector(parent));
+
+        let cssOut = "";
+        if (parentRules.length) {
+          cssOut += `/* Parent Matched CSS Rules */\n${parentRules.join('\n\n')}\n\n`;
+        }
+        cssOut += `/* Parent Computed Layout */\n${parentCss}`;
+
+        previewCodeEditor.value = `<!-- ═══════════════════════════════════════════ -->\n<!-- PARENT CONTAINER: <${parentTag}${parentCls}>               -->\n<!-- Target element is nested inside this container -->\n<!-- ═══════════════════════════════════════════ -->\n${parentMarkup}\n\n<style>\n${cssOut}\n</style>`;
+        if (previewInfoBar) previewInfoBar.textContent = `👨‍👧 Parent Container: <${parentTag}${parentCls}> with full surroundings`;
+      }
+    } else if (previewDrawerTab === "neighbors") {
+      const prev = el.previousElementSibling;
+      const next = el.nextElementSibling;
+
+      let code = `<!-- ═══════════════════════════════════════════ -->\n<!-- SURROUNDING NEIGHBORS & TARGET ELEMENT       -->\n<!-- ═══════════════════════════════════════════ -->\n\n`;
+
+      if (prev && !isOwn(prev)) {
+        code += `<!-- ◂ PREVIOUS SIBLING: <${prev.tagName.toLowerCase()}${getPrimaryClass(prev)}> -->\n${getCleanOuterHtml(prev)}\n\n`;
+      } else {
+        code += `<!-- ◂ (No previous neighbor in this layer) -->\n\n`;
+      }
+
+      code += `<!-- 🎯 TARGET INSPECTED ELEMENT: <${tagStr}${idStr}${clsStr}> -->\n${getCleanOuterHtml(el)}\n\n`;
+
+      if (next && !isOwn(next)) {
+        code += `<!-- ▸ NEXT SIBLING: <${next.tagName.toLowerCase()}${getPrimaryClass(next)}> -->\n${getCleanOuterHtml(next)}\n\n`;
+      } else {
+        code += `<!-- ▸ (No next neighbor in this layer) -->\n\n`;
+      }
+
+      const elRules = getMatchedCSSRulesForElement(el);
+      const elCss = getComputedVisualCSS(el, getElementSelector(el));
+      code += `<style>\n${elRules.length ? '/* Matched Styles */\n' + elRules.join('\n\n') + '\n\n' : ''}/* Target Element Layout */\n${elCss}\n</style>`;
+
+      previewCodeEditor.value = code;
+      if (previewInfoBar) previewInfoBar.textContent = `🥞 Surrounding Siblings: Prev ◂ [${tagStr}] ▸ Next`;
+    }
+  }
+
+  if (btnPreviewCode) {
+    btnPreviewCode.addEventListener("click", () => {
+      const isOpen = previewCodeDrawer.classList.toggle("sp-pdrawer-open");
+      btnPreviewCode.classList.toggle("active", isOpen);
+      previewPanel.classList.toggle("sp-has-code-drawer", isOpen);
+      if (isOpen) {
+        updatePreviewCodeDrawer(selectedEl);
+        showToast("💻 Opened preview code & surrounding drawer");
+      }
+    });
+  }
+
+  if (btnPdrawerClose) {
+    btnPdrawerClose.addEventListener("click", () => {
+      previewCodeDrawer.classList.remove("sp-pdrawer-open");
+      btnPreviewCode.classList.remove("active");
+      previewPanel.classList.remove("sp-has-code-drawer");
+    });
+  }
+
+  root.querySelectorAll(".sp-pdrawer-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      updatePreviewCodeDrawer(selectedEl, tab.dataset.pview);
+    });
+  });
+
+  if (btnPdrawerCopy) {
+    btnPdrawerCopy.addEventListener("click", () => {
+      if (!previewCodeEditor.value) return;
+      navigator.clipboard.writeText(previewCodeEditor.value).then(() => {
+        showToast("📋 Copied code & surroundings to clipboard!");
+      }).catch(() => {
+        previewCodeEditor.select();
+        document.execCommand("copy");
+        showToast("📋 Copied code to clipboard!");
+      });
+    });
+  }
+
+  if (btnPdrawerApply) {
+    btnPdrawerApply.addEventListener("click", () => {
+      if (!selectedEl) return;
+      const rawCode = previewCodeEditor.value;
+      const check = validateSnippet(rawCode);
+      if (!check.valid) {
+        showErrorModal(check, () => {
+          previewCodeEditor.value = rawCode + (check.type === "CSS" ? "\n}" : "");
+          btnPdrawerApply.click();
+        });
+        return;
+      }
+
+      if (previewDrawerTab === "parent" && selectedEl.parentElement) {
+        const parts = check.parts;
+        if (parts.html) {
+          try {
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = parts.html;
+            const newParent = wrapper.firstElementChild;
+            if (newParent && selectedEl.parentElement.parentNode) {
+              const oldParent = selectedEl.parentElement;
+              undoStack.push({ type: "html", oldEl: oldParent, newEl: newParent, parent: oldParent.parentNode });
+              oldParent.parentNode.replaceChild(newParent, oldParent);
+              const tag = selectedEl.tagName.toLowerCase();
+              selectedEl = newParent.querySelector(tag) || newParent.firstElementChild || newParent;
+              selectElement(selectedEl);
+            }
+          } catch (e) {}
+        }
+      } else {
+        codeAreaA.value = rawCode;
+        btnApplyCode.click();
+      }
+
+      updateSandboxPreview(selectedEl);
+      updatePreviewCodeDrawer(selectedEl);
+      showToast("✓ Applied preview code edits to canvas!");
+    });
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -3117,177 +3493,265 @@ gsap.to("${selector}", {
   async function captureVisibleViewport() {
     showToast("📸 Capturing rendered slide / viewport cleanly...");
 
-    const origScrollX = window.scrollX || window.pageXOffset || 0;
-    const origScrollY = window.scrollY || window.pageYOffset || 0;
-
-    // 1. Gently load images (auto-scroll only if tall multi-screen page)
     try {
-      const scrollHeight = Math.max(
-        document.body.scrollHeight,
-        document.documentElement.scrollHeight,
-        window.innerHeight
-      );
-      if (scrollHeight > window.innerHeight + 120) {
-        const step = Math.max(350, Math.floor(window.innerHeight * 0.8));
-        for (let pos = 0; pos < scrollHeight; pos += step) {
-          window.scrollTo(0, pos);
-          await new Promise(r => setTimeout(r, 40));
-        }
-        window.scrollTo(0, scrollHeight);
-        await new Promise(r => setTimeout(r, 100));
-        window.scrollTo(origScrollX, origScrollY);
-        await new Promise(r => setTimeout(r, 60));
-      }
-    } catch (e) {}
+      const origScrollX = window.scrollX || window.pageXOffset || 0;
+      const origScrollY = window.scrollY || window.pageYOffset || 0;
 
-    // 2. Hide any active extension toasts & popovers before cloning
-    if (toast) toast.classList.remove("sp-show");
-    if (selectBox) selectBox.style.display = "none";
-    if (hoverBox) hoverBox.style.display = "none";
-    if (hoverLbl) hoverLbl.style.display = "none";
-
-    // 3. Detach StylePeek root completely from live DOM
-    root.remove();
-    const docClone = document.documentElement.cloneNode(true);
-
-    // Reattach root cleanly to live document
-    document.documentElement.appendChild(root);
-    if (isEnabled && selectedEl) updateSelectBox(selectedEl);
-
-    // 4. Purge scripts, iframes, and StylePeek extension elements
-    docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
-    docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
-    docClone.querySelectorAll("#sp-root, [id^='sp-'], [class^='sp-'], [class*=' sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal, #sp-toast, #sp-select-box, #sp-hover-box, #sp-hover-label").forEach(e => e.remove());
-
-    // 5. Clean residual attributes and verify ZERO extension UI text remains in the clone
-    const allClonedNodes = Array.from(docClone.querySelectorAll("*"));
-    for (const node of allClonedNodes) {
-      if (!node.parentNode) continue;
-
-      // Strip temporary data attributes
-      Array.from(node.attributes || []).forEach(attr => {
-        if (attr.name.startsWith("data-sp-")) node.removeAttribute(attr.name);
-      });
-
-      // Strip extension classes
-      if (node.classList) {
-        node.classList.remove("sp-free-dragging", "sp-inline-editing", "sp-custom-element", "sp-layer-isolated");
-        if (node.className === "") node.removeAttribute("class");
-      }
-
-      // Purge any residual extension text or navbar elements if present
-      const txt = node.textContent || "";
-      if (
-        txt.includes("Capturing rendered phone") ||
-        txt.includes("Color Palette ✕") ||
-        txt.includes("With siblings Pick another") ||
-        txt.includes("LIVE COMPONENT PREVIEW") ||
-        (txt.includes("🔍") && txt.includes("✋") && txt.includes("🎨") && txt.includes("✂️"))
-      ) {
-        if (node !== docClone.body && node !== docClone) {
-          node.remove();
-        }
-      }
-    }
-
-    // 6. Inlining Images into Base64 / Absolute URLs
-    const cloneBody = docClone.querySelector("body") || docClone;
-    const origImages = Array.from(document.querySelectorAll("img"));
-    const cloneImages = Array.from(cloneBody.querySelectorAll("img"));
-
-    for (let i = 0; i < cloneImages.length; i++) {
-      const cImg = cloneImages[i];
-      const srcAttr = cImg.getAttribute("src") || "";
-      const oImg = origImages.find(img => img.getAttribute("src") === srcAttr || img.src === cImg.src) || origImages[i];
-      if (oImg) {
-        try {
-          if (oImg.naturalWidth && oImg.complete) {
-            const canvas = document.createElement("canvas");
-            canvas.width = oImg.naturalWidth;
-            canvas.height = oImg.naturalHeight;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(oImg, 0, 0);
-            cImg.src = canvas.toDataURL("image/png");
-          } else {
-            cImg.src = new URL(srcAttr, window.location.href).href;
+      // 1. Gently load images (auto-scroll only if tall multi-screen page)
+      try {
+        const scrollHeight = Math.max(
+          document.body ? document.body.scrollHeight : 0,
+          document.documentElement ? document.documentElement.scrollHeight : 0,
+          window.innerHeight
+        );
+        if (scrollHeight > window.innerHeight + 120) {
+          const step = Math.max(350, Math.floor(window.innerHeight * 0.8));
+          for (let pos = 0; pos < scrollHeight; pos += step) {
+            window.scrollTo(0, pos);
+            await new Promise(r => setTimeout(r, 40));
           }
-        } catch (err) {
-          try { cImg.src = new URL(srcAttr, window.location.href).href; } catch(e){}
+          window.scrollTo(0, scrollHeight);
+          await new Promise(r => setTimeout(r, 100));
+          window.scrollTo(origScrollX, origScrollY);
+          await new Promise(r => setTimeout(r, 60));
+        }
+      } catch (e) {}
+
+      // 2. Hide any active extension toasts & popovers before cloning
+      if (toast) toast.classList.remove("sp-show");
+      if (selectBox) selectBox.style.display = "none";
+      if (hoverBox) hoverBox.style.display = "none";
+      if (hoverLbl) hoverLbl.style.display = "none";
+
+      // 3. Detach StylePeek root completely from live DOM
+      if (root.parentNode) root.remove();
+      const docClone = document.documentElement.cloneNode(true);
+
+      // Reattach root cleanly to live document
+      document.documentElement.appendChild(root);
+      if (isEnabled && selectedEl) updateSelectBox(selectedEl);
+
+      // 4. Purge scripts, iframes, and StylePeek extension elements
+      docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
+      docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
+      docClone.querySelectorAll("#sp-root, [id^='sp-'], [class^='sp-'], [class*=' sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal, #sp-toast, #sp-select-box, #sp-hover-box, #sp-hover-label").forEach(e => e.remove());
+
+      // 5. Clean residual attributes and verify ZERO extension UI text remains in the clone
+      const allClonedNodes = Array.from(docClone.querySelectorAll("*"));
+      for (const node of allClonedNodes) {
+        if (!node.parentNode) continue;
+
+        // Strip temporary data attributes
+        Array.from(node.attributes || []).forEach(attr => {
+          if (attr.name.startsWith("data-sp-")) node.removeAttribute(attr.name);
+        });
+
+        // Strip extension classes
+        if (node.classList) {
+          node.classList.remove("sp-free-dragging", "sp-inline-editing", "sp-custom-element", "sp-layer-isolated");
+          if (node.className === "") node.removeAttribute("class");
+        }
+
+        // Purge any residual extension text or navbar elements if present
+        const txt = node.textContent || "";
+        if (
+          txt.includes("Capturing rendered phone") ||
+          txt.includes("Color Palette ✕") ||
+          txt.includes("With siblings Pick another") ||
+          txt.includes("LIVE COMPONENT PREVIEW") ||
+          (txt.includes("🔍") && txt.includes("✋") && txt.includes("🎨") && txt.includes("✂️"))
+        ) {
+          if (node !== docClone.body && node !== docClone) {
+            node.remove();
+          }
         }
       }
-    }
 
-    // 7. Inlining Stylesheets & Presets (Full Page)
-    let fullCSS = `
+      // 6. Inlining Images into Base64 / Absolute URLs
+      const cloneBody = docClone.querySelector("body") || docClone;
+      const origImages = Array.from(document.querySelectorAll("img"));
+      const cloneImages = Array.from(cloneBody.querySelectorAll("img"));
+
+      for (let i = 0; i < cloneImages.length; i++) {
+        const cImg = cloneImages[i];
+        const srcAttr = cImg.getAttribute("src") || "";
+        const oImg = origImages.find(img => img.getAttribute("src") === srcAttr || img.src === cImg.src) || origImages[i];
+        if (oImg) {
+          try {
+            if (oImg.naturalWidth && oImg.complete) {
+              const canvas = document.createElement("canvas");
+              canvas.width = oImg.naturalWidth;
+              canvas.height = oImg.naturalHeight;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(oImg, 0, 0);
+              cImg.src = canvas.toDataURL("image/png");
+            } else if (srcAttr) {
+              cImg.src = new URL(srcAttr, window.location.href).href;
+            }
+          } catch (err) {
+            try { if (srcAttr) cImg.src = new URL(srcAttr, window.location.href).href; } catch(e){}
+          }
+        }
+      }
+
+      // 7. Inlining Stylesheets & Presets (Full Page)
+      let fullCSS = `
 /* ── StylePeek Studio: Full-Page Clean Site Export ── */
 * { box-sizing: border-box; }
 html { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
 body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
 `;
 
-    const styleLinks = Array.from(document.querySelectorAll("link[rel='stylesheet']"));
-    for (const link of styleLinks) {
-      const href = link.getAttribute("href");
-      if (!href) continue;
-      try {
-        const absUrl = new URL(href, window.location.href).href;
-        const res = await fetch(absUrl);
-        if (res.ok) {
-          const text = await res.text();
-          fullCSS += `\n/* Inlined from ${href} */\n` + text + "\n";
+      const styleLinks = Array.from(document.querySelectorAll("link[rel='stylesheet']"));
+      for (const link of styleLinks) {
+        const href = link.getAttribute("href");
+        if (!href) continue;
+        let inlined = false;
+        try {
+          if (link.sheet && link.sheet.cssRules) {
+            const rulesText = Array.from(link.sheet.cssRules).map(r => r.cssText).join("\n");
+            if (rulesText) {
+              fullCSS += `\n/* Inlined from sheet ${href} */\n` + rulesText + "\n";
+              inlined = true;
+            }
+          }
+        } catch (e) {}
+
+        if (!inlined) {
+          try {
+            const absUrl = new URL(href, window.location.href).href;
+            const res = await fetch(absUrl);
+            if (res.ok) {
+              const text = await res.text();
+              fullCSS += `\n/* Inlined from fetch ${href} */\n` + text + "\n";
+            }
+          } catch (e) {}
         }
-      } catch (e) {}
+      }
+
+      const styleTags = Array.from(document.querySelectorAll("style"));
+      for (const st of styleTags) {
+        if (st.closest && st.closest("#sp-root")) continue;
+        fullCSS += "\n" + (st.textContent || "") + "\n";
+      }
+
+      // 8. Configure Head
+      let cloneHead = docClone.querySelector("head");
+      if (!cloneHead) {
+        cloneHead = document.createElement("head");
+        docClone.insertBefore(cloneHead, cloneBody);
+      }
+      cloneHead.querySelectorAll("link[rel='stylesheet'], style").forEach(el => el.remove());
+
+      // Only set base href if web origin is valid and not local file / null
+      if (window.location.protocol.startsWith("http") && window.location.origin && window.location.origin !== "null") {
+        let baseEl = cloneHead.querySelector("base");
+        if (!baseEl) {
+          baseEl = document.createElement("base");
+          cloneHead.insertBefore(baseEl, cloneHead.firstChild);
+        }
+        baseEl.href = window.location.origin + "/";
+      }
+
+      let metaVp = cloneHead.querySelector("meta[name='viewport']");
+      if (!metaVp) {
+        metaVp = document.createElement("meta");
+        metaVp.name = "viewport";
+        cloneHead.appendChild(metaVp);
+      }
+      metaVp.content = "width=device-width, initial-scale=1.0";
+
+      const styleEl = document.createElement("style");
+      styleEl.textContent = fullCSS;
+      cloneHead.appendChild(styleEl);
+
+      // 9. Download full page file cleanly (Local HTML + Web)
+      const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
+      const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30) || "slide";
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `slide-${rawTitle}-${timestamp}.html`;
+
+      const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Convert to Data URL using FileReader (Guaranteed to handle all UTF-8 characters and binary data)
+      const dataUrl = await new Promise((resolve) => {
+        try {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = () => resolve(blobUrl);
+          reader.readAsDataURL(blob);
+        } catch (e) {
+          resolve(blobUrl);
+        }
+      });
+
+      // Priority 1: Native chrome.downloads API via background service worker (Works 100% on file:/// and web)
+      let downloaded = false;
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          downloaded = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              action: "downloadFile",
+              url: dataUrl,
+              filename: filename
+            }, response => {
+              if (chrome.runtime.lastError || !response || !response.success) {
+                resolve(false);
+              } else {
+                resolve(true);
+              }
+            });
+            setTimeout(() => resolve(false), 1200);
+          });
+        }
+      } catch (err) {
+        console.warn("[StylePeek] Chrome download service worker not reached:", err);
+      }
+
+      // Priority 2: Direct Anchor Click with Data URL (Works on local files when blob: URLs are restricted)
+      if (!downloaded) {
+        try {
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = filename;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => a.remove(), 1000);
+          downloaded = true;
+        } catch (err) {
+          console.warn("[StylePeek] Data URL anchor click failed:", err);
+        }
+      }
+
+      // Priority 3: Blob URL Anchor Click (Standard web fallback)
+      if (!downloaded) {
+        try {
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = filename;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            try { a.remove(); } catch (e) {}
+            try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+          }, 1500);
+          downloaded = true;
+        } catch (err) {
+          console.warn("[StylePeek] Blob anchor click failed:", err);
+        }
+      }
+
+      if (downloaded) {
+        showToast(`✓ Downloaded slide cleanly (${filename})!`);
+      } else {
+        showToast("⚠️ Could not trigger download. Check browser download permissions.");
+      }
+    } catch (err) {
+      console.error("[StylePeek] captureVisibleViewport fatal error:", err);
+      showToast("❌ Capture error: " + (err.message || "Failed to save"));
     }
-
-    const styleTags = Array.from(document.querySelectorAll("style"));
-    for (const st of styleTags) {
-      if (st.closest && st.closest("#sp-root")) continue;
-      fullCSS += "\n" + st.textContent + "\n";
-    }
-
-    // 8. Configure Head
-    let cloneHead = docClone.querySelector("head");
-    if (!cloneHead) {
-      cloneHead = document.createElement("head");
-      docClone.insertBefore(cloneHead, cloneBody);
-    }
-    cloneHead.querySelectorAll("link[rel='stylesheet'], style").forEach(el => el.remove());
-
-    let baseEl = cloneHead.querySelector("base");
-    if (!baseEl) {
-      baseEl = document.createElement("base");
-      cloneHead.insertBefore(baseEl, cloneHead.firstChild);
-    }
-    baseEl.href = window.location.origin + "/";
-
-    let metaVp = cloneHead.querySelector("meta[name='viewport']");
-    if (!metaVp) {
-      metaVp = document.createElement("meta");
-      metaVp.name = "viewport";
-      cloneHead.appendChild(metaVp);
-    }
-    metaVp.content = "width=device-width, initial-scale=1.0";
-
-    const styleEl = document.createElement("style");
-    styleEl.textContent = fullCSS;
-    cloneHead.appendChild(styleEl);
-
-    // 9. Download full page file cleanly
-    const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
-    const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    a.download = `slide-${rawTitle}-${timestamp}.html`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      try { a.remove(); } catch (e) {}
-      try { URL.revokeObjectURL(url); } catch (e) {}
-    }, 1500);
-
-    showToast(`✓ Downloaded slide cleanly (${a.download})!`);
   }
 })();

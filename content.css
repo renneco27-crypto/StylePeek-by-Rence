@@ -63,15 +63,37 @@
 
 #sp-select-badge {
   position: absolute;
-  top: -24px;
+  top: -26px;
   left: 0;
   background: #8B5CF6;
   color: #FFFFFF;
   font: 700 10.5px/1 SFMono-Regular, Menlo, monospace;
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.sp-badge-action-btn {
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #FFFFFF;
+  font: 700 9.5px/1 SFMono-Regular, Menlo, monospace;
+  padding: 2px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.sp-badge-action-btn:hover {
+  background: #FFFFFF;
+  color: #7C3AED;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -957,6 +979,148 @@ body.sp-mode-move * {
   max-width: 100% !important;
   max-height: 100% !important;
   pointer-events: auto !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Live Component Preview Code Drawer (Element, Parent & Neighbors)
+   ══════════════════════════════════════════════════════════ */
+#sp-inspect-preview-panel.sp-has-code-drawer {
+  width: 580px;
+  max-width: calc(100vw - 32px);
+  max-height: 660px;
+}
+
+.sp-preview-code-toggle {
+  background: #2563EB;
+  color: #FFFFFF !important;
+  font-weight: 700;
+  border-color: #3B82F6;
+}
+.sp-preview-code-toggle.active {
+  background: #7C3AED;
+  border-color: #8B5CF6;
+}
+
+.sp-preview-code-drawer {
+  display: none;
+  flex-direction: column;
+  background: #0B0E14;
+  border-top: 1px solid #22293A;
+  height: 280px;
+  min-height: 220px;
+  max-height: 360px;
+  transition: all 0.2s ease;
+}
+
+.sp-preview-code-drawer.sp-pdrawer-open {
+  display: flex;
+}
+
+.sp-preview-drawer-header {
+  background: #111622;
+  border-bottom: 1px solid #1E2536;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sp-preview-drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sp-pdrawer-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94A3B8;
+  font: 600 11px SFMono-Regular, Menlo, monospace;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sp-pdrawer-tab:hover {
+  color: #F1F5F9;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sp-pdrawer-tab.sp-active {
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.sp-preview-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sp-pdrawer-btn {
+  background: #1E293B;
+  border: 1px solid #334155;
+  color: #E2E8F0;
+  font: 600 11px -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sp-pdrawer-btn:hover {
+  background: #334155;
+  color: #FFFFFF;
+}
+
+.sp-pdrawer-btn.apply {
+  background: #059669;
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+.sp-pdrawer-btn.apply:hover {
+  background: #10B981;
+}
+
+.sp-pdrawer-btn.close {
+  background: transparent;
+  border-color: transparent;
+  color: #64748B;
+  padding: 2px 6px;
+}
+.sp-pdrawer-btn.close:hover {
+  color: #EF4444;
+}
+
+.sp-preview-code-editor {
+  flex: 1;
+  width: 100%;
+  background: #0B0E14;
+  color: #E2E8F0;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 10px 12px;
+  font: 11.5px/1.55 SFMono-Regular, Consolas, Monaco, monospace;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+.sp-preview-info-bar {
+  background: #0D111A;
+  border-top: 1px solid #1E2536;
+  padding: 4px 10px;
+  font: 500 10.5px SFMono-Regular, monospace;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════════════════════
