@@ -652,6 +652,8 @@
         showToast("🔍 Inspect Mode • Click any element to open editor");
         if (selectedEl) previewPanel.classList.add("sp-show");
       } else if (tool === "move") {
+        drawer.classList.remove("sp-open");
+        previewPanel.classList.remove("sp-show");
         showToast("✋ Move Mode • Drag any element freely on canvas");
       } else if (tool === "resize") {
         showToast("↔️ Resize Mode • Drag outline corner handles to stretch");
@@ -906,13 +908,20 @@
       console.warn("[StylePeek] Code pane generation warning:", err);
     }
 
-    // Open dedicated live preview panel
-    try {
-      updateSandboxPreview(el);
-      previewPanel.classList.add("sp-show");
-    } catch (err) {}
-
-    drawer.classList.add("sp-open");
+    // Live component preview and Drawer popup ONLY AND ONLY when inspecting!
+    if (activeToolMode === "inspect" && !isDragging && !justFinishedDrag) {
+      try {
+        updateSandboxPreview(el);
+        previewPanel.classList.add("sp-show");
+      } catch (err) {}
+      drawer.classList.add("sp-open");
+    } else if (["style", "layers", "code"].includes(activeToolMode) && !isDragging && !justFinishedDrag) {
+      drawer.classList.add("sp-open");
+    } else {
+      // In move mode or while dragging: KEEP DRAWER AND PREVIEW POPUP COMPLETELY HIDDEN!
+      drawer.classList.remove("sp-open");
+      previewPanel.classList.remove("sp-show");
+    }
   }
 
   function updateSelectBox(el) {
@@ -2937,11 +2946,21 @@ gsap.to("${selector}", {
   }, true);
 
   let isDragging = false;
+  let justFinishedDrag = false;
   let dragTarget = null;
   let dragOrigin = { mouseX: 0, mouseY: 0, elemX: 0, elemY: 0, scrollX: 0, scrollY: 0 };
   let isDragCandidate = false;
   let autoScrollRaf = null;
   let lastDragMouseEvent = null;
+  let maxDragDist = 0;
+
+  // Smart Break-Free Snapper:
+  let snapDwellCountX = 0;
+  let snapDwellCountY = 0;
+  let lastSnapTargetX = null;
+  let lastSnapTargetY = null;
+  let snapReleasedX = false;
+  let snapReleasedY = false;
 
   function handleDragAutoScroll() {
     if (!isDragging || !dragTarget || !lastDragMouseEvent) {
@@ -3025,6 +3044,14 @@ gsap.to("${selector}", {
 
       isDragCandidate = true;
       isDragging = false;
+      justFinishedDrag = false;
+      maxDragDist = 0;
+      snapDwellCountX = 0;
+      snapDwellCountY = 0;
+      lastSnapTargetX = null;
+      lastSnapTargetY = null;
+      snapReleasedX = false;
+      snapReleasedY = false;
     }
   }, true);
 
@@ -3039,7 +3066,13 @@ gsap.to("${selector}", {
         // If we were editing text, finish it now so drag moves cleanly
         if (activeEditingNode) finishInlineTextEdit(activeEditingNode);
 
-        isDragging = true;
+        if (!isDragging) {
+          isDragging = true;
+          // While dragging: keep drawer & live component preview completely hidden!
+          if (drawer) drawer.classList.remove("sp-open");
+          if (previewPanel) previewPanel.classList.remove("sp-show");
+        }
+        maxDragDist = Math.max(maxDragDist, dist);
         dragTarget.classList.add("sp-free-dragging");
 
         const curScrollX = window.scrollX || window.pageXOffset || 0;
@@ -3058,65 +3091,126 @@ gsap.to("${selector}", {
         let snapLineY = 0;
         let snapLineX = 0;
 
-        const SNAP_THRESHOLD = 10;
+        // Holding Alt key completely bypasses snapping for 100% free dragging
+        const snappingEnabled = !e.altKey;
+        const SNAP_THRESHOLD = 5; // Subtle, gentle threshold (prevents aggressive magnetic pulling)
 
-        // 1. Magnetic snap to original starting position (Word Document-style accidental nudge protection)
-        if (Math.abs(rawDx - dragOrigin.elemX) <= SNAP_THRESHOLD) {
-          dx = dragOrigin.elemX;
-          snappedV = true;
-          snapLineX = dragOrigin.mouseX;
-        }
-        if (Math.abs(rawDy - dragOrigin.elemY) <= SNAP_THRESHOLD) {
-          dy = dragOrigin.elemY;
-          snappedH = true;
-          snapLineY = dragOrigin.mouseY;
-        }
-
-        // 2. Snap to parent container margins or center (Word Document margin guides)
-        const parent = dragTarget.parentElement;
-        if (parent && !isOwn(parent)) {
-          const pRect = parent.getBoundingClientRect();
-          const tRect = dragTarget.getBoundingClientRect();
-          const curTransX = (dragTarget._spTranslate ? dragTarget._spTranslate.x : 0);
-          const curTransY = (dragTarget._spTranslate ? dragTarget._spTranslate.y : 0);
-
-          const proposedLeft = tRect.left + (dx - curTransX);
-          const proposedRight = proposedLeft + tRect.width;
-          const proposedCenterX = proposedLeft + tRect.width / 2;
-
-          if (!snappedV) {
-            if (Math.abs(proposedLeft - pRect.left) <= SNAP_THRESHOLD) {
-              dx += (pRect.left - proposedLeft);
+        if (snappingEnabled) {
+          // 1. Initial micro-nudge protection: ONLY if user has NEVER moved > 12px yet!
+          // Once user moves beyond 12px, origin snap is permanently disabled so it never snaps back.
+          if (maxDragDist <= 12) {
+            if (Math.abs(rawDx - dragOrigin.elemX) <= SNAP_THRESHOLD) {
+              dx = dragOrigin.elemX;
               snappedV = true;
-              snapLineX = pRect.left;
-            } else if (Math.abs(proposedCenterX - (pRect.left + pRect.width / 2)) <= SNAP_THRESHOLD) {
-              dx += ((pRect.left + pRect.width / 2) - proposedCenterX);
-              snappedV = true;
-              snapLineX = pRect.left + pRect.width / 2;
-            } else if (Math.abs(proposedRight - pRect.right) <= SNAP_THRESHOLD) {
-              dx += (pRect.right - proposedRight);
-              snappedV = true;
-              snapLineX = pRect.right;
+              snapLineX = dragOrigin.mouseX;
+            }
+            if (Math.abs(rawDy - dragOrigin.elemY) <= SNAP_THRESHOLD) {
+              dy = dragOrigin.elemY;
+              snappedH = true;
+              snapLineY = dragOrigin.mouseY;
             }
           }
 
-          const proposedTop = tRect.top + (dy - curTransY);
-          const proposedBottom = proposedTop + tRect.height;
-          const proposedCenterY = proposedTop + tRect.height / 2;
+          // 2. Parent margin and alignment snap with Break-Free release
+          const parent = dragTarget.parentElement;
+          if (parent && !isOwn(parent)) {
+            const pRect = parent.getBoundingClientRect();
+            const tRect = dragTarget.getBoundingClientRect();
+            const curTransX = (dragTarget._spTranslate ? dragTarget._spTranslate.x : 0);
+            const curTransY = (dragTarget._spTranslate ? dragTarget._spTranslate.y : 0);
 
-          if (!snappedH) {
+            const proposedLeft = tRect.left + (dx - curTransX);
+            const proposedRight = proposedLeft + tRect.width;
+            const proposedCenterX = proposedLeft + tRect.width / 2;
+
+            // Check horizontal snap candidates
+            let targetCandidateX = null;
+            let targetOffsetDeltaX = 0;
+            let lineCandidateX = 0;
+
+            if (Math.abs(proposedLeft - pRect.left) <= SNAP_THRESHOLD) {
+              targetCandidateX = "left";
+              targetOffsetDeltaX = (pRect.left - proposedLeft);
+              lineCandidateX = pRect.left;
+            } else if (Math.abs(proposedCenterX - (pRect.left + pRect.width / 2)) <= SNAP_THRESHOLD) {
+              targetCandidateX = "center";
+              targetOffsetDeltaX = ((pRect.left + pRect.width / 2) - proposedCenterX);
+              lineCandidateX = pRect.left + pRect.width / 2;
+            } else if (Math.abs(proposedRight - pRect.right) <= SNAP_THRESHOLD) {
+              targetCandidateX = "right";
+              targetOffsetDeltaX = (pRect.right - proposedRight);
+              lineCandidateX = pRect.right;
+            }
+
+            // Break-Free Release: if user is moving around this area (dwelling > 2 mousemove frames), break free!
+            if (targetCandidateX !== null) {
+              if (lastSnapTargetX === targetCandidateX) {
+                snapDwellCountX++;
+                if (snapDwellCountX > 2) {
+                  snapReleasedX = true;
+                }
+              } else {
+                lastSnapTargetX = targetCandidateX;
+                snapDwellCountX = 1;
+                snapReleasedX = false;
+              }
+
+              if (!snapReleasedX && !snappedV) {
+                dx += targetOffsetDeltaX;
+                snappedV = true;
+                snapLineX = lineCandidateX;
+              }
+            } else {
+              lastSnapTargetX = null;
+              snapDwellCountX = 0;
+              snapReleasedX = false;
+            }
+
+            // Check vertical snap candidates
+            const proposedTop = tRect.top + (dy - curTransY);
+            const proposedBottom = proposedTop + tRect.height;
+            const proposedCenterY = proposedTop + tRect.height / 2;
+
+            let targetCandidateY = null;
+            let targetOffsetDeltaY = 0;
+            let lineCandidateY = 0;
+
             if (Math.abs(proposedTop - pRect.top) <= SNAP_THRESHOLD) {
-              dy += (pRect.top - proposedTop);
-              snappedH = true;
-              snapLineY = pRect.top;
+              targetCandidateY = "top";
+              targetOffsetDeltaY = (pRect.top - proposedTop);
+              lineCandidateY = pRect.top;
             } else if (Math.abs(proposedCenterY - (pRect.top + pRect.height / 2)) <= SNAP_THRESHOLD) {
-              dy += ((pRect.top + pRect.height / 2) - proposedCenterY);
-              snappedH = true;
-              snapLineY = pRect.top + pRect.height / 2;
+              targetCandidateY = "center";
+              targetOffsetDeltaY = ((pRect.top + pRect.height / 2) - proposedCenterY);
+              lineCandidateY = pRect.top + pRect.height / 2;
             } else if (Math.abs(proposedBottom - pRect.bottom) <= SNAP_THRESHOLD) {
-              dy += (pRect.bottom - proposedBottom);
-              snappedH = true;
-              snapLineY = pRect.bottom;
+              targetCandidateY = "bottom";
+              targetOffsetDeltaY = (pRect.bottom - proposedBottom);
+              lineCandidateY = pRect.bottom;
+            }
+
+            // Break-Free Release: if user is moving around this area (dwelling > 2 mousemove frames), break free!
+            if (targetCandidateY !== null) {
+              if (lastSnapTargetY === targetCandidateY) {
+                snapDwellCountY++;
+                if (snapDwellCountY > 2) {
+                  snapReleasedY = true;
+                }
+              } else {
+                lastSnapTargetY = targetCandidateY;
+                snapDwellCountY = 1;
+                snapReleasedY = false;
+              }
+
+              if (!snapReleasedY && !snappedH) {
+                dy += targetOffsetDeltaY;
+                snappedH = true;
+                snapLineY = lineCandidateY;
+              }
+            } else {
+              lastSnapTargetY = null;
+              snapDwellCountY = 0;
+              snapReleasedY = false;
             }
           }
         }
@@ -3203,6 +3297,8 @@ gsap.to("${selector}", {
           translate: { ...dragTarget._spTranslate }
         });
         showToast("✓ Moved element • Click ↩ Undo or Ctrl+Z to revert");
+        justFinishedDrag = true;
+        setTimeout(() => { justFinishedDrag = false; }, 250);
       }
       isDragging = false;
       isDragCandidate = false;
@@ -3227,6 +3323,29 @@ gsap.to("${selector}", {
      ══════════════════════════════════════════════════════════ */
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
+
+    // Suppress click immediately if user was just dragging
+    if (justFinishedDrag) {
+      justFinishedDrag = false;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
+
+    // In Move Mode: clicking selects target outline without popping up drawer or live preview
+    if (activeToolMode === "move") {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      selectedEl = e.target;
+      isTargetLocked = false;
+      unlockPending = false;
+      updateSelectBox(selectedEl);
+      drawer.classList.remove("sp-open");
+      previewPanel.classList.remove("sp-show");
+      return;
+    }
 
     e.preventDefault();
     e.stopPropagation();
