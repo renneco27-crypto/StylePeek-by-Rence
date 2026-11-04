@@ -731,32 +731,7 @@ ${combinedCss}
 </head>
 <body>
 ${previewMarkup}
-<script>
-// Restore captured Canvas / Three.js snapshots inside preview & allow interactive orbit/tilt
-document.querySelectorAll("canvas[data-sp-canvas-snapshot]").forEach(function(cv) {
-  var snap = cv.getAttribute("data-sp-canvas-snapshot");
-  if (!snap) return;
-  var img = new Image();
-  img.onload = function() {
-    try {
-      var ctx = cv.getContext("2d");
-      if (ctx) ctx.drawImage(img, 0, 0, cv.width, cv.height);
-    } catch(e) {}
-  };
-  img.src = snap;
-  cv.style.cursor = "grab";
-  var dragging = false, sx = 0, sy = 0, rx = 0, ry = 0;
-  cv.addEventListener("pointerdown", function(e) { dragging = true; sx = e.clientX; sy = e.clientY; cv.style.cursor = "grabbing"; });
-  window.addEventListener("pointerup", function() { dragging = false; cv.style.cursor = "grab"; });
-  window.addEventListener("pointermove", function(e) {
-    if (!dragging) return;
-    ry += (e.clientX - sx) * 0.4;
-    rx -= (e.clientY - sy) * 0.4;
-    sx = e.clientX; sy = e.clientY;
-    cv.style.transform = "perspective(800px) rotateX(" + rx.toFixed(1) + "deg) rotateY(" + ry.toFixed(1) + "deg)";
-  });
-});
-</script>
+
 </body>
 </html>`;
 
