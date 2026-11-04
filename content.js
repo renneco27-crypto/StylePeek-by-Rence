@@ -750,6 +750,12 @@
     selectBox.style.height = r.height + "px";
     selectBox.classList.toggle("sp-deep-mode", isDeepLayerMode);
 
+    if (r.top < 36) {
+      selectBadge.style.top = "4px";
+    } else {
+      selectBadge.style.top = "-34px";
+    }
+
     const tagStr = el.tagName.toLowerCase();
     const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
     const clsStr = getPrimaryClass(el);
@@ -758,7 +764,7 @@
     const pageX = Math.round(r.left + (window.scrollX || window.pageXOffset || 0));
     const pageY = Math.round(r.top + (window.scrollY || window.pageYOffset || 0));
 
-    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)} · X: ${pageX} Y: ${pageY})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="Transform Element Code / Overwrite">Code</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
+    selectBadge.innerHTML = `<div class="sp-badge-info"><span class="sp-badge-tag">${tagStr}</span>${idStr ? `<span class="sp-badge-id">${idStr}</span>` : ""}${clsStr ? `<span class="sp-badge-class">${clsStr}</span>` : ""}<span class="sp-badge-dim">(${Math.round(r.width)}×${Math.round(r.height)})</span><span class="sp-badge-coords">· X: ${pageX} Y: ${pageY}</span>${depthLabel ? `<span class="sp-badge-depth">${depthLabel}</span>` : ""}</div><div class="sp-badge-sep"></div><div class="sp-badge-actions"><button type="button" class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button type="button" class="sp-badge-action-btn" id="sp-badge-btn-code" title="Transform Element Code / Overwrite">Code</button><button type="button" class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button></div>`;
 
     const badgeBehindBtn = selectBadge.querySelector("#sp-badge-btn-layer-behind");
     if (badgeBehindBtn) {
@@ -867,6 +873,8 @@
   window.addEventListener("mouseup", () => {
     if (isResizing && selectedEl) {
       isResizing = false;
+      justFinishedDrag = true;
+      setTimeout(() => { justFinishedDrag = false; }, 250);
       const curTrans = getElementTranslate(selectedEl);
       undoStack.push({
         type: "resize",
@@ -2706,7 +2714,7 @@
 
     const picked = visbugPickElement(e.clientX, e.clientY) || e.target;
     const isTargetOrChild = selectedEl && (selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move" || activeToolMode === "resize") || isDeepLayerMode || isTargetOrChild;
+    const shouldAllowDrag = (activeToolMode === "move" || activeToolMode === "resize" || activeToolMode === "inspect") || isDeepLayerMode || isTargetOrChild;
 
     if (shouldAllowDrag) {
       const parentInteractive = picked.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6");
@@ -2729,6 +2737,10 @@
 
       dragTarget = candidate;
       ensurePositioned(dragTarget);
+
+      if (activeToolMode === "inspect" && dragTarget && dragTarget !== selectedEl) {
+        selectElement(dragTarget);
+      }
 
       // Prepare Stationary Front Children if keepFrontStationary is enabled and we are dragging a deeper container layer
       dragStationaryChildren = [];
@@ -3073,8 +3085,8 @@
 
     const target = visbugPickElement(e.clientX, e.clientY) || e.target;
 
-    // Only Add mode, or Inspect mode when clicking on blank space, adds text
-    if (activeToolMode === "add" || (activeToolMode === "inspect" && isPageRootOrFullWrapper(target))) {
+    // Only Add mode adds text
+    if (activeToolMode === "add") {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -3082,19 +3094,23 @@
       return;
     }
 
+    if (isPageRootOrFullWrapper(target)) {
+      selectedEl = null;
+      selectBox.style.display = "none";
+      if (hoverBox) hoverBox.style.display = "none";
+      if (hoverLbl) hoverLbl.style.display = "none";
+      closeAllPopups();
+      return;
+    }
+
     if (activeToolMode === "move" || activeToolMode === "resize") {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      if (!isPageRootOrFullWrapper(target)) {
-        selectedEl = target;
-        isTargetLocked = false;
-        unlockPending = false;
-        updateSelectBox(selectedEl);
-      } else {
-        selectedEl = null;
-        selectBox.style.display = "none";
-      }
+      selectedEl = target;
+      isTargetLocked = false;
+      unlockPending = false;
+      updateSelectBox(selectedEl);
       closeAllPopups();
       return;
     }
