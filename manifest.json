@@ -37,7 +37,7 @@
     {
       "matches": ["<all_urls>"],
       "js": ["technologies.js", "content.js"],
-      "css": ["content.css"],
+      "css": ["tokens.css", "content.css"],
       "run_at": "document_idle"
     }
   ],
@@ -50,6 +50,7 @@
         "font/*.woff2",
         "dist/*",
         "js/*",
+        "tokens.css",
         "technologies.js"
       ],
       "matches": ["<all_urls>"]

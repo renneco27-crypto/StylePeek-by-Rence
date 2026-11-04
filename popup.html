@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Style Peek Studio — Hybrid Extractor, Figma Preview, VisBug &amp; TechStack</title>
+  <title>Style Peek Studio — Live Layer Editor, Figma Capture &amp; Offline Exporter</title>
+  <link rel="stylesheet" href="tokens.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
     * {
       margin: 0;
@@ -13,116 +14,130 @@
     }
 
     body {
-      width: 370px;
+      width: 384px;
       max-height: 600px;
       overflow-y: auto;
-      font-family: 'Raleway', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #1e1e24;
-      color: #e4e4e8;
-      padding: 14px 16px 14px;
+      font-family: var(--font-body, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+      background-color: var(--color-paper, #F4F3EE);
+      color: var(--color-ink, #1C1C1E);
+      padding: 16px;
       position: relative;
       user-select: none;
+      -webkit-font-smoothing: antialiased;
     }
 
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8);
-    }
-
+    /* Top Header Bar (Law 4b: bare header icons, clean status pills) */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 11px;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--color-rule, #DCD9CE);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--color-ink, #1C1C1E);
+      color: var(--color-paper, #F4F3EE);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 0 #000000;
     }
 
     h1 {
-      font-size: 12.5px;
+      font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+      font-size: 13px;
       font-weight: 800;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-      color: #f0f0f6;
+      letter-spacing: -0.02em;
+      color: var(--color-ink, #1C1C1E);
     }
 
-    .badge {
-      font-size: 9.5px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 4px;
-      background: #2b2b34;
-      color: #38bdf8;
-      border: 1px solid #3a3a48;
+    .status-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .state-pill {
-      font-size: 9px;
-      font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 99px;
-      background: #282832;
-      color: #8c8c9c;
-      border: 1px solid #3a3a48;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: var(--color-paper-2, #EAE8E0);
+      color: var(--color-ink-2, #78716C);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      transition: all 0.14s ease;
     }
 
     .state-pill.on {
-      background: rgba(52, 211, 153, 0.16);
-      color: #34d399;
-      border-color: rgba(52, 211, 153, 0.45);
+      background: var(--color-ink, #1C1C1E);
+      color: var(--color-mint, #7CE0D3);
+      border-color: var(--color-ink, #1C1C1E);
     }
 
+    /* Section Cards */
     .section {
-      margin-bottom: 11px;
-      padding-bottom: 11px;
-      border-bottom: 1px solid #2c2c36;
-    }
-
-    .section:last-of-type {
-      margin-bottom: 8px;
-      padding-bottom: 0;
-      border-bottom: none;
+      background: var(--color-paper-2, #EAE8E0);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
     }
 
     .section-title {
-      font-size: 10px;
+      font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.7px;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: #9c9cac;
-      margin-bottom: 7px;
+      color: var(--color-ink-2, #78716C);
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
+    .section-sub {
+      font-size: 11px;
+      color: var(--color-ink-2, #78716C);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    /* 3D Tactile PBT Keycap Buttons (CTRL+SPC UI Kit) */
     button {
       width: 100%;
-      padding: 8.5px 11px;
-      background: linear-gradient(180deg, #e8e8ec 0%, #dcdce2 100%);
-      color: #1e1e24;
-      font-family: 'Raleway', sans-serif;
+      padding: 9px 12px;
+      background: var(--color-surface, #FAF9F6);
+      color: var(--color-ink, #1C1C1E);
+      font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
       font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      border: none;
-      border-radius: 6px;
+      font-size: 11.5px;
+      letter-spacing: -0.01em;
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 8px;
       cursor: pointer;
       box-shadow:
-        0 2px 0 #9a9aa4,
-        0 3px 10px rgba(0, 0, 0, 0.35);
-      transition: all 0.12s ease;
-      margin-bottom: 6px;
+        0 3px 0 var(--color-keycap-side, #D0CEC3),
+        0 4px 6px rgba(28, 28, 30, 0.07),
+        inset 0 1px 0 #FFFFFF;
+      transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.08s ease, background 0.12s ease;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 7px;
     }
 
     button:last-child {
@@ -130,126 +145,159 @@
     }
 
     button:hover:not(:disabled) {
-      background: linear-gradient(180deg, #f4f4f8 0%, #e6e6ec 100%);
-      transform: translateY(-1px);
+      background: #FFFFFF;
+      border-color: #C2BFB2;
     }
 
     button:active:not(:disabled) {
-      transform: translateY(1px);
+      transform: translateY(2px);
+      box-shadow:
+        0 1px 0 var(--color-keycap-side, #D0CEC3),
+        0 1px 2px rgba(28, 28, 30, 0.06),
+        inset 0 1px 0 #FFFFFF;
     }
 
     button:disabled {
-      opacity: 0.55;
+      opacity: 0.5;
       cursor: wait;
     }
 
+    /* Primary Coral Red Keycap CTA (Law 4: 1 Primary CTA per primary view) */
+    button.btn-primary-coral {
+      background: var(--color-accent, #C84B44);
+      color: #FAF9F6;
+      border-color: #A83832;
+      box-shadow:
+        0 3px 0 #8F2D28,
+        0 5px 10px rgba(200, 75, 68, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    button.btn-primary-coral:hover:not(:disabled) {
+      background: #B33E38;
+      border-color: #8F2D28;
+    }
+
+    button.btn-primary-coral:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow:
+        0 1px 0 #8F2D28,
+        0 2px 4px rgba(200, 75, 68, 0.18);
+    }
+
+    /* Dark Charcoal Keycap Variant for active mode toggles */
+    button.btn-charcoal {
+      background: var(--color-ink, #1C1C1E);
+      color: var(--color-surface, #FAF9F6);
+      border-color: #000000;
+      box-shadow:
+        0 3px 0 #000000,
+        0 4px 8px rgba(28, 28, 30, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    button.btn-charcoal:hover:not(:disabled) {
+      background: #2C2C2F;
+    }
+
     button.btn-secondary {
-      background: linear-gradient(180deg, #32323c 0%, #282830 100%);
-      color: #e4e4e8;
-      border: 1px solid #444452;
-      box-shadow:
-        0 2px 0 #141418,
-        0 3px 8px rgba(0, 0, 0, 0.35);
-    }
-
-    button.btn-secondary:hover:not(:disabled) {
-      background: linear-gradient(180deg, #3c3c48 0%, #30303a 100%);
-      border-color: #38bdf8;
-    }
-
-    button.btn-accent {
-      background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
-      color: #0f172a;
-      box-shadow:
-        0 2px 0 #1d4ed8,
-        0 4px 10px rgba(56, 189, 248, 0.25);
+      background: var(--color-surface, #FAF9F6);
+      color: var(--color-ink, #1C1C1E);
     }
 
     .btn-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-row:last-child {
+      margin-bottom: 0;
     }
 
     .btn-row-3 {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 6px;
-      margin-bottom: 6px;
+      margin-bottom: 0;
     }
 
     .btn-row button, .btn-row-3 button {
       margin-bottom: 0;
-      padding: 7.5px 6px;
-      font-size: 10px;
+      padding: 8px 8px;
+      font-size: 11px;
     }
 
     .options-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 4px 8px;
-      font-size: 10.5px;
+      gap: 6px 10px;
+      font-size: 11px;
       font-weight: 600;
-      color: #b4b4c4;
-      margin-bottom: 7px;
-      padding: 2px;
+      color: var(--color-ink, #1C1C1E);
+      margin-bottom: 10px;
+      padding: 4px 2px;
     }
 
     .options-grid label {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       cursor: pointer;
       white-space: nowrap;
     }
 
     .options-grid input[type="checkbox"] {
-      accent-color: #38bdf8;
+      accent-color: var(--color-accent, #C84B44);
+      width: 14px;
+      height: 14px;
       cursor: pointer;
     }
 
     .input-row {
       display: flex;
       gap: 6px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .text-input {
       flex: 1;
-      background: #141419;
-      color: #e4e4e8;
-      border: 1px solid #383846;
-      border-radius: 5px;
-      padding: 6px 8px;
-      font-size: 11px;
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      background: var(--color-surface, #FAF9F6);
+      color: var(--color-ink, #1C1C1E);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
       outline: none;
+      box-shadow: inset 0 1px 2px rgba(28, 28, 30, 0.05);
     }
 
     .text-input:focus {
-      border-color: #38bdf8;
+      border-color: var(--color-ink, #1C1C1E);
     }
 
     /* TechStack Detector Output Box */
     #techStackPanel {
       display: none;
-      background: #141419;
-      border: 1px solid #2e2e3a;
-      border-radius: 6px;
-      padding: 8px;
-      margin-top: 6px;
+      background: var(--color-surface, #FAF9F6);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 8px;
       max-height: 175px;
       overflow-y: auto;
     }
 
     .tech-cat {
-      font-size: 9.5px;
-      font-weight: 800;
+      font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #94a3b8;
-      margin: 6px 0 4px;
+      letter-spacing: 0.05em;
+      color: var(--color-ink-2, #78716C);
+      margin: 8px 0 4px;
     }
 
     .tech-cat:first-child {
@@ -266,32 +314,34 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      background: #22222c;
-      border: 1px solid #343444;
-      border-radius: 5px;
-      padding: 3px 7px;
-      font-size: 10.5px;
-      font-weight: 700;
-      color: #f1f5f9;
+      background: var(--color-paper-2, #EAE8E0);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-ink, #1C1C1E);
     }
 
     .tech-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
+      background: var(--color-accent, #C84B44);
       flex-shrink: 0;
     }
 
     #statusText {
-      font-size: 10.5px;
-      font-weight: 600;
-      color: #b4b4c4;
-      background: #15151a;
-      border: 1px solid #2e2e38;
-      border-radius: 5px;
-      padding: 7px 9px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-ink, #1C1C1E);
+      background: var(--color-surface, #FAF9F6);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 8px;
+      padding: 8px 10px;
       text-align: center;
-      min-height: 30px;
+      min-height: 34px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -299,19 +349,30 @@
     }
 
     #statusText.status-ok {
-      color: #d8f3dc;
-      border-color: #3b6e4c;
-      background: #19271e;
+      color: #166534;
+      border-color: #86EFAC;
+      background: #F0FDF4;
     }
 
     #statusText.status-err {
-      color: #ffccd5;
-      border-color: #7a2e3b;
-      background: #2a181c;
+      color: #991B1B;
+      border-color: #FCA5A5;
+      background: #FEF2F2;
     }
 
     input[type="file"] {
       display: none;
+    }
+
+    svg.ico {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
     }
   </style>
   <script src="dist/jszip.min.js"></script>
@@ -319,127 +380,147 @@
 </head>
 <body>
   <div class="header">
-    <h1>Style Peek Hybrid Studio</h1>
-    <span class="badge">v2.1 All-In-One</span>
-  </div>
-
-  <!-- 1. Website Code Extractor + Web Page Downloader + Tree Button Crawler + zip2html -->
-  <div class="section">
-    <div class="section-title">
-      <span>1. Full Website &amp; Tree-State Extractor</span>
-      <span>No Ads</span>
+    <div class="brand-group">
+      <div class="brand-mark">
+        <svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </div>
+      <h1>Style Peek Studio</h1>
     </div>
-    <div class="options-grid">
-      <label title="Auto-scroll page and merge DOM snapshots so lazy images & virtualized lists render">
-        <input type="checkbox" id="autoScrollToggle" checked>
-        Auto-Scroll &amp; Merge
-      </label>
-      <label title="Press each button in a BFS tree under the hood to capture hidden panels/popups & undo back to home screen (skips Google AdSense & ads)">
-        <input type="checkbox" id="treeCrawlToggle" checked>
-        Tree-Click Buttons
-      </label>
-      <label title="Also download linked same-origin <a href> pages into pages/ folder (Web Page Downloader)">
-        <input type="checkbox" id="scrapeLinksToggle">
-        Linked Pages
-      </label>
-      <label title="Keep <script> tags when converting to standalone HTML">
-        <input type="checkbox" id="keepScriptsToggle">
-        Keep Scripts
-      </label>
-    </div>
-    <button id="extractHtmlButton" title="Scroll home screen, tree-click buttons (skipping ads), and inline into ONE offline .html file">
-      Scroll &amp; Tree-Crawl &#8594; Single .HTML
-    </button>
-    <div class="btn-row">
-      <button id="extractButton" class="btn-secondary" title="Download full website folder structure (HTML, CSS, JS, images, linked pages) as .ZIP">
-        Extract Website .ZIP
-      </button>
-      <button id="zipToHtmlButton" class="btn-secondary" title="Convert any saved website .ZIP into a single self-contained .HTML file (zip2html.py)">
-        ZIP &#8594; .HTML
-      </button>
-    </div>
-    <input type="file" id="zipFileInput" accept=".zip,application/zip">
-  </div>
-
-  <!-- 2. Static HTML Parent Folder -> Offline Android App Generator (StitchCSV OfflineResourceInterceptor + Safe Margins) -->
-  <div class="section">
-    <div class="section-title">
-      <span>2. Parent Folder &amp; Offline Android App</span>
-      <span>StitchCSV Engine</span>
-    </div>
-    <div class="input-row">
-      <input type="text" id="parentFolderInput" class="text-input" placeholder="Parent folder path or App Name (e.g. StudyUpApp)">
-    </div>
-    <div class="btn-row">
-      <button id="downloadParentFolderBtn" class="btn-secondary" title="Select or input a static HTML parent folder to bundle all its HTML/CSS/JS/assets into a .ZIP">
-        &#128193; Bundle Parent Folder
-      </button>
-      <button id="buildAndroidAppBtn" class="btn-accent" title="Generate a complete Offline Android App (.zip) with StitchCSV OfflineResourceInterceptor.java + Top/Bottom Android Navbar & Notification Bar safe margins">
-        &#128241; Create Offline Android App
-      </button>
-    </div>
-    <input type="file" id="parentFolderPicker" webkitdirectory directory multiple>
-  </div>
-
-  <!-- 3. Interactive Element Preview & Figma Capture (fkmaohpngenfoccdgceedjkfhkdcohmg + StylePeek Relatives) -->
-  <div class="section">
-    <div class="section-title">
-      <span>3. Interactive Figma &amp; Element Capture</span>
+    <div class="status-pills">
+      <span id="visbugStateBadge" class="state-pill">STUDIO: OFF</span>
       <span id="h2dStateBadge" class="state-pill">FIGMA: OFF</span>
     </div>
-    <button id="h2dSelectElementBtn" title="Select an element -> opens Interactive On-Screen Preview where you can interact with GIF/SVG/TSX/Three.js, step to Parent/Sibling, and Copy Code/PNG/SVG/Figma">
-      Select Element &#8594; Live Preview &amp; Copy
+  </div>
+
+  <!-- 1. No-Code Layer Depth, Stationary-Front Dragging & Background Studio (VisBug + StylePeek) -->
+  <div class="section">
+    <div class="section-title">
+      <span>1. Live Layers, Background &amp; Drag Studio</span>
+      <span>No-Code</span>
+    </div>
+    <div class="section-sub">
+      Step 1 layer behind front elements, drag deeper layers while keeping front text stationary, swap background colors/images, or insert new blocks.
+    </div>
+    <button id="visbugToggleBtn" class="btn-primary-coral" title="Open Live Layer &amp; Background Studio + VisBug tools (automatically turns OFF Figma capture)">
+      <svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Launch Layer &amp; Background Studio
+    </button>
+    <div class="btn-row">
+      <button id="stylepeekInspectBtn" class="btn-secondary" title="Inspect elements, edit background image/color, and step layers up or down">
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Inspect &amp; Edit Style
+      </button>
+      <button id="stylepeekDragBtn" class="btn-secondary" title="Drag elements or background containers freely while keeping front elements stationary">
+        <svg class="ico" viewBox="0 0 24 24"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+        Move Layers Mode
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. Interactive Element Preview & Figma Capture (Mutually Exclusive with VisBug) -->
+  <div class="section">
+    <div class="section-title">
+      <span>2. Interactive Figma &amp; Component Capture</span>
+      <span>Relatives</span>
+    </div>
+    <button id="h2dSelectElementBtn" class="btn-charcoal" title="Select an element on screen to preview live animations, step to Parent or Sibling, and copy HTML/CSS/TSX/PNG/SVG/Figma">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H12v7H8.5A3.5 3.5 0 0 1 5 5.5z"/><path d="M12 2h3.5a3.5 3.5 0 1 1 0 7H12V2z"/><path d="M12 12.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 1 1-7 0z"/><path d="M5 19.5A3.5 3.5 0 0 1 8.5 16H12v3.5a3.5 3.5 0 1 1-7 0z"/><path d="M5 12.5A3.5 3.5 0 0 1 8.5 9H12v7H8.5A3.5 3.5 0 0 1 5 12.5z"/></svg>
+      Select Element to Preview &amp; Copy
     </button>
     <div class="btn-row-3">
-      <button id="h2dCaptureToolbarBtn" class="btn-secondary" title="Toggle Floating Figma Capture Toolbar (auto-disables VisBug)">
-        Figma Toolbar
+      <button id="h2dCaptureToolbarBtn" class="btn-secondary" title="Toggle floating Figma capture bar (turns OFF VisBug)">
+        Figma Bar
       </button>
-      <button id="h2dOpenPreviewBtn" class="btn-secondary" title="Open On-Screen Interactive Preview Modal (Parent/Sibling/PNG/SVG/TSX)">
+      <button id="h2dOpenPreviewBtn" class="btn-secondary" title="Open interactive component preview modal (Parent / Sibling / TSX / PNG / SVG)">
         Live Preview
       </button>
-      <button id="copyLastCodeBtn" class="btn-secondary" title="Copy last captured element HTML+CSS code to clipboard">
+      <button id="copyLastCodeBtn" class="btn-secondary" title="Copy last captured HTML + CSS code to clipboard">
         Copy Code
       </button>
     </div>
   </div>
 
-  <!-- 4. Live Website Dragging & Design Fixing (VisBug <-> Figma Mutually Exclusive) -->
+  <!-- 3. Full Website & Tree-State Extractor -->
   <div class="section">
     <div class="section-title">
-      <span>4. Live Drag &amp; Fix (VisBug / Studio)</span>
-      <span id="visbugStateBadge" class="state-pill">VISBUG: OFF</span>
+      <span>3. Full Website &amp; Tree-State Capture</span>
+      <span>Ad-Free</span>
     </div>
-    <button id="visbugToggleBtn" title="Toggle VisBug live element dragging & design fixing (automatically turns OFF Figma toolbar)">
-      Toggle VisBug Drag &amp; Fix
+    <div class="options-grid">
+      <label title="Auto-scroll page and merge DOM snapshots so lazy images and virtualized lists render">
+        <input type="checkbox" id="autoScrollToggle" checked>
+        Auto-Scroll &amp; Merge
+      </label>
+      <label title="Click interactive buttons in a tree under the hood to capture drawers/modals and undo back to home screen">
+        <input type="checkbox" id="treeCrawlToggle" checked>
+        Tree-Click States
+      </label>
+      <label title="Also download linked same-origin pages into pages/ folder">
+        <input type="checkbox" id="scrapeLinksToggle">
+        Linked Pages
+      </label>
+      <label title="Preserve script tags when bundling into standalone HTML">
+        <input type="checkbox" id="keepScriptsToggle">
+        Keep Scripts
+      </label>
+    </div>
+    <button id="extractHtmlButton" class="btn-secondary" title="Scroll home screen, tree-click buttons (skipping ads), and inline into one standalone .html file">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Scroll &amp; Tree-Crawl to Single .HTML
     </button>
     <div class="btn-row">
-      <button id="stylepeekInspectBtn" class="btn-secondary" title="Open StylePeek Inspector &amp; Code Drawer">
-        StylePeek Inspector
+      <button id="extractButton" class="btn-secondary" title="Download full website folder structure (HTML, CSS, JS, images, linked pages) as .ZIP">
+        Download Site .ZIP
       </button>
-      <button id="stylepeekDragBtn" class="btn-secondary" title="Toggle StylePeek Break-Free Drag Mode">
-        Free-Drag Mode
+      <button id="zipToHtmlButton" class="btn-secondary" title="Convert any saved website .ZIP into a single self-contained .HTML file">
+        Convert .ZIP to .HTML
       </button>
     </div>
+    <input type="file" id="zipFileInput" accept=".zip,application/zip">
   </div>
 
-  <!-- 5. Website TechStack Detector (ngpdngfmjfnkdjlgdallobombenfdckg — Unlimited Free) -->
+  <!-- 4. Static HTML Parent Folder -> Offline Android App Generator -->
+  <div class="section">
+    <div class="section-title">
+      <span>4. Local Folder &amp; Offline Android App</span>
+      <span>WebView APK</span>
+    </div>
+    <div class="input-row">
+      <input type="text" id="parentFolderInput" class="text-input" placeholder="Folder path or App Name (e.g. StudyUpApp)">
+    </div>
+    <div class="btn-row">
+      <button id="downloadParentFolderBtn" class="btn-secondary" title="Select a static HTML parent folder to bundle all its HTML/CSS/JS/assets into a .ZIP">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Bundle Folder
+      </button>
+      <button id="buildAndroidAppBtn" class="btn-secondary" title="Generate an Offline Android App (.zip) with OfflineResourceInterceptor.java + safe system bar margins">
+        <svg class="ico" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        Build Android App
+      </button>
+    </div>
+    <input type="file" id="parentFolderPicker" webkitdirectory directory multiple>
+  </div>
+
+  <!-- 5. Website TechStack Detector -->
   <div class="section">
     <div class="section-title">
       <span>5. Website TechStack Detector</span>
-      <span id="techCountBadge">Unlimited</span>
+      <span id="techCountBadge">Ready</span>
     </div>
     <div class="btn-row">
       <button id="detectTechBtn" class="btn-secondary" title="Detect Frontend, Backend, CMS, Analytics, CDN, and Hosting technologies on this website">
-        &#128269; Detect Tech Stack
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Scan Tech Stack
       </button>
-      <button id="copyTechBtn" class="btn-secondary" title="Copy detected tech stack report as Markdown/JSON">
-        &#128203; Copy Tech Report
+      <button id="copyTechBtn" class="btn-secondary" title="Copy detected tech stack report as Markdown">
+        <svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy Report
       </button>
     </div>
     <div id="techStackPanel"></div>
   </div>
 
-  <div id="statusText">Ready — Select an extraction, preview, or live design tool</div>
+  <div id="statusText">Ready — Choose Live Layer Studio, Figma Capture, or Full-Page Export</div>
 
   <script src="popup.js"></script>
 </body>

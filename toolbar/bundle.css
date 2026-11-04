@@ -7,7 +7,19 @@ body:not([testing]) [data-selected=true] {
 }
 
 [data-pseudo-select=true] {
-  outline: 1px dashed hsl(267, 100%, 58%);
+  outline: 1.5px dashed #C84B44;
+}
+
+vis-bug {
+  --theme-bg: #F4F3EE !important;
+  --theme-bd: #F4F3EE !important;
+  --theme-bd-2: #F4F3EE !important;
+  --theme-color: #C84B44 !important;
+  --theme-text_color: #1C1C1E !important;
+  --theme-icon_color: #1C1C1E !important;
+  --theme-icon_hover-bg: #EAE8E0 !important;
+  --theme-icon_active-bg: #EAE8E0 !important;
+  --neon-pink: #C84B44 !important;
 }
 
 [data-selected-hide=true][data-selected=true]:after {

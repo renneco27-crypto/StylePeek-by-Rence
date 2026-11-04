@@ -13,6 +13,64 @@
   let sandboxMode = "component"; // "component" or "context"
   let isolatedLayerNode = null;
 
+  // Deep Layer & Stationary-Front State (Figma-style layer stepping behind front elements)
+  let isDeepLayerMode = false;
+  let keepFrontStationary = true;
+  let deepLayerStack = [];
+  let deepLayerIndex = 0;
+  let passthroughFrontNodes = [];
+  let dragStationaryChildren = [];
+
+  /* ── Tactile Mechanical Key Click Audio (CTRL+SPC UI Kit) ── */
+  let spAudioCtx = null;
+  function spPlayKeyClick(freq = 170) {
+    try {
+      if (!spAudioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) spAudioCtx = new AudioContext();
+      }
+      if (!spAudioCtx) return;
+      if (spAudioCtx.state === "suspended") spAudioCtx.resume();
+      const osc = spAudioCtx.createOscillator();
+      const gain = spAudioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, spAudioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(42, spAudioCtx.currentTime + 0.035);
+      gain.gain.setValueAtTime(0.12, spAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, spAudioCtx.currentTime + 0.035);
+      osc.connect(gain);
+      gain.connect(spAudioCtx.destination);
+      osc.start();
+      osc.stop(spAudioCtx.currentTime + 0.04);
+    } catch (e) {}
+  }
+
+  /* ── Clean Vector Lucide SVG Icons (Zero Emojis — Law 1) ── */
+  const SP_ICONS = {
+    grip: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></svg>`,
+    inspect: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>`,
+    move: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`,
+    resize: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    palette: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+    layers: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+    code: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+    undo: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>`,
+    camera: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+    power: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>`,
+    close: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    image: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+    box: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>`,
+    type: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    lock: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    unlock: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`,
+    stepDown: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`,
+    stepUp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>`,
+    eye: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    upload: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`
+  };
+
   /* ── Scaffold Studio Root, Dock, Drawer, Floating Preview & Modal ── */
   const root = document.createElement("div");
   root.id = "sp-root";
@@ -32,46 +90,46 @@
     <div id="sp-snap-guide-h"></div>
     <div id="sp-snap-guide-v"></div>
 
-    <!-- Floating Tool Sidebar Dock (Visible ONLY when StylePeek is ON) -->
+    <!-- Floating Tactile Sidebar Dock (CTRL+SPC UI Kit) -->
     <div id="sp-sidebar-dock">
-      <div id="sp-dock-handle" title="Drag dock">⋮⋮</div>
-      <button class="sp-dock-btn sp-dock-active" data-tool="inspect" title="Inspect & Select Element (I)">🔍</button>
-      <button class="sp-dock-btn" data-tool="move" title="Free Live Drag (M)">✋</button>
-      <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">↔️</button>
-      <button class="sp-dock-btn add-btn" data-tool="add" id="sp-dock-add" title="Add Element or Picture (A)">➕</button>
-      <button class="sp-dock-btn" data-tool="style" title="Colors & Border Styling (C)">🎨</button>
-      <button class="sp-dock-btn" data-tool="layers" title="Layers, Backgrounds & Send to Back (L)">🥞</button>
-      <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">💻</button>
-      <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">✂️</button>
-      <button class="sp-dock-btn undo-btn" id="sp-dock-undo" title="Undo Last Action (Ctrl+Z)">↩️</button>
+      <div id="sp-dock-handle" title="Drag dock">${SP_ICONS.grip}</div>
+      <button class="sp-dock-btn sp-dock-active" data-tool="inspect" title="Inspect & Select Element (I)">${SP_ICONS.inspect}</button>
+      <button class="sp-dock-btn" data-tool="move" title="Move & Drag Any Layer (M)">${SP_ICONS.move}</button>
+      <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">${SP_ICONS.resize}</button>
+      <button class="sp-dock-btn add-btn" data-tool="add" id="sp-dock-add" title="Add Element or Picture (A)">${SP_ICONS.plus}</button>
+      <button class="sp-dock-btn" data-tool="style" title="Colors & Border Styling (C)">${SP_ICONS.palette}</button>
+      <button class="sp-dock-btn" data-tool="layers" title="Layers, Step Behind & Backgrounds (L)">${SP_ICONS.layers}</button>
+      <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">${SP_ICONS.code}</button>
+      <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">${SP_ICONS.trash}</button>
+      <button class="sp-dock-btn undo-btn" id="sp-dock-undo" title="Undo Last Action (Ctrl+Z)">${SP_ICONS.undo}</button>
       <div class="sp-dock-sep"></div>
-      <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Phone Viewport (Alt+C)">📸</button>
-      <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Turn OFF StylePeek">⭕</button>
+      <button class="sp-dock-btn" id="sp-dock-capture" title="Capture Visible Page (Alt+C)">${SP_ICONS.camera}</button>
+      <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Close Studio">${SP_ICONS.power}</button>
     </div>
 
-    <!-- Add Element or Picture Modal (Hallmark Spacious UX) -->
+    <!-- Add Element or Picture Modal (CTRL+SPC Tactile UX) -->
     <div id="sp-add-element-modal">
       <div class="sp-add-modal-header">
-        <span class="sp-add-modal-title">➕ ADD ELEMENT OR PICTURE</span>
-        <button class="sp-modal-x" id="sp-add-modal-close" title="Close">✕</button>
+        <span class="sp-add-modal-title">${SP_ICONS.plus} ADD ELEMENT OR PICTURE</span>
+        <button class="sp-modal-x" id="sp-add-modal-close" title="Close">${SP_ICONS.close}</button>
       </div>
       <div class="sp-add-modal-body">
         <!-- Photo / Picture Card -->
         <div class="sp-add-card">
           <div class="sp-add-card-header">
-            <span class="sp-add-card-icon">🖼️</span>
+            <span class="sp-add-card-icon">${SP_ICONS.image}</span>
             <div class="sp-add-card-info">
-              <strong>Add Photo / Picture</strong>
-              <span>Upload image from your computer or enter URL to place on canvas</span>
+              <strong>Add Photo or Replace Selected Image</strong>
+              <span>Upload an image from your computer or paste a URL to place on the page</span>
             </div>
           </div>
           <div class="sp-add-input-row">
             <input type="text" class="sp-input" id="sp-add-img-url" placeholder="Paste image URL (https://...) or data:image...">
-            <button class="sp-primary-btn" id="sp-btn-insert-img-url">Insert URL</button>
+            <button class="sp-primary-btn" id="sp-btn-insert-img-url">Insert Picture</button>
           </div>
           <div class="sp-add-file-row">
             <label class="sp-file-label" title="Upload image from computer">
-              📁 Choose Picture from Computer
+              ${SP_ICONS.upload} Choose Picture from Computer
               <input type="file" id="sp-add-img-file" accept="image/*" style="display:none">
             </label>
           </div>
@@ -81,52 +139,52 @@
         <div class="sp-add-card-grid">
           <div class="sp-add-card mini">
             <div style="display:flex;align-items:center;gap:8px;">
-              <span class="sp-add-card-icon">📦</span>
+              <span class="sp-add-card-icon">${SP_ICONS.box}</span>
               <div class="sp-add-card-info">
-                <strong>Styled Card / Div</strong>
-                <span>Container with padding & border</span>
+                <strong>Card Box</strong>
+                <span>Movable container layer</span>
               </div>
             </div>
-            <button class="sp-secondary-btn" id="sp-btn-insert-box">+ Insert</button>
+            <button class="sp-secondary-btn" id="sp-btn-insert-box">+ Add Card</button>
           </div>
 
           <div class="sp-add-card mini">
             <div style="display:flex;align-items:center;gap:8px;">
-              <span class="sp-add-card-icon">🔤</span>
+              <span class="sp-add-card-icon">${SP_ICONS.type}</span>
               <div class="sp-add-card-info">
-                <strong>Heading / Text</strong>
-                <span>Typography headline block</span>
+                <strong>Heading Text</strong>
+                <span>Editable headline block</span>
               </div>
             </div>
-            <button class="sp-secondary-btn" id="sp-btn-insert-heading">+ Insert</button>
+            <button class="sp-secondary-btn" id="sp-btn-insert-heading">+ Add Text</button>
           </div>
         </div>
 
         <!-- Custom Code Card -->
         <div class="sp-add-card">
           <div class="sp-add-card-header">
-            <span class="sp-add-card-icon">💻</span>
+            <span class="sp-add-card-icon">${SP_ICONS.code}</span>
             <div class="sp-add-card-info">
-              <strong>Custom HTML Snippet</strong>
-              <span>Paste custom HTML markup to render directly</span>
+              <strong>Custom HTML Block</strong>
+              <span>Paste HTML markup to insert directly onto the current layer</span>
             </div>
           </div>
           <textarea class="sp-code-area-mini" id="sp-add-html-code" placeholder="<div class='custom-card'>Hello World</div>"></textarea>
-          <button class="sp-primary-btn" id="sp-btn-insert-html" style="align-self:flex-end;">Insert HTML</button>
+          <button class="sp-secondary-btn" id="sp-btn-insert-html" style="align-self:flex-end;">Insert HTML Block</button>
         </div>
       </div>
     </div>
 
-    <!-- Dedicated Floating Live Inspect Preview Panel (Independent from Code Tab) -->
+    <!-- Dedicated Floating Live Inspect Preview Panel -->
     <div id="sp-inspect-preview-panel">
       <div class="sp-preview-panel-header">
-        <div id="sp-preview-drag-handle" title="Drag preview window">⋮⋮</div>
-        <span class="sp-preview-panel-title">🔍 LIVE COMPONENT PREVIEW</span>
+        <div id="sp-preview-drag-handle" title="Drag preview window">${SP_ICONS.grip}</div>
+        <span class="sp-preview-panel-title">LIVE COMPONENT PREVIEW</span>
         <div class="sp-preview-panel-actions">
-          <button class="sp-sandbox-btn sp-preview-code-toggle" id="sp-btn-preview-code" title="See code & surrounding parent / neighbors">💻 See Code</button>
+          <button class="sp-sandbox-btn sp-preview-code-toggle" id="sp-btn-preview-code" title="See code & surrounding parent / neighbors">See Code</button>
           <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Context">View: Component</button>
-          <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh">↺</button>
-          <button class="sp-preview-close-btn" id="sp-preview-close" title="Close Preview">✕</button>
+          <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh">Refresh</button>
+          <button class="sp-preview-close-btn" id="sp-preview-close" title="Close Preview">${SP_ICONS.close}</button>
         </div>
       </div>
       <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
@@ -135,18 +193,18 @@
       <div class="sp-preview-code-drawer" id="sp-preview-code-drawer">
         <div class="sp-preview-drawer-header">
           <div class="sp-preview-drawer-tabs">
-            <button class="sp-pdrawer-tab sp-active" data-pview="element">🎯 Element</button>
-            <button class="sp-pdrawer-tab" data-pview="parent">👨‍👧 Parent & Surroundings</button>
-            <button class="sp-pdrawer-tab" data-pview="neighbors">🥞 Neighbors</button>
+            <button class="sp-pdrawer-tab sp-active" data-pview="element">Element</button>
+            <button class="sp-pdrawer-tab" data-pview="parent">Parent Container</button>
+            <button class="sp-pdrawer-tab" data-pview="neighbors">Neighbors</button>
           </div>
           <div class="sp-preview-drawer-actions">
-            <button class="sp-pdrawer-btn" id="sp-btn-pdrawer-copy" title="Copy code">📋 Copy</button>
-            <button class="sp-pdrawer-btn apply" id="sp-btn-pdrawer-apply" title="Apply edited code live">✓ Apply</button>
-            <button class="sp-pdrawer-btn close" id="sp-btn-pdrawer-close" title="Collapse code drawer">✕</button>
+            <button class="sp-pdrawer-btn" id="sp-btn-pdrawer-copy" title="Copy code">Copy</button>
+            <button class="sp-pdrawer-btn apply" id="sp-btn-pdrawer-apply" title="Apply edited code live">Apply</button>
+            <button class="sp-pdrawer-btn close" id="sp-btn-pdrawer-close" title="Collapse code drawer">${SP_ICONS.close}</button>
           </div>
         </div>
         <textarea class="sp-preview-code-editor" id="sp-preview-code-editor" spellcheck="false" placeholder="Component & Surrounding Code..."></textarea>
-        <div class="sp-preview-info-bar" id="sp-preview-info-bar">🎯 Inspected element code & styles</div>
+        <div class="sp-preview-info-bar" id="sp-preview-info-bar">Inspected element code & styles</div>
       </div>
     </div>
 
@@ -156,37 +214,37 @@
     <!-- Modal Error Inspection Alert -->
     <div id="sp-error-modal">
       <div class="sp-error-title-row">
-        <span>⚠️ Code Syntax Error Detected</span>
-        <button class="sp-error-close-x" id="sp-modal-x" title="Close (Esc)">✕</button>
+        <span>Code Syntax Issue Detected</span>
+        <button class="sp-error-close-x" id="sp-modal-x" title="Close (Esc)">${SP_ICONS.close}</button>
       </div>
       <div class="sp-error-msg-box" id="sp-error-msg">Syntax Error Details</div>
       <div class="sp-error-fix-box" id="sp-error-fix">Suggested Fix: ...</div>
       <div class="sp-modal-actions">
-        <button class="sp-modal-close-btn" id="sp-modal-dismiss">Dismiss</button>
-        <button class="sp-modal-fix-btn" id="sp-modal-auto-fix">⚡ Apply Suggested Fix</button>
+        <button class="sp-modal-close-btn" id="sp-modal-dismiss">Cancel</button>
+        <button class="sp-modal-fix-btn" id="sp-modal-auto-fix">Apply Suggested Fix</button>
       </div>
     </div>
 
-    <!-- Studio Drawer -->
+    <!-- Studio Drawer (CTRL+SPC Tactile Workspace) -->
     <div id="sp-drawer">
       <div id="sp-drawer-header">
-        <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">⋮⋮</div>
+        <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">${SP_ICONS.grip}</div>
         <div class="sp-drawer-title-group">
           <span id="sp-drawer-tag">div</span>
           <span id="sp-drawer-name">.element</span>
-          <button class="sp-lock-tag" id="sp-btn-edit-text" title="Click to edit words live directly on the element" style="color:#38BDF8;border-color:#1E3A5F;">✏️ Edit Words</button>
-          <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">🔒 Locked</button>
-          <button class="sp-lock-tag" id="sp-btn-undo" title="Undo last change (Ctrl+Z)" style="color:#F59E0B;border-color:#451A03;">↩ Undo</button>
-          <button class="sp-lock-tag" id="sp-btn-deselect" title="Deselect element / reset target" style="color:#F87171;border-color:#4B1D24;">✕ Reset</button>
+          <button class="sp-lock-tag" id="sp-btn-edit-text" title="Click to edit words directly on the page">Edit Text</button>
+          <button class="sp-lock-tag" id="sp-lock-btn" title="Target Lock protects from accidental clicks. Click to toggle.">Locked</button>
+          <button class="sp-lock-tag" id="sp-btn-undo" title="Undo last change (Ctrl+Z)">Undo</button>
+          <button class="sp-lock-tag" id="sp-btn-deselect" title="Deselect element">Reset</button>
         </div>
 
         <div id="sp-drawer-tabs">
-          <button class="sp-drawer-tab sp-active" data-tab="style">🎨 Style</button>
-          <button class="sp-drawer-tab" data-tab="layers">🥞 Layers</button>
-          <button class="sp-drawer-tab" data-tab="code">💻 Code & Morph</button>
+          <button class="sp-drawer-tab sp-active" data-tab="style">Colors & Borders</button>
+          <button class="sp-drawer-tab" data-tab="layers">Layers & Background</button>
+          <button class="sp-drawer-tab" data-tab="code">Code & Morph</button>
         </div>
 
-        <button class="sp-drawer-close-btn" id="sp-drawer-close" title="Close drawer (Esc)">✕</button>
+        <button class="sp-drawer-close-btn" id="sp-drawer-close" title="Close drawer (Esc)">${SP_ICONS.close}</button>
       </div>
 
       <div id="sp-drawer-body">
@@ -196,44 +254,44 @@
             <div class="sp-color-card" id="sp-card-text">
               <span class="sp-color-label">Text Color</span>
               <div class="sp-color-input-row">
-                <input type="text" class="sp-hex-input" id="sp-text-hex" value="#ffffff">
-                <input type="color" class="sp-color-btn" id="sp-text-color" value="#ffffff">
+                <input type="text" class="sp-hex-input" id="sp-text-hex" value="#1C1C1E">
+                <input type="color" class="sp-color-btn" id="sp-text-color" value="#1C1C1E">
               </div>
               <div class="sp-swatches-row" data-target="text">
-                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
-                <div class="sp-color-swatch" style="background:#94a3b8" data-col="#94a3b8" title="Slate"></div>
-                <div class="sp-color-swatch" style="background:#e7dbff" data-col="#e7dbff" title="Lavender"></div>
-                <div class="sp-color-swatch" style="background:#38bdf8" data-col="#38bdf8" title="Sky Blue"></div>
-                <div class="sp-color-swatch" style="background:#34d399" data-col="#34d399" title="Emerald"></div>
-                <div class="sp-color-swatch" style="background:#fbbf24" data-col="#fbbf24" title="Amber"></div>
-                <div class="sp-color-swatch" style="background:#f87171" data-col="#f87171" title="Red"></div>
-                <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
+                <div class="sp-color-swatch" style="background:#1C1C1E" data-col="#1C1C1E" title="Charcoal Ink"></div>
+                <div class="sp-color-swatch" style="background:#78716C" data-col="#78716C" title="Warm Stone"></div>
+                <div class="sp-color-swatch" style="background:#FAF9F6" data-col="#FAF9F6" title="Alabaster"></div>
+                <div class="sp-color-swatch" style="background:#C84B44" data-col="#C84B44" title="Coral Accent"></div>
+                <div class="sp-color-swatch" style="background:#7CE0D3" data-col="#7CE0D3" title="Mint"></div>
+                <div class="sp-color-swatch" style="background:#15803D" data-col="#15803D" title="Forest"></div>
+                <div class="sp-color-swatch" style="background:#B45309" data-col="#B45309" title="Amber"></div>
+                <div class="sp-color-swatch" style="background:#FFFFFF" data-col="#FFFFFF" title="Pure White"></div>
               </div>
             </div>
 
             <div class="sp-color-card" id="sp-card-bg">
-              <span class="sp-color-label">Div Background Fill</span>
+              <span class="sp-color-label">Layer / Box Fill</span>
               <div class="sp-color-input-row">
-                <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#000000">
-                <input type="color" class="sp-color-btn" id="sp-bg-color" value="#000000">
+                <input type="text" class="sp-hex-input" id="sp-bg-hex" value="#F4F3EE">
+                <input type="color" class="sp-color-btn" id="sp-bg-color" value="#F4F3EE">
               </div>
               <div class="sp-swatches-row" data-target="bg">
-                <div class="sp-color-swatch" style="background:#0f172a" data-col="#0f172a" title="Dark Slate"></div>
-                <div class="sp-color-swatch" style="background:#1e293b" data-col="#1e293b" title="Slate 800"></div>
-                <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Red Fill"></div>
-                <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple Fill"></div>
-                <div class="sp-color-swatch" style="background:#3b82f6" data-col="#3b82f6" title="Blue Fill"></div>
-                <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Emerald Fill"></div>
-                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White Fill"></div>
-                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="Transparent"></div>
+                <div class="sp-color-swatch" style="background:#F4F3EE" data-col="#F4F3EE" title="Warm Cream"></div>
+                <div class="sp-color-swatch" style="background:#EAE8E0" data-col="#EAE8E0" title="Warm Stone"></div>
+                <div class="sp-color-swatch" style="background:#FAF9F6" data-col="#FAF9F6" title="Alabaster"></div>
+                <div class="sp-color-swatch" style="background:#1C1C1E" data-col="#1C1C1E" title="Charcoal"></div>
+                <div class="sp-color-swatch" style="background:#C84B44" data-col="#C84B44" title="Coral Accent"></div>
+                <div class="sp-color-swatch" style="background:#7CE0D3" data-col="#7CE0D3" title="Mint"></div>
+                <div class="sp-color-swatch" style="background:#FFFFFF" data-col="#FFFFFF" title="White"></div>
+                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #78716C" data-col="transparent" title="Transparent"></div>
               </div>
             </div>
 
             <div class="sp-color-card" id="sp-card-border">
               <span class="sp-color-label">Border Color & Width</span>
               <div class="sp-color-input-row">
-                <input type="text" class="sp-hex-input" id="sp-border-hex" value="#3b82f6">
-                <input type="color" class="sp-color-btn" id="sp-border-color" value="#3b82f6">
+                <input type="text" class="sp-hex-input" id="sp-border-hex" value="#DCD9CE">
+                <input type="color" class="sp-color-btn" id="sp-border-color" value="#DCD9CE">
               </div>
               <div class="sp-border-options-row">
                 <select class="sp-border-select" id="sp-border-width" title="Border Width">
@@ -252,157 +310,168 @@
                 </select>
               </div>
               <div class="sp-swatches-row" data-target="border">
-                <div class="sp-color-swatch" style="background:#38bdf8" data-col="#38bdf8" title="Cyan Blue"></div>
-                <div class="sp-color-swatch" style="background:#8b5cf6" data-col="#8b5cf6" title="Purple"></div>
-                <div class="sp-color-swatch" style="background:#ef4444" data-col="#ef4444" title="Red"></div>
-                <div class="sp-color-swatch" style="background:#10b981" data-col="#10b981" title="Green"></div>
-                <div class="sp-color-swatch" style="background:#f59e0b" data-col="#f59e0b" title="Amber"></div>
-                <div class="sp-color-swatch" style="background:#ffffff" data-col="#ffffff" title="White"></div>
-                <div class="sp-color-swatch" style="background:#334155" data-col="#334155" title="Slate"></div>
-                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #64748b" data-col="transparent" title="No Border"></div>
+                <div class="sp-color-swatch" style="background:#DCD9CE" data-col="#DCD9CE" title="Sandstone Rule"></div>
+                <div class="sp-color-swatch" style="background:#1C1C1E" data-col="#1C1C1E" title="Charcoal"></div>
+                <div class="sp-color-swatch" style="background:#C84B44" data-col="#C84B44" title="Coral Accent"></div>
+                <div class="sp-color-swatch" style="background:#7CE0D3" data-col="#7CE0D3" title="Mint"></div>
+                <div class="sp-color-swatch" style="background:#78716C" data-col="#78716C" title="Stone"></div>
+                <div class="sp-color-swatch" style="background:#FFFFFF" data-col="#FFFFFF" title="White"></div>
+                <div class="sp-color-swatch" style="background:#15803D" data-col="#15803D" title="Forest"></div>
+                <div class="sp-color-swatch" style="background:transparent;border:1px dashed #78716C" data-col="transparent" title="No Border"></div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Tab 2: Simplified Layers & Depth Studio -->
+        <!-- Tab 2: No-Code Figma-Style Layer Depth & Background Studio -->
         <div class="sp-tab-pane" id="pane-layers">
           
-          <!-- 1. LAYER NAVIGATION & SOLO VIEW -->
+          <!-- 1. STEP BEHIND FRONT ELEMENTS (DEEP LAYER PICKER + STATIONARY FRONT) -->
           <div class="sp-layer-card">
             <div class="sp-layer-card-header">
-              <span>🧭 LAYER NAVIGATION & ISOLATION</span>
-              <span class="sp-bg-badge" id="sp-cur-layer-badge">Selected Layer</span>
+              <span>1. STEP BEHIND & MOVE WITHOUT MOVING FRONT</span>
+              <span class="sp-bg-badge" id="sp-cur-layer-badge">Front Layer</span>
             </div>
             
             <div class="sp-layer-nav-grid">
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-up" title="Go one layer up to parent container">
-                <span>⬆ Layer Up (Parent)</span>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-down" title="Step 1 layer behind the front element so you can move or restyle the background layer without moving the front elements">
+                <span>↓ Step 1 Layer Behind</span>
               </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-down" title="Go down one layer inside and view only this layer">
-                <span>⬇ Layer Down (Inside & Solo)</span>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-up" title="Step 1 layer forward toward the front elements">
+                <span>↑ Step 1 Layer In Front</span>
               </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-prev" title="Select previous layer / element behind">
-                <span>◂ Layer Behind</span>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-prev" title="Select previous sibling element on the same level">
+                <span>← Previous Sibling</span>
               </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-next" title="Select next layer / element in front">
-                <span>▸ Layer In Front</span>
+              <button class="sp-layer-nav-btn" id="sp-btn-layer-next" title="Select next sibling element on the same level">
+                <span>→ Next Sibling</span>
+              </button>
+            </div>
+
+            <div class="sp-layer-solo-bar" style="display:flex;gap:6px;margin-bottom:8px;">
+              <button class="sp-layer-solo-btn active" id="sp-btn-keep-front-still" style="flex:1;" title="When ON, dragging this container or background layer keeps the front text and buttons stationary">
+                <span id="sp-keep-front-label">Keep Front Elements Still: ON</span>
+              </button>
+              <button class="sp-layer-solo-btn" id="sp-btn-detach-bg" style="flex:1;" title="Create a separate movable background box right behind the front elements">
+                <span>Detach Background Box</span>
               </button>
             </div>
 
             <div class="sp-layer-solo-bar">
-              <button class="sp-layer-solo-btn" id="sp-btn-solo-layer" title="Hide all outside elements to see only what is in this layer">
-                <span id="sp-solo-icon">👁️</span>
-                <span id="sp-solo-label">View Only This Layer (Solo View: OFF)</span>
+              <button class="sp-layer-solo-btn" id="sp-btn-solo-layer" title="Hide outside elements temporarily to view only this layer">
+                <span id="sp-solo-icon">${SP_ICONS.eye}</span>
+                <span id="sp-solo-label">Isolate This Layer Only (Off)</span>
               </button>
             </div>
 
-            <div class="sp-layer-breadcrumb-row" id="sp-layer-breadcrumb">
-              <!-- Dynamically populated clickable hierarchy path -->
+            <div class="sp-layer-breadcrumb-row" id="sp-layer-breadcrumb" title="Click any layer from Front to Page Background">
+              <!-- Dynamically populated clickable layer stack -->
             </div>
           </div>
 
-          <!-- 2. PUT AN ELEMENT BEHIND / IN FRONT -->
+          <!-- 2. STACK ORDER (SEND BEHIND / BRING IN FRONT) -->
           <div class="sp-layer-card">
             <div class="sp-layer-card-header">
-              <span>🥞 PUT ELEMENT BEHIND / IN FRONT</span>
+              <span>2. LAYER ORDER (SEND BEHIND OR FRONT)</span>
               <span class="sp-bg-badge">Stacking</span>
             </div>
             <div class="sp-layer-actions-grid">
-              <button class="sp-layer-act-btn" id="sp-btn-put-behind" title="Put this element directly behind its neighboring element">
-                <span>⬇ Put Behind Element</span>
+              <button class="sp-layer-act-btn" id="sp-btn-put-behind" title="Move this element 1 step behind its neighbor">
+                <span>↓ Move 1 Step Back</span>
               </button>
-              <button class="sp-layer-act-btn" id="sp-btn-put-front" title="Put this element directly in front of its neighboring element">
-                <span>⬆ Put in Front</span>
+              <button class="sp-layer-act-btn" id="sp-btn-put-front" title="Move this element 1 step in front of its neighbor">
+                <span>↑ Move 1 Step Front</span>
               </button>
-              <button class="sp-layer-act-btn" id="sp-btn-push-back" title="Send element to very back (Word document style)">
-                <span>⬇⬇ Send to Back</span>
+              <button class="sp-layer-act-btn" id="sp-btn-push-back" title="Send element behind all siblings in this section">
+                <span>↓↓ Send to Back</span>
               </button>
-              <button class="sp-layer-act-btn" id="sp-btn-bring-front" title="Bring element to very top layer">
-                <span>⬆⬆ Bring to Front</span>
+              <button class="sp-layer-act-btn" id="sp-btn-bring-front" title="Bring element to the very front">
+                <span>↑↑ Bring to Front</span>
               </button>
             </div>
             <div class="sp-zindex-bar">
-              <span style="font-size:11px;color:#94A3B8;font-weight:600">Z-Index:</span>
-              <button class="sp-step-btn" id="sp-z-down" title="Step Down (-1)">−</button>
+              <span style="font-size:11px;color:#78716C;font-weight:700">Depth (Z):</span>
+              <button class="sp-step-btn" id="sp-z-down" title="Step Back (-1)">−</button>
               <input type="number" class="sp-zindex-input" id="sp-zindex-val" value="0">
-              <button class="sp-step-btn" id="sp-z-up" title="Step Up (+1)">+</button>
-              <button class="sp-layer-act-btn mini" id="sp-btn-send-canvas" title="Send behind entire page as root canvas wallpaper">🌐 Canvas BG</button>
+              <button class="sp-step-btn" id="sp-z-up" title="Step Front (+1)">+</button>
+              <button class="sp-layer-act-btn mini" id="sp-btn-send-canvas" title="Place behind the entire page as a full-screen background">Full Page BG</button>
             </div>
           </div>
 
-          <!-- 3. CHANGE ELEMENT BACKGROUND (Color & Image) -->
+          <!-- 3. CHANGE LAYER OR PAGE BACKGROUND (COLOR & IMAGE) -->
           <div class="sp-layer-card">
             <div class="sp-layer-card-header">
-              <span>🎨 ELEMENT BACKGROUND (COLOR & IMAGE)</span>
+              <span>3. BACKGROUND COLOR & PICTURE</span>
               <span class="sp-bg-badge" id="sp-bg-img-target-label">Selected Layer</span>
             </div>
             
             <div class="sp-bg-target-row">
-              <button class="sp-bg-target-chip active" id="sp-btn-target-selected" title="Apply background to currently selected element">Selected Layer</button>
-              <button class="sp-bg-target-chip" id="sp-btn-target-body" title="Apply background to Body canvas">Body Canvas</button>
-              <button class="sp-bg-target-chip" id="sp-btn-target-html" title="Apply background to Root HTML">Root HTML</button>
+              <button class="sp-bg-target-chip active" id="sp-btn-target-selected" title="Change background of the selected layer">Selected Layer</button>
+              <button class="sp-bg-target-chip" id="sp-btn-target-body" title="Change background of the entire page body">Page Body</button>
+              <button class="sp-bg-target-chip" id="sp-btn-target-html" title="Change background of the root HTML canvas">Root Canvas</button>
             </div>
 
             <!-- Background Color Row -->
             <div class="sp-theme-color-row" style="margin-bottom:8px;">
-              <span style="font-size:11px;color:#94A3B8;font-weight:600">Color:</span>
-              <input type="text" class="sp-hex-input" id="sp-layer-bg-color-hex" placeholder="#0f172a" style="flex:1;">
-              <input type="color" class="sp-color-btn" id="sp-layer-bg-color-picker" value="#0f172a">
+              <span style="font-size:11px;color:#78716C;font-weight:700">Color:</span>
+              <input type="text" class="sp-hex-input" id="sp-layer-bg-color-hex" placeholder="#F4F3EE" style="flex:1;">
+              <input type="color" class="sp-color-btn" id="sp-layer-bg-color-picker" value="#F4F3EE">
               <button class="sp-bg-action-btn" id="sp-btn-apply-layer-color">Apply Color</button>
             </div>
 
             <!-- Background Image -->
             <div class="sp-bg-image-inputs">
               <div style="display:flex;gap:6px;align-items:center;">
-                <input type="text" class="sp-input" id="sp-layer-bg-url" placeholder="Paste image URL (https://... or data:)..." style="flex:1;">
-                <button class="sp-bg-action-btn" id="sp-btn-apply-bg-img" title="Apply background image">Apply BG Img</button>
+                <input type="text" class="sp-input" id="sp-layer-bg-url" placeholder="Paste image URL (https://...)" style="flex:1;">
+                <button class="sp-layer-act-btn mini" id="sp-btn-apply-bg-img" title="Set URL as background image">Set Image</button>
               </div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
-                <label class="sp-file-label" style="flex:1;text-align:center;cursor:pointer;padding:5px 8px;font-size:11px;" title="Upload background image file from computer">
-                  <span>📁 Upload Image File</span>
+                <label class="sp-file-label" style="flex:1;text-align:center;cursor:pointer;padding:6px 8px;font-size:11px;" title="Upload background image file from computer">
+                  <span>Upload Background Picture</span>
                   <input type="file" id="sp-layer-bg-file" accept="image/*" style="display:none">
                 </label>
-                <button class="sp-bg-action-btn sp-btn-danger" id="sp-btn-clear-bg-img" title="Remove background image">Remove BG</button>
+                <button class="sp-bg-action-btn sp-btn-danger" id="sp-btn-clear-bg-img" title="Remove background image">Clear BG</button>
               </div>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px;color:#94A3B8;">
-                <span>Sizing:</span>
-                <select id="sp-layer-bg-size" class="sp-select" style="flex:1;padding:2px 6px;height:24px;font-size:11px;">
-                  <option value="cover" selected>Cover (Full stretch)</option>
-                  <option value="contain">Contain (Fit inside)</option>
-                  <option value="repeat">Repeat / Tile</option>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px;color:#78716C;font-weight:600;">
+                <span>Fit:</span>
+                <select id="sp-layer-bg-size" class="sp-select" style="flex:1;padding:2px 6px;height:26px;font-size:11px;">
+                  <option value="cover" selected>Cover (Fill Layer)</option>
+                  <option value="contain">Contain (Fit Whole Image)</option>
+                  <option value="repeat">Tile / Repeat</option>
                   <option value="auto">Original Size</option>
                 </select>
               </div>
             </div>
+
+            <!-- Detected Background Layers List -->
+            <div id="sp-bg-layers-list" style="margin-top:6px;"></div>
           </div>
 
-          <!-- 4. EDIT CODE · MAKE INTO IMAGE · PUT ELEMENT ON LAYER -->
+          <!-- 4. ADD ELEMENTS OR CONVERT LAYER -->
           <div class="sp-layer-card">
             <div class="sp-layer-card-header">
-              <span>⚡ LAYER CREATION & POWER TOOLS</span>
-              <span class="sp-bg-badge">Layer Tools</span>
+              <span>4. ADD ELEMENTS TO THIS LAYER</span>
+              <span class="sp-bg-badge">Quick Insert</span>
             </div>
             
-            <div class="sp-layer-tools-grid">
-              <button class="sp-layer-tool-btn" id="sp-btn-layer-code" title="Edit HTML and CSS code of this layer">
-                <span class="sp-tool-icon">💻</span>
-                <span class="sp-tool-text">Edit Layer Code</span>
-              </button>
-              <button class="sp-layer-tool-btn" id="sp-btn-layer-to-image" title="Convert this layer into an image on the webpage">
-                <span class="sp-tool-icon">📷</span>
-                <span class="sp-tool-text">Make into Image</span>
-              </button>
-            </div>
-
-            <!-- Put an Element on this Layer -->
             <div class="sp-put-element-box">
-              <span class="sp-put-label">➕ Put an element on this layer:</span>
+              <span class="sp-put-label">Insert directly onto the selected layer:</span>
               <div class="sp-put-btns-row">
-                <button class="sp-put-chip" id="sp-btn-put-text">+ Text Word</button>
-                <button class="sp-put-chip" id="sp-btn-put-card">+ Styled Card</button>
+                <button class="sp-put-chip" id="sp-btn-put-text">+ Text Block</button>
+                <button class="sp-put-chip" id="sp-btn-put-card">+ Card Box</button>
                 <button class="sp-put-chip" id="sp-btn-put-image">+ Picture / Photo</button>
               </div>
+            </div>
+
+            <div class="sp-layer-tools-grid">
+              <button class="sp-layer-tool-btn" id="sp-btn-layer-code" title="Edit HTML and CSS code of this layer">
+                <span class="sp-tool-icon">${SP_ICONS.code}</span>
+                <span class="sp-tool-text">Edit Layer Code</span>
+              </button>
+              <button class="sp-layer-tool-btn" id="sp-btn-layer-to-image" title="Convert this layer into a draggable image on the webpage">
+                <span class="sp-tool-icon">${SP_ICONS.image}</span>
+                <span class="sp-tool-text">Flatten to Image</span>
+              </button>
             </div>
           </div>
 
@@ -422,16 +491,16 @@
             <!-- Center Actions -->
             <div class="sp-split-center-actions">
               <button class="sp-animate-btn" id="sp-btn-run-anim" title="Run animation morphing State A to State B (or apply State A if B is blank)">
-                <span>⚡ Animate</span>
+                <span>Animate</span>
                 <span style="font-size:9.5px;opacity:0.85">Morph A ⇄ B</span>
               </button>
 
               <button class="sp-apply-split-btn" id="sp-btn-apply-code" title="Apply current code to canvas element">
-                <span>✓ Apply Code</span>
+                <span>Apply Code</span>
               </button>
 
               <button class="sp-copy-gsap-btn" id="sp-btn-copy-gsap" title="Copy production GSAP animation code">
-                <span>📋 Copy GSAP</span>
+                <span>Copy GSAP</span>
               </button>
             </div>
 
@@ -536,6 +605,9 @@
   const btnLayerDown      = root.querySelector("#sp-btn-layer-down");
   const btnLayerPrev      = root.querySelector("#sp-btn-layer-prev");
   const btnLayerNext      = root.querySelector("#sp-btn-layer-next");
+  const btnKeepFrontStill = root.querySelector("#sp-btn-keep-front-still");
+  const keepFrontLabel    = root.querySelector("#sp-keep-front-label");
+  const btnDetachBg       = root.querySelector("#sp-btn-detach-bg");
   const btnSoloLayer      = root.querySelector("#sp-btn-solo-layer");
   const soloIcon          = root.querySelector("#sp-solo-icon");
   const soloLabel         = root.querySelector("#sp-solo-label");
@@ -599,7 +671,8 @@
   function getPrimaryClass(el) {
     const raw = getClassName(el).trim();
     if (!raw) return "";
-    const first = raw.split(/\s+/)[0];
+    const parts = raw.split(/\s+/).filter(c => !c.startsWith("sp-"));
+    const first = parts[0];
     return first ? `.${first}` : "";
   }
 
@@ -612,7 +685,11 @@
   }
 
   function isOwn(el) {
-    return el === root || root.contains(el);
+    if (!el) return false;
+    if (el === root || root.contains(el)) return true;
+    if (el.tagName && el.tagName.toLowerCase() === "vis-bug") return true;
+    if (el.closest && el.closest("#sp-root, vis-bug, #__figma_h2d_chrome_extension_toolbar__, #sp-h2d-interactive-modal")) return true;
+    return false;
   }
 
   function ensurePositioned(el) {
@@ -631,6 +708,7 @@
 
   root.querySelectorAll(".sp-dock-btn[data-tool]").forEach(btn => {
     btn.addEventListener("click", () => {
+      spPlayKeyClick(180);
       const tool = btn.dataset.tool;
       activeToolMode = tool;
       syncDockUI(tool);
@@ -649,25 +727,27 @@
         drawer.classList.add("sp-open");
         root.querySelector(".sp-drawer-tab[data-tab='code']").click();
       } else if (tool === "inspect") {
-        showToast("🔍 Inspect Mode • Click any element to open editor");
+        showToast("Inspect Mode: Click any element to inspect");
         if (selectedEl) previewPanel.classList.add("sp-show");
       } else if (tool === "move") {
         drawer.classList.remove("sp-open");
         previewPanel.classList.remove("sp-show");
-        showToast("✋ Move Mode • Drag any element freely on canvas");
+        showToast("Move Mode: Drag any layer freely on canvas");
       } else if (tool === "resize") {
-        showToast("↔️ Resize Mode • Drag outline corner handles to stretch");
+        showToast("Resize Mode: Drag corner handles to stretch");
       } else if (tool === "delete") {
-        showToast("✂️ Delete Mode • Click element to remove (Ctrl+Z undo)");
+        showToast("Delete Mode: Click an element to remove (Ctrl+Z undo)");
       }
     });
   });
 
   dockCaptureBtn.addEventListener("click", () => {
+    spPlayKeyClick(160);
     captureVisibleViewport();
   });
 
   dockPowerBtn.addEventListener("click", () => {
+    spPlayKeyClick(140);
     turnOffStylePeek();
   });
 
@@ -709,7 +789,6 @@
     if (!topbar) return;
 
     topbar.addEventListener("mousedown", e => {
-      // Don't drag if clicking buttons inside the actions container
       if (e.target.closest("button") || e.target.closest(".sp-preview-panel-actions")) return;
 
       isDraggingP = true;
@@ -746,13 +825,13 @@
   /* ── Tab Switching with Dynamic Width Expansion ── */
   root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
     btn.addEventListener("click", () => {
+      spPlayKeyClick(190);
       root.querySelectorAll(".sp-drawer-tab").forEach(b => b.classList.remove("sp-active"));
       root.querySelectorAll(".sp-tab-pane").forEach(p => p.classList.remove("sp-active"));
       btn.classList.add("sp-active");
       const targetPane = root.querySelector(`#pane-${btn.dataset.tab}`);
       if (targetPane) targetPane.classList.add("sp-active");
 
-      // Expand drawer width in Code mode for split dual-editor
       if (btn.dataset.tab === "code") {
         drawer.classList.add("sp-expanded");
       } else {
@@ -763,37 +842,44 @@
 
   function updateLockBtnUI() {
     if (!lockBtn) return;
-    lockBtn.textContent = isTargetLocked ? "🔒 Locked" : "🔓 Unlocked";
+    lockBtn.textContent = isTargetLocked ? "Locked" : "Unlocked";
     lockBtn.classList.toggle("unlocked", !isTargetLocked);
   }
 
   if (lockBtn) {
     lockBtn.addEventListener("click", () => {
+      spPlayKeyClick(165);
       isTargetLocked = !isTargetLocked;
       unlockPending = false;
       updateLockBtnUI();
       if (selectedEl) updateSelectBox(selectedEl);
-      showToast(isTargetLocked ? "🔒 Target Locked (Safe from accidental clicks)" : "🔓 Target Unlocked");
+      showToast(isTargetLocked ? "Target locked (protected from accidental clicks)" : "Target unlocked");
     });
   }
 
   if (deselectBtn) {
     deselectBtn.addEventListener("click", () => {
+      spPlayKeyClick(150);
+      clearPassthroughFrontNodes();
+      isDeepLayerMode = false;
       selectedEl = null;
       selectBox.style.display = "none";
+      selectBox.classList.remove("sp-deep-mode");
       drawer.classList.remove("sp-open");
       previewPanel.classList.remove("sp-show");
       isTargetLocked = false;
       unlockPending = false;
-      showToast("✕ Selection cleared");
+      showToast("Selection cleared");
     });
   }
 
   drawerClose.addEventListener("click", () => {
     drawer.classList.remove("sp-open");
     selectBox.style.display = "none";
+    clearPassthroughFrontNodes();
+    isDeepLayerMode = false;
     selectedEl = null;
-    showToast("Drawer closed • Select any element to reopen");
+    showToast("Studio drawer closed");
   });
 
   /* ── Draggable Popup / Drawer Header ── */
@@ -833,8 +919,13 @@
   })();
 
   /* ── Select and Inspect Element ── */
-  function selectElement(el) {
+  function selectElement(el, preserveDeepStack = false) {
     if (!el || isOwn(el)) return;
+    if (!preserveDeepStack) {
+      clearPassthroughFrontNodes();
+      isDeepLayerMode = false;
+      selectBox.classList.remove("sp-deep-mode");
+    }
     selectedEl = el;
     isTargetLocked = true;
     unlockPending = false;
@@ -878,6 +969,10 @@
     try {
       const currentZ = parseInt(cs.zIndex);
       zInput.value = isNaN(currentZ) ? 0 : currentZ;
+      if (!preserveDeepStack) {
+        deepLayerStack = computeVisualLayerStack(el);
+        deepLayerIndex = Math.max(0, deepLayerStack.indexOf(el));
+      }
       buildBreadcrumbs(el);
     } catch (err) {
       console.warn("[StylePeek] Hierarchy build warning:", err);
@@ -918,7 +1013,6 @@
     } else if (["style", "layers", "code"].includes(activeToolMode) && !isDragging && !justFinishedDrag) {
       drawer.classList.add("sp-open");
     } else {
-      // In move mode or while dragging: KEEP DRAWER AND PREVIEW POPUP COMPLETELY HIDDEN!
       drawer.classList.remove("sp-open");
       previewPanel.classList.remove("sp-show");
     }
@@ -932,13 +1026,23 @@
     selectBox.style.top = r.top + "px";
     selectBox.style.width = r.width + "px";
     selectBox.style.height = r.height + "px";
+    selectBox.classList.toggle("sp-deep-mode", isDeepLayerMode);
 
     const tagStr = el.tagName.toLowerCase();
     const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
     const clsStr = getPrimaryClass(el);
-    const lockIcon = isTargetLocked ? " 🔒" : "";
+    const depthLabel = isDeepLayerMode ? ` · Deep Layer (${deepLayerIndex + 1}/${Math.max(1, deepLayerStack.length)})` : "";
 
-    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${lockIcon}</span><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="View & Edit Code for this element">💻 Code</button>`;
+    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="View & Edit Code for this element">Code</button>`;
+
+    const badgeBehindBtn = selectBadge.querySelector("#sp-badge-btn-layer-behind");
+    if (badgeBehindBtn) {
+      badgeBehindBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        stepLayerDeeper();
+      });
+    }
 
     const badgeCodeBtn = selectBadge.querySelector("#sp-badge-btn-code");
     if (badgeCodeBtn) {
@@ -1210,13 +1314,14 @@
 
         const left = document.createElement("div");
         left.className = "sp-bg-layer-name";
-        const imgBadge = layer.image ? `<span class="sp-bg-badge" style="font-size:9.5px;padding:1px 4px;background:#38BDF8;color:#0F172A;font-weight:700;">🖼️ Image BG</span>` : "";
+        const imgBadge = layer.image ? `<span class="sp-bg-badge" style="font-size:9.5px;padding:1px 4px;background:#7CE0D3;color:#1C1C1E;font-weight:700;">Image BG</span>` : "";
         left.innerHTML = `<span class="sp-bg-layer-swatch" style="background:${layer.color}"></span><span>${layer.label}</span>${imgBadge}`;
 
         const pickBtn = document.createElement("button");
         pickBtn.className = "sp-bg-action-btn";
-        pickBtn.textContent = "Select";
+        pickBtn.textContent = "Target";
         pickBtn.addEventListener("click", () => {
+          spPlayKeyClick(170);
           selectElement(layer.node);
           if (layer.node === document.body) {
             activeBgTargetMode = "body";
@@ -1228,7 +1333,7 @@
             activeBgTargetMode = "selected";
             syncBgTargetChips();
           }
-          showToast(`Targeted: ${layer.label}`);
+          showToast(`Targeted background layer: ${layer.label}`);
         });
 
         row.appendChild(left);
@@ -1237,10 +1342,9 @@
       });
     }
 
-    // Initialize Theme Color Picker with current html/body background
     if (themeHex && themeColor) {
-      themeHex.value = bgLayers[0].color || bgLayers[1].color || "#0f172a";
-      themeColor.value = themeHex.value.startsWith("#") ? themeHex.value : "#0f172a";
+      themeHex.value = bgLayers[0].color || bgLayers[1].color || "#F4F3EE";
+      themeColor.value = themeHex.value.startsWith("#") ? themeHex.value : "#F4F3EE";
     }
   }
 
@@ -1251,28 +1355,31 @@
     btnTargetHtml.classList.toggle("active", activeBgTargetMode === "html");
 
     if (activeBgTargetMode === "selected") {
-      bgImgTargetLabel.textContent = selectedEl ? "Selected Layer" : "Body Canvas";
+      bgImgTargetLabel.textContent = selectedEl ? "Selected Layer" : "Page Body";
     } else if (activeBgTargetMode === "body") {
-      bgImgTargetLabel.textContent = "Body Canvas";
+      bgImgTargetLabel.textContent = "Page Body";
     } else {
-      bgImgTargetLabel.textContent = "Root HTML";
+      bgImgTargetLabel.textContent = "Root Canvas";
     }
   }
 
   if (btnTargetSelected) {
     btnTargetSelected.addEventListener("click", () => {
+      spPlayKeyClick(175);
       activeBgTargetMode = "selected";
       syncBgTargetChips();
     });
   }
   if (btnTargetBody) {
     btnTargetBody.addEventListener("click", () => {
+      spPlayKeyClick(175);
       activeBgTargetMode = "body";
       syncBgTargetChips();
     });
   }
   if (btnTargetHtml) {
     btnTargetHtml.addEventListener("click", () => {
+      spPlayKeyClick(175);
       activeBgTargetMode = "html";
       syncBgTargetChips();
     });
@@ -1285,14 +1392,14 @@
     }
 
     let targetNode = selectedEl;
-    let targetLabel = "Selected Element";
+    let targetLabel = "Selected Layer";
 
     if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
       targetNode = document.body;
-      targetLabel = "Body Canvas";
+      targetLabel = "Page Body";
     } else if (activeBgTargetMode === "html") {
       targetNode = document.documentElement;
-      targetLabel = "Root HTML";
+      targetLabel = "Root Canvas";
     }
 
     if (!targetNode) return;
@@ -1334,19 +1441,19 @@
       updateSandboxPreview(selectedEl);
       updateSelectBox(selectedEl);
     }
-    showToast(`🖼️ Applied background image to ${targetLabel}!`);
+    showToast(`Applied background image to ${targetLabel}`);
   }
 
   function clearLayerBgImage() {
     let targetNode = selectedEl;
-    let targetLabel = "Selected Element";
+    let targetLabel = "Selected Layer";
 
     if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
       targetNode = document.body;
-      targetLabel = "Body Canvas";
+      targetLabel = "Page Body";
     } else if (activeBgTargetMode === "html") {
       targetNode = document.documentElement;
-      targetLabel = "Root HTML";
+      targetLabel = "Root Canvas";
     }
 
     if (!targetNode) return;
@@ -1373,11 +1480,12 @@
       updateSandboxPreview(selectedEl);
       updateSelectBox(selectedEl);
     }
-    showToast(`✓ Removed background image from ${targetLabel}`);
+    showToast(`Removed background image from ${targetLabel}`);
   }
 
   if (btnApplyBgImg) {
     btnApplyBgImg.addEventListener("click", () => {
+      spPlayKeyClick(165);
       const url = layerBgUrlInput.value.trim();
       applyLayerBgImage(url);
     });
@@ -1397,7 +1505,10 @@
   }
 
   if (btnClearBgImg) {
-    btnClearBgImg.addEventListener("click", clearLayerBgImage);
+    btnClearBgImg.addEventListener("click", () => {
+      spPlayKeyClick(150);
+      clearLayerBgImage();
+    });
   }
 
   function setPageThemeBackground(col) {
@@ -1406,13 +1517,12 @@
     document.body.style.setProperty("background-color", col, "important");
     document.body.style.setProperty("background", col, "important");
 
-    // Tailwind & Next.js Theme Variables Override:
     document.documentElement.style.setProperty("--background", col);
     document.documentElement.style.setProperty("--bg", col);
     document.documentElement.style.setProperty("--color-background", col);
     document.documentElement.style.setProperty("--tw-bg-opacity", "1");
 
-    showToast(`🎨 Set Page Theme Background to ${col}`);
+    showToast(`Set page background to ${col}`);
   }
 
   if (themeColor && themeHex) {
@@ -1446,11 +1556,13 @@
     if (!newEl) return;
     ensurePositioned(newEl);
 
-    // If an element is currently selected on the page, insert immediately next to it!
     if (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement)) {
-      selectedEl.insertAdjacentElement("afterend", newEl);
+      if (isDeepLayerMode && selectedEl !== document.body && selectedEl !== document.documentElement) {
+        selectedEl.insertBefore(newEl, selectedEl.firstChild);
+      } else {
+        selectedEl.insertAdjacentElement("afterend", newEl);
+      }
     } else {
-      // Find element at center of current viewport so insertion happens right where user is looking!
       let centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
       while (centerEl && (isOwn(centerEl) || centerEl === document.documentElement || centerEl === document.body)) {
         centerEl = centerEl.parentElement;
@@ -1463,7 +1575,6 @@
       }
     }
 
-    // Scroll the live site smoothly to the newly inserted element
     try {
       newEl.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) {}
@@ -1477,11 +1588,9 @@
   function insertCustomImage(src) {
     if (!src) return;
 
-    // 1. If user has an existing <img> (or container with <img>) selected on the live website:
-    // AUTOMATICALLY REPLACE THE LIVE IMAGE DIRECTLY ON THE WEBSITE!
     const targetImg = (selectedEl && selectedEl.tagName === "IMG")
       ? selectedEl
-      : (selectedEl && selectedEl.querySelector("img") ? selectedEl.querySelector("img") : null);
+      : (selectedEl && !isDeepLayerMode && selectedEl.querySelector("img") ? selectedEl.querySelector("img") : null);
 
     if (targetImg) {
       const oldSrc = targetImg.src;
@@ -1496,11 +1605,10 @@
       updateSandboxPreview(selectedEl);
       populateDualCodePanes(selectedEl);
       closeAddModal();
-      showToast("✓ Live image replaced instantly on website!");
+      showToast("Live image replaced on page");
       return;
     }
 
-    // 2. Otherwise insert a new picture directly into the live website at current view:
     const img = document.createElement("img");
     img.src = src;
     img.className = "sp-custom-element";
@@ -1509,12 +1617,12 @@
     img.style.maxWidth = "90vw";
     img.style.height = "auto";
     img.style.borderRadius = "10px";
-    img.style.boxShadow = "0 12px 36px rgba(0,0,0,0.5)";
+    img.style.boxShadow = "0 12px 36px rgba(28,28,30,0.22)";
     img.style.display = "block";
     img.style.margin = "20px auto";
-    img.style.zIndex = "9999";
+    img.style.zIndex = isDeepLayerMode ? "0" : "9999";
 
-    insertElementIntoLiveSite(img, "🖼️ Picture added live to website! Drag anywhere or resize corners");
+    insertElementIntoLiveSite(img, "Picture added to page — drag anywhere or resize corners");
   }
 
   addImgFileInput.addEventListener("change", e => {
@@ -1529,6 +1637,7 @@
   });
 
   btnInsertImgUrl.addEventListener("click", () => {
+    spPlayKeyClick(165);
     const url = addImgUrlInput.value.trim();
     if (url) {
       insertCustomImage(url);
@@ -1539,39 +1648,42 @@
   });
 
   btnInsertBox.addEventListener("click", () => {
+    spPlayKeyClick(165);
     const box = document.createElement("div");
     box.className = "sp-custom-element";
     box.textContent = "Custom Card Layer";
     box.style.position = "relative";
     box.style.padding = "24px 28px";
-    box.style.background = "#131C2E";
-    box.style.color = "#F8FAFC";
-    box.style.border = "1px solid #38BDF8";
-    box.style.borderRadius = "14px";
+    box.style.background = "#FAF9F6";
+    box.style.color = "#1C1C1E";
+    box.style.border = "1px solid #DCD9CE";
+    box.style.borderRadius = "12px";
     box.style.fontSize = "16px";
     box.style.fontWeight = "600";
-    box.style.boxShadow = "0 12px 30px rgba(0,0,0,0.4)";
+    box.style.boxShadow = "0 8px 24px rgba(28,28,30,0.12)";
     box.style.display = "inline-block";
     box.style.margin = "20px auto";
 
-    insertElementIntoLiveSite(box, "📦 Inserted custom card box! Drag corners to stretch or edit style!");
+    insertElementIntoLiveSite(box, "Added card box — drag to move or stretch corners");
   });
 
   btnInsertHeading.addEventListener("click", () => {
+    spPlayKeyClick(165);
     const h = document.createElement("h2");
     h.className = "sp-custom-element";
     h.textContent = "New Headline";
     h.style.position = "relative";
-    h.style.color = "#FFFFFF";
+    h.style.color = "inherit";
     h.style.fontSize = "32px";
     h.style.fontWeight = "800";
     h.style.margin = "16px auto";
     h.style.display = "block";
 
-    insertElementIntoLiveSite(h, "🔤 Inserted headline typography!");
+    insertElementIntoLiveSite(h, "Added headline text — double-click to edit words");
   });
 
   btnInsertHtml.addEventListener("click", () => {
+    spPlayKeyClick(165);
     const raw = addHtmlCodeArea.value.trim();
     if (!raw) return;
     const wrap = document.createElement("div");
@@ -1579,7 +1691,7 @@
     const newEl = wrap.firstElementChild || wrap;
     newEl.style.position = "relative";
 
-    insertElementIntoLiveSite(newEl, "💻 Inserted custom HTML element!");
+    insertElementIntoLiveSite(newEl, "Added custom HTML element");
   });
 
   if (btnAddImage) btnAddImage.addEventListener("click", openAddModal);
@@ -1587,84 +1699,307 @@
   if (btnAddHtml) btnAddHtml.addEventListener("click", openAddModal);
 
   /* ══════════════════════════════════════════════════════════
-     Layers Tab: Word-Style Send to Back & Stacking
+     Figma-Style Deep Layer & Stationary-Front Engine
+     (Step Behind Front Elements Without Moving Front Elements)
+     ══════════════════════════════════════════════════════════ */
+  function clearPassthroughFrontNodes() {
+    passthroughFrontNodes.forEach(n => {
+      try {
+        n.classList.remove("sp-front-passthrough");
+      } catch (e) {}
+    });
+    passthroughFrontNodes = [];
+  }
+
+  function computeVisualLayerStack(el) {
+    if (!el || isOwn(el)) return [];
+    const stack = [];
+    const seen = new Set();
+
+    function addLayer(node) {
+      if (!node || node.nodeType !== 1 || isOwn(node) || seen.has(node)) return;
+      if (node.tagName === "SCRIPT" || node.tagName === "STYLE" || node.tagName === "LINK") return;
+      seen.add(node);
+      stack.push(node);
+    }
+
+    // 1. Overlapping visual elements at the target's center point (front-to-back)
+    try {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        const cx = Math.max(2, Math.min(window.innerWidth - 2, r.left + r.width / 2));
+        const cy = Math.max(2, Math.min(window.innerHeight - 2, r.top + r.height / 2));
+        const hitNodes = document.elementsFromPoint(cx, cy);
+        for (const h of hitNodes) {
+          addLayer(h);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Ensure the element itself and all its parent/ancestor layers up to <body> and <html> are included in order
+    let curr = el;
+    while (curr && curr.nodeType === 1 && !isOwn(curr)) {
+      addLayer(curr);
+      curr = curr.parentElement;
+    }
+    addLayer(document.body);
+    addLayer(document.documentElement);
+
+    return stack;
+  }
+
+  function applyDeepLayerSelection(newIdx) {
+    if (!deepLayerStack.length) {
+      if (selectedEl) deepLayerStack = computeVisualLayerStack(selectedEl);
+      if (!deepLayerStack.length) return;
+    }
+
+    const clampedIdx = Math.max(0, Math.min(deepLayerStack.length - 1, newIdx));
+    clearPassthroughFrontNodes();
+
+    // Mark all layers in front of clampedIdx as pointer-events pass-through so the user can directly drag the deeper layer!
+    for (let i = 0; i < clampedIdx; i++) {
+      const frontNode = deepLayerStack[i];
+      if (frontNode && frontNode !== document.body && frontNode !== document.documentElement) {
+        frontNode.classList.add("sp-front-passthrough");
+        passthroughFrontNodes.push(frontNode);
+      }
+    }
+
+    deepLayerIndex = clampedIdx;
+    isDeepLayerMode = clampedIdx > 0;
+    const targetLayer = deepLayerStack[clampedIdx];
+    selectElement(targetLayer, true);
+
+    const tag = targetLayer.tagName.toLowerCase();
+    const cls = getPrimaryClass(targetLayer);
+    if (isDeepLayerMode) {
+      showToast(`Layer ${clampedIdx + 1} of ${deepLayerStack.length}: <${tag}${cls}> (Behind front elements — drag freely without moving front)`);
+    } else {
+      showToast(`Front Layer (1 of ${deepLayerStack.length}): <${tag}${cls}>`);
+    }
+  }
+
+  function stepLayerDeeper() {
+    spPlayKeyClick(145);
+    if (!selectedEl) {
+      showToast("Click any element on the page first, then step behind it");
+      return;
+    }
+    if (!deepLayerStack.length || deepLayerStack.indexOf(selectedEl) === -1) {
+      deepLayerStack = computeVisualLayerStack(selectedEl);
+      deepLayerIndex = Math.max(0, deepLayerStack.indexOf(selectedEl));
+    }
+    if (deepLayerIndex < deepLayerStack.length - 1) {
+      applyDeepLayerSelection(deepLayerIndex + 1);
+    } else {
+      showToast("Already at the deepest background layer (Root Canvas)");
+    }
+  }
+
+  function stepLayerForward() {
+    spPlayKeyClick(195);
+    if (!selectedEl) return;
+    if (!deepLayerStack.length || deepLayerStack.indexOf(selectedEl) === -1) {
+      deepLayerStack = computeVisualLayerStack(selectedEl);
+      deepLayerIndex = Math.max(0, deepLayerStack.indexOf(selectedEl));
+    }
+    if (deepLayerIndex > 0) {
+      applyDeepLayerSelection(deepLayerIndex - 1);
+    } else {
+      const firstChild = Array.from(selectedEl.children || []).find(c => !isOwn(c) && !c.classList.contains("sp-detached-bg-layer"));
+      if (firstChild) {
+        selectElement(firstChild, false);
+        showToast(`Selected front child element: <${firstChild.tagName.toLowerCase()}${getPrimaryClass(firstChild)}>`);
+      } else {
+        showToast("Already at the frontmost element");
+      }
+    }
+  }
+
+  function syncKeepFrontBtnUI() {
+    if (!btnKeepFrontStill || !keepFrontLabel) return;
+    btnKeepFrontStill.classList.toggle("active", keepFrontStationary);
+    keepFrontLabel.textContent = keepFrontStationary
+      ? "Keep Front Elements Still: ON"
+      : "Keep Front Elements Still: OFF";
+  }
+
+  if (btnKeepFrontStill) {
+    btnKeepFrontStill.addEventListener("click", () => {
+      spPlayKeyClick(175);
+      keepFrontStationary = !keepFrontStationary;
+      syncKeepFrontBtnUI();
+      showToast(keepFrontStationary
+        ? "Front elements will stay stationary when you drag a background container"
+        : "Front elements will move together with their parent container");
+    });
+  }
+
+  // Detach Background Box: creates a dedicated movable background layer behind the front elements
+  function detachBackgroundBox() {
+    spPlayKeyClick(160);
+    if (!selectedEl || selectedEl === document.body || selectedEl === document.documentElement) {
+      showToast("Select a card or section container first to detach its background box");
+      return;
+    }
+
+    const target = selectedEl;
+    ensurePositioned(target);
+
+    const existingBg = Array.from(target.children).find(c => c.classList && c.classList.contains("sp-detached-bg-layer"));
+    if (existingBg) {
+      isDeepLayerMode = true;
+      selectElement(existingBg, true);
+      showToast("Selected detached background box — drag or restyle it independently");
+      return;
+    }
+
+    const cs = window.getComputedStyle(target);
+    const bgLayer = document.createElement("div");
+    bgLayer.className = "sp-detached-bg-layer sp-custom-element";
+    bgLayer.style.position = "absolute";
+    bgLayer.style.top = "0px";
+    bgLayer.style.left = "0px";
+    bgLayer.style.width = "100%";
+    bgLayer.style.height = "100%";
+    bgLayer.style.zIndex = "0";
+    bgLayer.style.borderRadius = cs.borderRadius || "12px";
+    bgLayer.style.backgroundColor = (cs.backgroundColor && cs.backgroundColor !== "rgba(0, 0, 0, 0)" && cs.backgroundColor !== "transparent")
+      ? cs.backgroundColor
+      : "#EAE8E0";
+    if (cs.backgroundImage && cs.backgroundImage !== "none") {
+      bgLayer.style.backgroundImage = cs.backgroundImage;
+      bgLayer.style.backgroundSize = cs.backgroundSize || "cover";
+      bgLayer.style.backgroundPosition = cs.backgroundPosition || "center";
+    }
+    if (cs.borderWidth && cs.borderWidth !== "0px") {
+      bgLayer.style.border = `${cs.borderWidth} ${cs.borderStyle} ${cs.borderColor}`;
+    }
+    if (cs.boxShadow && cs.boxShadow !== "none") {
+      bgLayer.style.boxShadow = cs.boxShadow;
+    }
+
+    // Elevate existing foreground children so they sit cleanly in front of the detached background box
+    Array.from(target.children).forEach(child => {
+      if (!isOwn(child)) {
+        ensurePositioned(child);
+        if (!child.style.zIndex || child.style.zIndex === "auto") {
+          child.style.zIndex = "1";
+        }
+      }
+    });
+
+    const oldBg = target.style.background;
+    const oldBgColor = target.style.backgroundColor;
+    target.style.setProperty("background", "transparent", "important");
+    target.style.setProperty("background-color", "transparent", "important");
+    target.style.setProperty("overflow", "visible", "important");
+    target.insertBefore(bgLayer, target.firstChild);
+
+    undoStack.push({
+      type: "detach-bg",
+      container: target,
+      bgLayer,
+      oldBg,
+      oldBgColor
+    });
+
+    isDeepLayerMode = true;
+    selectElement(bgLayer, true);
+    showToast("Detached background box as its own layer — drag or recolor it freely behind the front elements");
+  }
+
+  if (btnDetachBg) {
+    btnDetachBg.addEventListener("click", detachBackgroundBox);
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Layers Tab: Non-Destructive Send to Back & Bring to Front
      ══════════════════════════════════════════════════════════ */
   function sendElementToBack(el) {
-    if (!el) return;
+    if (!el || !el.parentElement) return;
+    spPlayKeyClick(150);
+    const parent = el.parentElement;
+    undoStack.push({
+      type: "order",
+      node: el,
+      parent,
+      next: el.nextElementSibling,
+      oldZ: el.style.zIndex
+    });
+
     ensurePositioned(el);
-    el.style.setProperty("z-index", "-999999", "important");
-    if (el.parentElement) {
-      el.parentElement.insertBefore(el, el.parentElement.firstChild);
-    }
-    zInput.value = -999999;
+    // Keep z-index at 0 and elevate sibling layers to z-index >= 1 so the element sits behind siblings without vanishing behind an opaque <body>!
+    el.style.setProperty("z-index", "0", "important");
+    Array.from(parent.children).forEach(sib => {
+      if (sib !== el && !isOwn(sib)) {
+        ensurePositioned(sib);
+        const sibZ = parseInt(window.getComputedStyle(sib).zIndex) || 0;
+        if (sibZ <= 0) sib.style.setProperty("z-index", "1", "important");
+      }
+    });
+    parent.insertBefore(el, parent.firstChild);
+    if (zInput) zInput.value = 0;
     updateSelectBox(el);
-    showToast("⬇ Sent element to very back (Word-style)");
+    showToast("Sent layer behind all sibling elements in this section");
   }
 
   function bringElementToFront(el) {
-    if (!el) return;
+    if (!el || !el.parentElement) return;
+    spPlayKeyClick(185);
+    const parent = el.parentElement;
+    undoStack.push({
+      type: "order",
+      node: el,
+      parent,
+      next: el.nextElementSibling,
+      oldZ: el.style.zIndex
+    });
+
     ensurePositioned(el);
-    el.style.setProperty("z-index", "2147483640", "important");
-    if (el.parentElement) {
-      el.parentElement.appendChild(el);
-    }
-    zInput.value = 2147483640;
+    el.style.setProperty("z-index", "50", "important");
+    parent.appendChild(el);
+    if (zInput) zInput.value = 50;
     updateSelectBox(el);
-    showToast("⬆ Brought element to very front");
+    showToast("Brought layer to the front");
   }
 
   /* ══════════════════════════════════════════════════════════
      Simplified Layers & Depth Studio Handlers
      ══════════════════════════════════════════════════════════ */
   if (btnLayerUp) {
-    btnLayerUp.addEventListener("click", () => {
-      if (!selectedEl) return;
-      const parent = selectedEl.parentElement;
-      if (parent && !isOwn(parent) && parent !== document.documentElement) {
-        selectElement(parent);
-        showToast(`⬆ Selected layer up: <${parent.tagName.toLowerCase()}>`);
-      } else {
-        showToast("Already at top root layer");
-      }
-    });
+    btnLayerUp.addEventListener("click", stepLayerForward);
   }
 
   if (btnLayerDown) {
-    btnLayerDown.addEventListener("click", () => {
-      if (!selectedEl) return;
-      const child = Array.from(selectedEl.children).find(n => !isOwn(n));
-      if (child) {
-        selectElement(child);
-        setLayerSolo(child, true);
-        showToast("⬇ Entered inside layer & activated Solo View!");
-      } else {
-        showToast("This layer has no inner child elements");
-      }
-    });
+    btnLayerDown.addEventListener("click", stepLayerDeeper);
   }
 
   if (btnLayerPrev) {
     btnLayerPrev.addEventListener("click", () => {
+      spPlayKeyClick(165);
       if (!selectedEl) return;
       const prev = selectedEl.previousElementSibling;
       if (prev && !isOwn(prev)) {
         selectElement(prev);
-        showToast(`◂ Selected layer behind: <${prev.tagName.toLowerCase()}>`);
+        showToast(`Selected previous sibling: <${prev.tagName.toLowerCase()}>`);
       } else {
-        showToast("No element behind this in layer");
+        showToast("No previous sibling on this level");
       }
     });
   }
 
   if (btnLayerNext) {
     btnLayerNext.addEventListener("click", () => {
+      spPlayKeyClick(165);
       if (!selectedEl) return;
       const next = selectedEl.nextElementSibling;
       if (next && !isOwn(next)) {
         selectElement(next);
-        showToast(`▸ Selected layer in front: <${next.tagName.toLowerCase()}>`);
+        showToast(`Selected next sibling: <${next.tagName.toLowerCase()}>`);
       } else {
-        showToast("No element in front of this in layer");
+        showToast("No next sibling on this level");
       }
     });
   }
@@ -1677,8 +2012,8 @@
     if (!enable || !targetEl) {
       isolatedLayerNode = null;
       if (btnSoloLayer) btnSoloLayer.classList.remove("active");
-      if (soloLabel) soloLabel.textContent = "View Only This Layer (Solo View: OFF)";
-      if (soloIcon) soloIcon.textContent = "👁️";
+      if (soloLabel) soloLabel.textContent = "Isolate This Layer Only (Off)";
+      if (soloIcon) soloIcon.innerHTML = SP_ICONS.eye;
       return;
     }
     isolatedLayerNode = targetEl;
@@ -1696,59 +2031,63 @@
       curr = p;
     }
     if (btnSoloLayer) btnSoloLayer.classList.add("active");
-    if (soloLabel) soloLabel.textContent = "Viewing Only This Layer (Solo View: ON)";
-    if (soloIcon) soloIcon.textContent = "🎯";
+    if (soloLabel) soloLabel.textContent = "Isolating Only This Layer (On)";
+    if (soloIcon) soloIcon.innerHTML = SP_ICONS.eye;
   }
 
   if (btnSoloLayer) {
     btnSoloLayer.addEventListener("click", () => {
+      spPlayKeyClick(170);
       if (!selectedEl) return;
       if (isolatedLayerNode === selectedEl) {
         setLayerSolo(selectedEl, false);
-        showToast("Solo View OFF: Restored all canvas layers");
+        showToast("Restored all surrounding page layers");
       } else {
         setLayerSolo(selectedEl, true);
-        showToast("Solo View ON: Viewing only this layer!");
+        showToast("Isolated selected layer");
       }
     });
   }
 
   if (btnPutBehind) {
     btnPutBehind.addEventListener("click", () => {
+      spPlayKeyClick(155);
       if (!selectedEl || !selectedEl.parentElement) return;
       const prev = selectedEl.previousElementSibling;
       if (prev && !isOwn(prev)) {
-        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling });
+        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling, oldZ: selectedEl.style.zIndex });
         prev.insertAdjacentElement("beforebegin", selectedEl);
         updateSelectBox(selectedEl);
-        showToast("⬇ Put element behind neighbor!");
+        showToast("Moved layer 1 step behind neighbor");
       } else {
         ensurePositioned(selectedEl);
         const curZ = parseInt(selectedEl.style.zIndex) || 0;
-        selectedEl.style.setProperty("z-index", (curZ - 1) + "", "important");
-        if (zInput) zInput.value = curZ - 1;
+        const nextZ = Math.max(0, curZ - 1);
+        selectedEl.style.setProperty("z-index", nextZ + "", "important");
+        if (zInput) zInput.value = nextZ;
         updateSelectBox(selectedEl);
-        showToast("⬇ Lowered layer z-index (-1)");
+        showToast(`Lowered layer depth (${nextZ})`);
       }
     });
   }
 
   if (btnPutFront) {
     btnPutFront.addEventListener("click", () => {
+      spPlayKeyClick(175);
       if (!selectedEl || !selectedEl.parentElement) return;
       const next = selectedEl.nextElementSibling;
       if (next && !isOwn(next)) {
-        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling });
+        undoStack.push({ type: "order", node: selectedEl, parent: selectedEl.parentElement, next: selectedEl.nextElementSibling, oldZ: selectedEl.style.zIndex });
         next.insertAdjacentElement("afterend", selectedEl);
         updateSelectBox(selectedEl);
-        showToast("⬆ Put element in front of neighbor!");
+        showToast("Moved layer 1 step in front of neighbor");
       } else {
         ensurePositioned(selectedEl);
         const curZ = parseInt(selectedEl.style.zIndex) || 0;
         selectedEl.style.setProperty("z-index", (curZ + 1) + "", "important");
         if (zInput) zInput.value = curZ + 1;
         updateSelectBox(selectedEl);
-        showToast("⬆ Increased layer z-index (+1)");
+        showToast(`Raised layer depth (${curZ + 1})`);
       }
     });
   }
@@ -1767,22 +2106,32 @@
 
   if (btnSendCanvas) {
     btnSendCanvas.addEventListener("click", () => {
+      spPlayKeyClick(150);
       if (!selectedEl) return;
+      undoStack.push({
+        type: "order",
+        node: selectedEl,
+        parent: selectedEl.parentElement,
+        next: selectedEl.nextElementSibling,
+        oldZ: selectedEl.style.zIndex
+      });
       document.body.insertBefore(selectedEl, document.body.firstChild);
       selectedEl.style.setProperty("position", "fixed", "important");
       selectedEl.style.setProperty("top", "0", "important");
       selectedEl.style.setProperty("left", "0", "important");
       selectedEl.style.setProperty("width", "100vw", "important");
       selectedEl.style.setProperty("height", "100vh", "important");
-      selectedEl.style.setProperty("z-index", "-999999", "important");
+      selectedEl.style.setProperty("z-index", "0", "important");
       selectedEl.style.setProperty("object-fit", "cover", "important");
+      selectedEl.style.setProperty("pointer-events", "none", "important");
       updateSelectBox(selectedEl);
-      showToast("🌐 Sent element behind entire site as Canvas Background!");
+      showToast("Placed element as full-page background");
     });
   }
 
   if (zUpBtn) {
     zUpBtn.addEventListener("click", () => {
+      spPlayKeyClick(180);
       if (!selectedEl) return;
       ensurePositioned(selectedEl);
       const next = (parseInt(zInput.value) || 0) + 1;
@@ -1793,6 +2142,7 @@
 
   if (zDownBtn) {
     zDownBtn.addEventListener("click", () => {
+      spPlayKeyClick(150);
       if (!selectedEl) return;
       ensurePositioned(selectedEl);
       const next = (parseInt(zInput.value) || 0) - 1;
@@ -1820,15 +2170,16 @@
 
   if (btnApplyLayerColor) {
     btnApplyLayerColor.addEventListener("click", () => {
+      spPlayKeyClick(170);
       let targetNode = selectedEl;
-      let targetLabel = "Selected Element";
+      let targetLabel = "Selected Layer";
 
       if (activeBgTargetMode === "body" || (!targetNode && activeBgTargetMode === "selected")) {
         targetNode = document.body;
-        targetLabel = "Body Canvas";
+        targetLabel = "Page Body";
       } else if (activeBgTargetMode === "html") {
         targetNode = document.documentElement;
-        targetLabel = "Root HTML";
+        targetLabel = "Root Canvas";
       }
 
       if (!targetNode) return;
@@ -1844,13 +2195,14 @@
           updateSelectBox(selectedEl);
           updateSandboxPreview(selectedEl);
         }
-        showToast(`🎨 Set ${targetLabel} background to ${col}`);
+        showToast(`Set ${targetLabel} background to ${col}`);
       }
     });
   }
 
   if (btnLayerCode) {
     btnLayerCode.addEventListener("click", () => {
+      spPlayKeyClick(175);
       if (!selectedEl) return;
       activeToolMode = "code";
       syncDockUI("code");
@@ -1858,19 +2210,20 @@
       const codeTab = root.querySelector(".sp-drawer-tab[data-tab='code']");
       if (codeTab) codeTab.click();
       populateDualCodePanes(selectedEl);
-      showToast("💻 Opened code editor for selected layer!");
+      showToast("Opened code editor for selected layer");
     });
   }
 
   if (btnLayerToImage) {
     btnLayerToImage.addEventListener("click", async () => {
+      spPlayKeyClick(165);
       if (!selectedEl) return;
       const target = selectedEl;
       const r = target.getBoundingClientRect();
       const w = Math.max(20, Math.round(r.width));
       const h = Math.max(20, Math.round(r.height));
 
-      showToast("📷 Converting layer into image...");
+      showToast("Flattening layer into image...");
       try {
         const clone = target.cloneNode(true);
         clone.querySelectorAll("#sp-root, [id^='sp-']").forEach(n => n.remove());
@@ -1907,10 +2260,10 @@
           undoStack.push({ type: "html", oldEl: target, newEl: newImg, parent: target.parentNode });
           target.parentNode.replaceChild(newImg, target);
           selectElement(newImg);
-          showToast("📷 Converted layer into image on canvas!");
+          showToast("Converted layer into draggable image");
         };
         img.onerror = () => {
-          showToast("Layer snapshot captured (ready on canvas)");
+          showToast("Layer snapshot captured");
         };
         img.src = svgUrl;
       } catch (err) {
@@ -1921,83 +2274,104 @@
 
   if (btnPutText) {
     btnPutText.addEventListener("click", () => {
-      if (!selectedEl) return;
+      spPlayKeyClick(170);
+      const container = selectedEl || document.body;
       const p = document.createElement("p");
       p.className = "sp-custom-element";
       p.textContent = "New Text Block";
       p.style.fontSize = "16px";
-      p.style.color = "#FFFFFF";
+      p.style.fontWeight = "600";
+      p.style.color = "inherit";
       p.style.margin = "8px 0";
-      selectedEl.appendChild(p);
+      ensurePositioned(p);
+      container.appendChild(p);
+      undoStack.push({ type: "delete", node: p, parent: container });
       selectElement(p);
-      showToast("🔤 Added text to layer!");
+      showToast("Added text block to layer — double-click to edit words");
     });
   }
 
   if (btnPutCard) {
     btnPutCard.addEventListener("click", () => {
-      if (!selectedEl) return;
+      spPlayKeyClick(170);
+      const container = selectedEl || document.body;
       const card = document.createElement("div");
       card.className = "sp-custom-element";
       card.textContent = "New Layer Card";
       card.style.padding = "16px 20px";
-      card.style.background = "#1E293B";
-      card.style.border = "1px solid #38BDF8";
-      card.style.borderRadius = "8px";
-      card.style.color = "#F8FAFC";
+      card.style.background = "#FAF9F6";
+      card.style.border = "1px solid #DCD9CE";
+      card.style.borderRadius = "10px";
+      card.style.color = "#1C1C1E";
+      card.style.fontWeight = "600";
       card.style.margin = "8px 0";
-      selectedEl.appendChild(card);
+      ensurePositioned(card);
+      container.appendChild(card);
+      undoStack.push({ type: "delete", node: card, parent: container });
       selectElement(card);
-      showToast("📦 Added card to layer!");
+      showToast("Added card box to layer — drag anywhere or restyle");
     });
   }
 
   if (btnPutImage) {
     btnPutImage.addEventListener("click", () => {
+      spPlayKeyClick(170);
       openAddModal();
     });
   }
 
-  /* ── Focused Relatives & Breadcrumbs ── */
+  /* ── Visual Layer Stack Pills & Breadcrumbs ── */
   function buildBreadcrumbs(el) {
     if (!el) return;
 
+    const stackToRender = (deepLayerStack && deepLayerStack.length > 0 && deepLayerStack.includes(el))
+      ? deepLayerStack
+      : computeVisualLayerStack(el);
+
     if (layerBreadcrumb) {
       layerBreadcrumb.innerHTML = "";
-      const chain = [];
-      let c = el;
-      while (c && c !== document.documentElement && !isOwn(c)) {
-        chain.unshift(c);
-        c = c.parentElement;
-      }
-      chain.forEach((node, idx) => {
-        const isLast = (idx === chain.length - 1);
+      stackToRender.forEach((node, idx) => {
+        const isCurrent = (node === el);
         const tag = node.tagName.toLowerCase();
         const cls = getPrimaryClass(node);
+        const depthTag = idx === 0 ? "Front: " : `L${idx + 1}: `;
         const btn = document.createElement("button");
-        btn.className = "sp-crumb-chip" + (isLast ? " active" : "");
-        btn.textContent = `${tag}${cls}`;
-        btn.title = `Select <${tag}>`;
-        btn.addEventListener("click", () => selectElement(node));
+        btn.className = "sp-crumb-chip" + (isCurrent ? " active" : "");
+        btn.textContent = `${depthTag}${tag}${cls}`;
+        btn.title = idx === 0
+          ? `Select front element <${tag}${cls}>`
+          : `Step behind to Layer ${idx + 1} (<${tag}${cls}>) — Front elements stay still`;
+        btn.addEventListener("click", () => {
+          spPlayKeyClick(170);
+          deepLayerStack = stackToRender;
+          applyDeepLayerSelection(idx);
+        });
         layerBreadcrumb.appendChild(btn);
-        if (!isLast) {
+        if (idx < stackToRender.length - 1) {
           const sep = document.createElement("span");
           sep.className = "sp-crumb-sep";
-          sep.textContent = ">";
+          sep.textContent = "→";
           layerBreadcrumb.appendChild(sep);
         }
       });
     }
 
     if (curLayerBadge) {
-      curLayerBadge.textContent = `${el.tagName.toLowerCase()}${getPrimaryClass(el)}`;
+      const idx = stackToRender.indexOf(el);
+      const tag = el.tagName.toLowerCase();
+      const cls = getPrimaryClass(el);
+      if (idx > 0) {
+        curLayerBadge.textContent = `Layer ${idx + 1}/${stackToRender.length} (Behind Front): ${tag}${cls}`;
+      } else {
+        curLayerBadge.textContent = `Front (1/${Math.max(1, stackToRender.length)}): ${tag}${cls}`;
+      }
     }
 
     if (layerBgColorHex && layerBgColorPicker) {
       const cs = window.getComputedStyle(el);
       const hex = rgbToHex(cs.backgroundColor);
       layerBgColorHex.value = hex;
-      layerBgColorPicker.value = hex.startsWith("#") ? hex : "#0f172a";
+      layerBgColorPicker.value = hex.startsWith("#") ? hex : "#F4F3EE";
     }
   }
 
@@ -2008,7 +2382,7 @@
     if (!sandboxViewport) return;
     sandboxViewport.innerHTML = "";
     if (!el) {
-      sandboxViewport.innerHTML = '<span style="color:#64748B;font-size:11px">No element selected</span>';
+      sandboxViewport.innerHTML = '<span style="color:#78716C;font-size:11px">No element selected</span>';
       return;
     }
 
@@ -2019,7 +2393,7 @@
         previewTarget.querySelectorAll("script, noscript, #sp-root, [id^='sp-']").forEach(n => n.remove());
         const tag = el.tagName.toLowerCase();
         const match = previewTarget.querySelector(tag) || previewTarget.firstElementChild;
-        if (match) match.style.outline = "2px dashed #A855F7";
+        if (match) match.style.outline = "2px dashed #C84B44";
       } else {
         previewTarget = el.cloneNode(true);
         previewTarget.querySelectorAll("script, noscript, #sp-root, [id^='sp-']").forEach(n => n.remove());
@@ -2029,7 +2403,7 @@
       previewTarget.style.margin = "auto";
       sandboxViewport.appendChild(previewTarget);
     } catch (e) {
-      sandboxViewport.innerHTML = '<span style="color:#64748B;font-size:11px">Preview unavailable</span>';
+      sandboxViewport.innerHTML = '<span style="color:#78716C;font-size:11px">Preview unavailable</span>';
     }
 
     if (previewCodeDrawer && previewCodeDrawer.classList.contains("sp-pdrawer-open")) {
@@ -2038,16 +2412,18 @@
   }
 
   btnContextToggle.addEventListener("click", () => {
+    spPlayKeyClick(170);
     sandboxMode = (sandboxMode === "component") ? "context" : "component";
     btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component" : "View: Parent & Context";
     btnContextToggle.classList.toggle("active", sandboxMode === "context");
     updateSandboxPreview(selectedEl);
-    showToast(`Sandbox view: ${sandboxMode.toUpperCase()}`);
+    showToast(`Preview mode: ${sandboxMode}`);
   });
 
   btnRefreshPreview.addEventListener("click", () => {
+    spPlayKeyClick(170);
     updateSandboxPreview(selectedEl);
-    showToast("↺ Refreshed Sandbox Preview");
+    showToast("Refreshed preview");
   });
 
   /* ══════════════════════════════════════════════════════════
@@ -2962,6 +3338,18 @@ gsap.to("${selector}", {
   let snapReleasedX = false;
   let snapReleasedY = false;
 
+  function applyStationaryChildrenCounterMove(dx, dy) {
+    if (!dragStationaryChildren || !dragStationaryChildren.length) return;
+    const deltaMoveX = dx - dragOrigin.elemX;
+    const deltaMoveY = dy - dragOrigin.elemY;
+    for (const item of dragStationaryChildren) {
+      const cx = item.origX - deltaMoveX;
+      const cy = item.origY - deltaMoveY;
+      item.el._spTranslate = { x: cx, y: cy };
+      item.el.style.transform = `translate(${cx}px, ${cy}px)`;
+    }
+  }
+
   function handleDragAutoScroll() {
     if (!isDragging || !dragTarget || !lastDragMouseEvent) {
       if (autoScrollRaf) {
@@ -2976,17 +3364,14 @@ gsap.to("${selector}", {
     let scrollDelta = 0;
 
     if (e.clientY < edgeThreshold) {
-      // Near or past top edge: smoothly autoscroll UP
       const intensity = Math.min(1, Math.max(0.2, (edgeThreshold - e.clientY) / edgeThreshold));
       scrollDelta = -Math.round(22 * intensity);
     } else if (e.clientY > window.innerHeight - edgeThreshold) {
-      // Near or past bottom edge: smoothly autoscroll DOWN
       const intensity = Math.min(1, Math.max(0.2, (e.clientY - (window.innerHeight - edgeThreshold)) / edgeThreshold));
       scrollDelta = Math.round(22 * intensity);
     }
 
     if (scrollDelta !== 0) {
-      const prevScrollY = window.scrollY || window.pageYOffset || 0;
       window.scrollBy(0, scrollDelta);
       const newScrollY = window.scrollY || window.pageYOffset || 0;
 
@@ -2998,6 +3383,7 @@ gsap.to("${selector}", {
       const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
       dragTarget._spTranslate = { x: dx, y: dy };
       dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+      applyStationaryChildrenCounterMove(dx, dy);
       updateSelectBox(dragTarget);
 
       autoScrollRaf = requestAnimationFrame(handleDragAutoScroll);
@@ -3009,28 +3395,43 @@ gsap.to("${selector}", {
   document.addEventListener("mousedown", e => {
     if (!isEnabled || isOwn(e.target)) return;
 
-    // If currently editing text and user clicks outside or starts a drag, finish inline editing immediately!
     if (activeEditingNode) {
       if (activeEditingNode !== e.target && !activeEditingNode.contains(e.target)) {
         finishInlineTextEdit(activeEditingNode);
       }
     }
 
-    // Allow dragging:
-    // 1. In Move Mode (always)
-    // 2. OR on any currently selected element or its handles
-    // 3. OR on any clicked element (even if it contains letters / text)
     const isTargetOrChild = selectedEl && (selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move") || isTargetOrChild || !selectedEl;
+    const shouldAllowDrag = (activeToolMode === "move") || isDeepLayerMode || isTargetOrChild || !selectedEl;
 
     if (shouldAllowDrag) {
-      // Find drag target: if user clicked an element with letters, links, buttons, or custom elements
       const parentInteractive = e.target.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6, div, article, section");
-      dragTarget = (selectedEl && (selectedEl === e.target || selectedEl.contains(e.target)))
+      // When in Deep Layer Mode (or when dragging inside the selected element), lock dragTarget to selectedEl so dragging moves the deeper layer instead of front elements!
+      dragTarget = (selectedEl && (isDeepLayerMode || selectedEl === e.target || selectedEl.contains(e.target)))
         ? selectedEl
         : (parentInteractive || e.target);
 
       ensurePositioned(dragTarget);
+
+      // Prepare Stationary Front Children if keepFrontStationary is enabled and we are dragging a deeper container layer
+      dragStationaryChildren = [];
+      if (keepFrontStationary && (isDeepLayerMode || activeToolMode === "layers") && dragTarget !== document.body && dragTarget !== document.documentElement) {
+        const directKids = Array.from(dragTarget.children || []).filter(
+          c => !isOwn(c) && !c.classList.contains("sp-detached-bg-layer") && c.tagName !== "SCRIPT" && c.tagName !== "STYLE"
+        );
+        if (directKids.length > 0) {
+          dragTarget.style.setProperty("overflow", "visible", "important");
+          for (const kid of directKids) {
+            ensurePositioned(kid);
+            const kt = getElementTranslate(kid);
+            dragStationaryChildren.push({
+              el: kid,
+              origX: kt.x,
+              origY: kt.y
+            });
+          }
+        }
+      }
 
       const curTranslate = getElementTranslate(dragTarget);
       dragOrigin = {
@@ -3235,6 +3636,7 @@ gsap.to("${selector}", {
 
         dragTarget._spTranslate = { x: dx, y: dy };
         dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+        applyStationaryChildrenCounterMove(dx, dy);
         updateSelectBox(dragTarget);
 
         if (!autoScrollRaf && (e.clientY < 80 || e.clientY > window.innerHeight - 80)) {
@@ -3245,8 +3647,6 @@ gsap.to("${selector}", {
       if (snapGuideH) snapGuideH.style.display = "none";
       if (snapGuideV) snapGuideV.style.display = "none";
 
-      // Suppress hoverBox completely when an element is already selected:
-      // This enforces ONE DIV ONLY (the target outline) with ZERO conflicting outlines!
       if (selectedEl) {
         hoverBox.style.display = "none";
         hoverLbl.style.display = "none";
@@ -3290,19 +3690,30 @@ gsap.to("${selector}", {
     if (isDragCandidate) {
       if (isDragging && dragTarget) {
         dragTarget.classList.remove("sp-free-dragging");
+        const stationarySnap = dragStationaryChildren.map(item => ({
+          el: item.el,
+          origX: item.origX,
+          origY: item.origY,
+          newX: item.el._spTranslate ? item.el._spTranslate.x : 0,
+          newY: item.el._spTranslate ? item.el._spTranslate.y : 0
+        }));
         undoStack.push({
           type: "move",
           node: dragTarget,
           oldTranslate: { x: dragOrigin.elemX, y: dragOrigin.elemY },
-          translate: { ...dragTarget._spTranslate }
+          translate: { ...dragTarget._spTranslate },
+          stationaryChildren: stationarySnap
         });
-        showToast("✓ Moved element • Click ↩ Undo or Ctrl+Z to revert");
+        showToast(stationarySnap.length > 0
+          ? "Moved background layer while keeping front elements still (Ctrl+Z to undo)"
+          : "Moved layer (Ctrl+Z to undo)");
         justFinishedDrag = true;
         setTimeout(() => { justFinishedDrag = false; }, 250);
       }
       isDragging = false;
       isDragCandidate = false;
       dragTarget = null;
+      dragStationaryChildren = [];
     }
   }, true);
 
@@ -3324,7 +3735,6 @@ gsap.to("${selector}", {
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
 
-    // Suppress click immediately if user was just dragging
     if (justFinishedDrag) {
       justFinishedDrag = false;
       e.preventDefault();
@@ -3333,7 +3743,6 @@ gsap.to("${selector}", {
       return;
     }
 
-    // In Move Mode: clicking selects target outline without popping up drawer or live preview
     if (activeToolMode === "move") {
       e.preventDefault();
       e.stopPropagation();
@@ -3367,7 +3776,7 @@ gsap.to("${selector}", {
         selectBox.style.display = "none";
         selectedEl = null;
       }
-      showToast("✂️ Element deleted • Press Ctrl+Z to undo");
+      showToast("Element deleted (Ctrl+Z to undo)");
       return;
     }
 
@@ -3375,15 +3784,14 @@ gsap.to("${selector}", {
     if (selectedEl && isTargetLocked && target !== selectedEl && !selectedEl.contains(target)) {
       if (!unlockPending) {
         unlockPending = true;
-        selectBadge.textContent = "🔓 Click again to switch target";
-        showToast("Target protected • Click again to switch target", 1800);
+        selectBadge.textContent = "Click again to switch target";
+        showToast("Target locked — click again to switch target", 1800);
         return;
       } else {
         unlockPending = false;
       }
     }
 
-    // Single-click on any element selects it (showing the ONE single target div)
     selectElement(target);
 
     if (activeToolMode === "style") {
@@ -3399,6 +3807,7 @@ gsap.to("${selector}", {
      Undo Engine & Actions
      ══════════════════════════════════════════════════════════ */
   function performUndo() {
+    spPlayKeyClick(150);
     if (!undoStack.length) {
       showToast("Nothing to undo");
       return;
@@ -3406,12 +3815,12 @@ gsap.to("${selector}", {
     const action = undoStack.pop();
     if (action.type === "delete" && action.parent) {
       action.parent.insertBefore(action.node, action.next || null);
-      showToast("↺ Restored deleted element");
+      showToast("Restored deleted element");
     } else if (action.type === "html" && action.parent) {
       action.parent.replaceChild(action.oldEl, action.newEl);
       selectedEl = action.oldEl;
       selectElement(selectedEl);
-      showToast("↺ Restored previous HTML");
+      showToast("Restored previous HTML");
     } else if (action.type === "text" && action.node) {
       if (action.oldHtml !== undefined) {
         action.node.innerHTML = action.oldHtml;
@@ -3421,7 +3830,7 @@ gsap.to("${selector}", {
       updateSandboxPreview(action.node);
       populateDualCodePanes(action.node);
       updateSelectBox(action.node);
-      showToast("↺ Restored original words & fonts");
+      showToast("Restored original text");
     } else if (action.type === "move" && action.node) {
       const prev = action.oldTranslate || { x: 0, y: 0 };
       action.node._spTranslate = { ...prev };
@@ -3430,25 +3839,50 @@ gsap.to("${selector}", {
       } else {
         action.node.style.transform = "";
       }
+      if (Array.isArray(action.stationaryChildren)) {
+        for (const sc of action.stationaryChildren) {
+          if (sc.el) {
+            sc.el._spTranslate = { x: sc.origX || 0, y: sc.origY || 0 };
+            if (sc.origX || sc.origY) {
+              sc.el.style.transform = `translate(${sc.origX}px, ${sc.origY}px)`;
+            } else {
+              sc.el.style.transform = "";
+            }
+          }
+        }
+      }
       updateSelectBox(action.node);
-      showToast("↺ Restored original position");
+      showToast("Restored original position");
+    } else if (action.type === "order" && action.node && action.parent) {
+      action.parent.insertBefore(action.node, action.next || null);
+      if (action.oldZ !== undefined) {
+        action.node.style.zIndex = action.oldZ;
+      }
+      updateSelectBox(action.node);
+      showToast("Restored layer order");
+    } else if (action.type === "detach-bg" && action.container) {
+      if (action.bgLayer && action.bgLayer.parentNode) action.bgLayer.remove();
+      action.container.style.background = action.oldBg || "";
+      action.container.style.backgroundColor = action.oldBgColor || "";
+      selectElement(action.container);
+      showToast("Restored container background");
     } else if (action.type === "resize" && action.node) {
       action.node.style.width = action.oldW;
       action.node.style.height = action.oldH;
       updateSelectBox(action.node);
       updateSandboxPreview(action.node);
-      showToast("↺ Restored original dimensions");
+      showToast("Restored original dimensions");
     } else if (action.type === "img-replace" && action.node) {
       action.node.src = action.oldSrc;
       updateSelectBox(action.node);
       updateSandboxPreview(action.node);
       populateDualCodePanes(action.node);
-      showToast("↺ Restored original image");
+      showToast("Restored original image");
     } else if (action.type === "style" && action.node) {
       if (action.oldVal !== undefined) action.node.style[action.prop] = action.oldVal;
       updateSelectBox(action.node);
       updateSandboxPreview(action.node);
-      showToast(`↺ Restored original ${action.prop}`);
+      showToast(`Restored original ${action.prop}`);
     } else if (action.type === "bg-image" && action.node) {
       if (action.oldBgImage !== undefined) action.node.style.backgroundImage = action.oldBgImage;
       if (action.oldBgSize !== undefined) action.node.style.backgroundSize = action.oldBgSize;
@@ -3456,7 +3890,7 @@ gsap.to("${selector}", {
       if (action.oldBgRepeat !== undefined) action.node.style.backgroundRepeat = action.oldBgRepeat;
       updateSelectBox(action.node);
       updateSandboxPreview(action.node);
-      showToast("↺ Restored previous background");
+      showToast("Restored previous background");
     }
   }
 
@@ -3467,7 +3901,6 @@ gsap.to("${selector}", {
      Global Shortcuts
      ══════════════════════════════════════════════════════════ */
   window.addEventListener("keydown", e => {
-    // Suppress single-letter shortcuts when typing in inputs or contenteditable text:
     const isTyping = e.target.tagName === "TEXTAREA" ||
                      e.target.tagName === "INPUT" ||
                      e.target.isContentEditable ||
@@ -3491,6 +3924,8 @@ gsap.to("${selector}", {
         drawer.classList.remove("sp-open");
         previewPanel.classList.remove("sp-show");
         selectBox.style.display = "none";
+        clearPassthroughFrontNodes();
+        isDeepLayerMode = false;
         selectedEl = null;
       } else {
         turnOffStylePeek();
@@ -3504,11 +3939,11 @@ gsap.to("${selector}", {
     } else if (isEnabled) {
       const k = e.key.toLowerCase();
       if (k === "i") {
-        activeToolMode = "inspect"; syncDockUI("inspect"); showToast("🔍 Inspect Mode");
+        activeToolMode = "inspect"; syncDockUI("inspect"); showToast("Inspect Mode");
       } else if (k === "m") {
-        activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("✋ Move Mode");
+        activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("Move Mode");
       } else if (k === "s") {
-        activeToolMode = "resize"; syncDockUI("resize"); showToast("↔️ Resize / Stretch Mode");
+        activeToolMode = "resize"; syncDockUI("resize"); showToast("Resize Mode");
       } else if (k === "a") {
         openAddModal();
       } else if (k === "c") {
@@ -3518,7 +3953,13 @@ gsap.to("${selector}", {
       } else if (k === "k") {
         activeToolMode = "code"; syncDockUI("code"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='code']").click();
       } else if (k === "d") {
-        activeToolMode = "delete"; syncDockUI("delete"); showToast("✂️ Delete Mode");
+        activeToolMode = "delete"; syncDockUI("delete"); showToast("Delete Mode");
+      } else if (e.key === "[" && selectedEl) {
+        e.preventDefault();
+        stepLayerDeeper();
+      } else if (e.key === "]" && selectedEl) {
+        e.preventDefault();
+        stepLayerForward();
       }
     }
   });
@@ -3538,16 +3979,19 @@ gsap.to("${selector}", {
       const tabBtn = root.querySelector(`.sp-drawer-tab[data-tab='${mappedMode}']`);
       if (tabBtn) tabBtn.click();
     }
-    showToast(`StylePeek ON (${mappedMode.toUpperCase()}) • Sidebar dock active`);
+    showToast(`Live Studio Active (${mappedMode.toUpperCase()})`);
   }
 
   function turnOffStylePeek() {
     isEnabled = false;
     activeToolMode = "inspect";
     document.body.classList.remove("sp-mode-move");
+    clearPassthroughFrontNodes();
+    isDeepLayerMode = false;
     hoverBox.style.display = "none";
     hoverLbl.style.display = "none";
     selectBox.style.display = "none";
+    selectBox.classList.remove("sp-deep-mode");
     drawer.classList.remove("sp-open");
     previewPanel.classList.remove("sp-show");
     selectedEl = null;
@@ -3556,15 +4000,14 @@ gsap.to("${selector}", {
     closeErrorModal();
     closeAddModal();
 
-    // Restore isolated layers if any
     document.querySelectorAll(".sp-layer-isolated").forEach(n => {
       n.classList.remove("sp-layer-isolated");
       n.style.visibility = "";
     });
     isolatedLayerNode = null;
 
-    root.style.display = "none"; // Completely hides dock, drawer, outlines
-    showToast("StylePeek OFF • Page restored to normal");
+    root.style.display = "none";
+    showToast("Live Studio closed");
   }
 
   /* ══════════════════════════════════════════════════════════

@@ -562,13 +562,13 @@ async function toggleVisBug(tabId) {
       files: ["toolbar/eject.js"]
     });
     visbugState.injected[tabId] = false;
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: "turnOff" });
+    } catch {}
     return false;
   } else {
     // Mutual Exclusion: Turning ON VisBug automatically turns OFF Figma H2D Toolbar
     await disableH2DToolbar(tabId);
-    try {
-      await chrome.tabs.sendMessage(tabId, { action: "disableAllModes" });
-    } catch {}
 
     if (visbugState.loaded[tabId] && !visbugState.injected[tabId]) {
       await chrome.scripting.executeScript({
@@ -576,7 +576,6 @@ async function toggleVisBug(tabId) {
         files: ["toolbar/restore.js"]
       });
       visbugState.injected[tabId] = true;
-      return true;
     } else {
       await chrome.scripting.insertCSS({
         target: { tabId },
@@ -588,8 +587,11 @@ async function toggleVisBug(tabId) {
       });
       visbugState.loaded[tabId] = true;
       visbugState.injected[tabId] = true;
-      return true;
     }
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: "turnOn", mode: "layers" });
+    } catch {}
+    return true;
   }
 }
 

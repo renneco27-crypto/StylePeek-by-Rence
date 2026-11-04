@@ -1181,7 +1181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       h2dStateBadge.classList.toggle("on", Boolean(h2dOn));
     }
     if (visbugStateBadge) {
-      visbugStateBadge.textContent = visbugOn ? "VISBUG: ON" : "VISBUG: OFF";
+      visbugStateBadge.textContent = visbugOn ? "STUDIO: ON" : "STUDIO: OFF";
       visbugStateBadge.classList.toggle("on", Boolean(visbugOn));
     }
   }
@@ -1460,7 +1460,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       techStackPanel.innerHTML = "";
 
       if (response.count === 0) {
-        techStackPanel.innerHTML = '<div style="font-size:11px;color:#94a3b8;text-align:center;padding:6px;">No known framework signatures detected (Static HTML/CSS/JS).</div>';
+        techStackPanel.innerHTML = '<div style="font-size:11px;color:#78716C;text-align:center;padding:6px;">No known framework signatures detected (Static HTML/CSS/JS).</div>';
         setStatus("Tech scan complete: Static HTML/CSS/JS", "ok");
         return;
       }
@@ -1478,7 +1478,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           const chip = document.createElement("div");
           chip.className = "tech-chip";
           chip.title = t.description || t.name;
-          chip.innerHTML = `<span style="font-size:12px;">${t.icon || "⚡"}</span><span>${t.name}</span>`;
+          chip.innerHTML = `<span class="tech-dot"></span><span>${t.name}</span>`;
           chipWrap.appendChild(chip);
         }
         techStackPanel.appendChild(chipWrap);

@@ -930,9 +930,9 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       .modal {
         width: min(1040px, 94vw);
         height: min(740px, 90vh);
-        background: #13161f;
-        color: #f1f5f9;
-        border: 1px solid #2e3446;
+        background: var(--color-surface, #FAF9F6);
+        color: var(--color-ink, #1C1C1E);
+        border: 1px solid var(--color-rule, #DCD9CE);
         border-radius: 14px;
         box-shadow: 0 25px 70px rgba(0,0,0,0.65), 0 0 0 1px rgba(56,189,248,0.15);
         display: flex;
@@ -944,8 +944,8 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         align-items: center;
         justify-content: space-between;
         padding: 12px 16px;
-        background: #181c27;
-        border-bottom: 1px solid #282e3e;
+        background: var(--color-paper, #F4F3EE);
+        border-bottom: 1px solid var(--color-rule, #DCD9CE);
         gap: 12px;
       }
       .title-wrap {
@@ -968,7 +968,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       .title-text {
         font-size: 14px;
         font-weight: 700;
-        color: #f8fafc;
+        color: var(--color-ink, #1C1C1E);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1013,8 +1013,8 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         align-items: center;
         justify-content: space-between;
         padding: 8px 16px;
-        background: #0f131c;
-        border-bottom: 1px solid #242a38;
+        background: var(--color-paper-2, #EAE8E0);
+        border-bottom: 1px solid var(--color-rule, #DCD9CE);
         gap: 10px;
         flex-wrap: wrap;
       }
@@ -1039,7 +1039,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         white-space: nowrap;
         transition: all 0.12s;
       }
-      .crumb:hover { color: #f8fafc; border-color: #475569; }
+      .crumb:hover { color: var(--color-ink, #1C1C1E); border-color: #475569; }
       .crumb.current {
         background: rgba(56, 189, 248, 0.18);
         color: #38bdf8;
@@ -1093,8 +1093,8 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         align-items: center;
         justify-content: space-between;
         padding: 8px 16px;
-        background: #161a25;
-        border-bottom: 1px solid #242a38;
+        background: var(--color-paper-2, #EAE8E0);
+        border-bottom: 1px solid var(--color-rule, #DCD9CE);
         gap: 8px;
       }
       .tabs {
@@ -1111,7 +1111,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         font-weight: 600;
         cursor: pointer;
       }
-      .tab-btn:hover { color: #f1f5f9; background: #1f2536; }
+      .tab-btn:hover { color: var(--color-ink, #1C1C1E); background: #1f2536; }
       .tab-btn.active {
         background: #232b3e;
         color: #38bdf8;
@@ -1262,8 +1262,8 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
         align-items: center;
         justify-content: space-between;
         padding: 12px 16px;
-        background: #181c27;
-        border-top: 1px solid #282e3e;
+        background: var(--color-paper, #F4F3EE);
+        border-top: 1px solid var(--color-rule, #DCD9CE);
         gap: 10px;
         flex-wrap: wrap;
       }
@@ -1280,7 +1280,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       }
       .act-btn {
         background: #232a3b;
-        color: #f1f5f9;
+        color: var(--color-ink, #1C1C1E);
         border: 1px solid #364159;
         border-radius: 8px;
         padding: 8px 13px;
@@ -1330,16 +1330,16 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
 
       <div class="subbar">
         <div class="tabs">
-          <button class="tab-btn active" data-tab="preview">⚡ Interactive Design</button>
-          <button class="tab-btn" data-tab="html">💻 HTML + CSS</button>
-          <button class="tab-btn" data-tab="tsx">⚛️ React / TSX</button>
-          <button class="tab-btn" data-tab="anim" id="sp-tab-anim">🎬 Animations & Colors</button>
-          <button class="tab-btn" data-tab="assets" id="sp-tab-assets">🖼️ Connected Assets</button>
+          <button class="tab-btn active" data-tab="preview">Interactive Design</button>
+          <button class="tab-btn" data-tab="html">HTML + CSS</button>
+          <button class="tab-btn" data-tab="tsx">React / TSX</button>
+          <button class="tab-btn" data-tab="anim" id="sp-tab-anim">Animations & Colors</button>
+          <button class="tab-btn" data-tab="assets" id="sp-tab-assets">Connected Assets</button>
         </div>
         <div class="stage-tools" id="sp-stage-tools">
-          <button class="nav-btn" id="sp-btn-replay" title="Replay CSS @keyframes & transitions inside the live preview">↻ Replay Anim</button>
-          <button class="nav-btn" id="sp-btn-hover" title="Toggle ancestor/parent :hover states on the previewed element">🖱️ Simulate :hover</button>
-          <button class="nav-btn" id="sp-btn-theme" title="Switch preview stage backdrop (Auto / Dark / Light / Grid)">🌗 Backdrop</button>
+          <button class="nav-btn" id="sp-btn-replay" title="Replay CSS @keyframes & transitions inside the live preview">Replay Anim</button>
+          <button class="nav-btn" id="sp-btn-hover" title="Toggle ancestor/parent :hover states on the previewed element">Simulate :hover</button>
+          <button class="nav-btn" id="sp-btn-theme" title="Switch preview stage backdrop (Auto / Dark / Light / Grid)">Backdrop</button>
         </div>
       </div>
 
@@ -1348,12 +1348,12 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       <div class="footer">
         <div class="status-msg" id="sp-status-msg">Interact with the design above or step to Parent / Sibling before copying</div>
         <div class="action-btns">
-          <button class="act-btn primary" id="sp-copy-code">📋 Copy Code (HTML+CSS)</button>
-          <button class="act-btn" id="sp-copy-tsx">⚛️ Copy TSX</button>
-          <button class="act-btn" id="sp-copy-png">🖼️ Copy as PNG</button>
-          <button class="act-btn" id="sp-copy-svg">✒️ Copy as SVG</button>
-          <button class="act-btn" id="sp-copy-figma">🎨 Copy to Figma</button>
-          <button class="act-btn" id="sp-download-html" title="Optional: Download as standalone .html file">💾 .HTML</button>
+          <button class="act-btn primary" id="sp-copy-code">Copy Code (HTML+CSS)</button>
+          <button class="act-btn" id="sp-copy-tsx">Copy TSX</button>
+          <button class="act-btn" id="sp-copy-png">Copy as PNG</button>
+          <button class="act-btn" id="sp-copy-svg">Copy as SVG</button>
+          <button class="act-btn" id="sp-copy-figma">Copy to Figma</button>
+          <button class="act-btn" id="sp-download-html" title="Optional: Download as standalone .html file">Save .HTML</button>
         </div>
       </div>
     </div>
@@ -1405,8 +1405,8 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     if (mined.badges.hasCanvasOrThreeJs) addPill("3D / Canvas", true);
 
     // Tab counts
-    $("#sp-tab-anim").textContent = `🎬 Animations (${mined.animationsList.length}) & Colors (${mined.colors.length})`;
-    $("#sp-tab-assets").textContent = `🖼️ Connected Assets (${mined.connectedAssets.length})`;
+    $("#sp-tab-anim").textContent = `Animations (${mined.animationsList.length}) & Colors (${mined.colors.length})`;
+    $("#sp-tab-assets").textContent = `Connected Assets (${mined.connectedAssets.length})`;
 
     // Breadcrumbs
     const bcEl = $("#sp-breadcrumbs");
