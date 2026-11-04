@@ -209,6 +209,144 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   Right-Click Quick Dropdown Menu (Figma/VisBug Style)
+   ══════════════════════════════════════════════════════════ */
+#sp-context-menu {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  background: #1C1C1E !important;
+  color: #FAF9F6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.8) !important;
+  min-width: 210px !important;
+  max-width: 260px !important;
+  padding: 6px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+  display: none;
+  animation: spCtxPopIn 0.12s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes spCtxPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.sp-ctx-header {
+  padding: 6px 8px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 5px !important;
+  margin-bottom: 4px !important;
+}
+
+.sp-ctx-title-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
+.sp-ctx-tag {
+  color: #7CE0D3 !important;
+}
+
+.sp-ctx-name {
+  color: #FAF9F6 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 140px !important;
+}
+
+.sp-ctx-coords {
+  display: block !important;
+  font-size: 10px !important;
+  color: #A8A29E !important;
+  margin-top: 2px !important;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
+.sp-ctx-divider {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  margin: 4px 0 !important;
+}
+
+.sp-ctx-section {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+}
+
+.sp-ctx-item {
+  all: unset !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  color: #FAF9F6 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  box-sizing: border-box !important;
+  transition: background-color 0.1s ease, color 0.1s ease !important;
+}
+
+.sp-ctx-item:hover {
+  background: #C84B44 !important;
+  color: #FFFFFF !important;
+}
+
+.sp-ctx-item-left {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.sp-ctx-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: inherit !important;
+  opacity: 0.85 !important;
+}
+
+.sp-ctx-label {
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+.sp-ctx-kbd {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  padding: 1px 4px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #D6D3D1 !important;
+  border-radius: 3px !important;
+  line-height: 1 !important;
+}
+
+.sp-ctx-item:hover .sp-ctx-kbd {
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: #FFFFFF !important;
+}
+
+.sp-ctx-item.danger:hover {
+  background: #DC2626 !important;
+  color: #FFFFFF !important;
+}
+
+/* ══════════════════════════════════════════════════════════
    Toast Notification (CTRL+SPC Pill)
    ══════════════════════════════════════════════════════════ */
 #sp-toast {

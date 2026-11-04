@@ -90,6 +90,66 @@
     <div id="sp-snap-guide-h"></div>
     <div id="sp-snap-guide-v"></div>
 
+    <!-- Right-Click Quick Dropdown Menu (Figma/VisBug Style) -->
+    <div id="sp-context-menu">
+      <div class="sp-ctx-header">
+        <div class="sp-ctx-title-row">
+          <span class="sp-ctx-tag" id="sp-ctx-tag">div</span>
+          <span class="sp-ctx-name" id="sp-ctx-name">.element</span>
+        </div>
+        <span class="sp-ctx-coords" id="sp-ctx-coords">0×0 · X: 0 Y: 0</span>
+      </div>
+
+      <div class="sp-ctx-section">
+        <button type="button" class="sp-ctx-item" data-action="edit-text">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.type}</span><span class="sp-ctx-label">Edit Text</span></span>
+          <span class="sp-ctx-kbd">DblClick</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="transform-code">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.code}</span><span class="sp-ctx-label">Transform Code</span></span>
+          <span class="sp-ctx-kbd">Code</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="open-style">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.palette}</span><span class="sp-ctx-label">Colors & Border</span></span>
+          <span class="sp-ctx-kbd">C</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="step-behind">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.stepDown}</span><span class="sp-ctx-label">Step Behind</span></span>
+          <span class="sp-ctx-kbd">↓</span>
+        </button>
+      </div>
+
+      <div class="sp-ctx-divider"></div>
+
+      <div class="sp-ctx-section">
+        <button type="button" class="sp-ctx-item" data-action="duplicate">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.box}</span><span class="sp-ctx-label">Duplicate Layer</span></span>
+          <span class="sp-ctx-kbd">Ctrl+V</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="move">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.move}</span><span class="sp-ctx-label">Move Position</span></span>
+          <span class="sp-ctx-kbd">M</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="resize">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.resize}</span><span class="sp-ctx-label">Stretch / Resize</span></span>
+          <span class="sp-ctx-kbd">S</span>
+        </button>
+      </div>
+
+      <div class="sp-ctx-divider"></div>
+
+      <div class="sp-ctx-section">
+        <button type="button" class="sp-ctx-item danger" data-action="delete">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.trash}</span><span class="sp-ctx-label">Delete Element</span></span>
+          <span class="sp-ctx-kbd">Del</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="undo">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.undo}</span><span class="sp-ctx-label">Undo Last Action</span></span>
+          <span class="sp-ctx-kbd">Ctrl+Z</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Floating Tactile Sidebar Dock (CTRL+SPC UI Kit) -->
     <div id="sp-sidebar-dock">
       <div id="sp-dock-handle" title="Drag dock">${SP_ICONS.grip}</div>
@@ -250,6 +310,10 @@
   const drawerUndoBtn     = root.querySelector("#sp-btn-undo");
   const snapGuideH        = root.querySelector("#sp-snap-guide-h");
   const snapGuideV        = root.querySelector("#sp-snap-guide-v");
+  const contextMenu       = root.querySelector("#sp-context-menu");
+  const ctxTag            = root.querySelector("#sp-ctx-tag");
+  const ctxName           = root.querySelector("#sp-ctx-name");
+  const ctxCoords         = root.querySelector("#sp-ctx-coords");
 
   const previewPanel         = root.querySelector("#sp-inspect-preview-panel");
   const previewCloseBtn      = root.querySelector("#sp-preview-close");
@@ -366,6 +430,9 @@
     if (except !== "drawer" && drawer && drawer.classList.contains("sp-open")) {
       drawer.classList.remove("sp-open");
     }
+    if (except !== "contextMenu" && contextMenu) {
+      contextMenu.style.display = "none";
+    }
     if (except !== "preview") {
       const liveModal = document.getElementById("sp-h2d-interactive-modal");
       if (liveModal) liveModal.remove();
@@ -376,6 +443,60 @@
     if (except !== "error" && errorModal && errorModal.classList.contains("sp-modal-show")) {
       closeErrorModal();
     }
+  }
+
+  function openContextMenu(clientX, clientY, targetEl) {
+    if (!contextMenu) return;
+    const r = targetEl ? targetEl.getBoundingClientRect() : { width: 0, height: 0, left: clientX, top: clientY };
+    const pageX = Math.round(r.left + (window.scrollX || window.pageXOffset || 0));
+    const pageY = Math.round(r.top + (window.scrollY || window.pageYOffset || 0));
+
+    const tag = targetEl ? targetEl.tagName.toLowerCase() : "element";
+    const name = targetEl ? (targetEl.id ? "#" + targetEl.id : getPrimaryClass(targetEl)) : "";
+    if (ctxTag) ctxTag.textContent = tag;
+    if (ctxName) ctxName.textContent = name;
+    if (ctxCoords) ctxCoords.textContent = `${Math.round(r.width)}×${Math.round(r.height)} · X: ${pageX} Y: ${pageY}`;
+
+    const menuW = 220;
+    const menuH = 320;
+    let x = clientX;
+    let y = clientY;
+
+    if (x + menuW > window.innerWidth - 10) {
+      x = Math.max(10, window.innerWidth - menuW - 10);
+    }
+    if (y + menuH > window.innerHeight - 10) {
+      y = Math.max(10, window.innerHeight - menuH - 10);
+    }
+
+    contextMenu.style.left = x + "px";
+    contextMenu.style.top = y + "px";
+    contextMenu.style.display = "block";
+    spPlayKeyClick(210);
+  }
+
+  function closeContextMenu() {
+    if (contextMenu) contextMenu.style.display = "none";
+  }
+
+  function deleteElementNode(target) {
+    if (!target || isOwn(target) || isPageRootOrFullWrapper(target)) {
+      showToast("Cannot delete page root container");
+      return;
+    }
+    undoStack.push({
+      type: "delete",
+      node: target,
+      parent: target.parentNode,
+      next: target.nextSibling
+    });
+    target.remove();
+    if (target === selectedEl) {
+      selectedEl = null;
+      selectBox.style.display = "none";
+      closeAllPopups();
+    }
+    showToast("Element deleted (Ctrl+Z to undo)");
   }
 
   function showToast(msg, duration = 2400) {
@@ -436,6 +557,69 @@
   function syncDockUI(mode) {
     root.querySelectorAll(".sp-dock-btn[data-tool]").forEach(b => {
       b.classList.toggle("sp-dock-active", b.dataset.tool === mode);
+    });
+  }
+
+  if (contextMenu) {
+    contextMenu.addEventListener("click", e => {
+      const item = e.target.closest(".sp-ctx-item");
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const action = item.dataset.action;
+      closeContextMenu();
+
+      if (action === "edit-text") {
+        if (selectedEl && isTextEditableCandidate(selectedEl)) {
+          startInlineTextEdit(selectedEl);
+        } else {
+          showToast("Select a text element to edit words");
+        }
+      } else if (action === "transform-code") {
+        closeAllPopups("drawer");
+        if (drawer) {
+          drawer.classList.add("sp-open");
+          root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+          if (transformCodeArea) {
+            transformCodeArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            transformCodeArea.focus();
+            transformCodeArea.select();
+          }
+        }
+      } else if (action === "open-style") {
+        closeAllPopups("drawer");
+        if (drawer) {
+          drawer.classList.add("sp-open");
+          root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+        }
+      } else if (action === "step-behind") {
+        stepLayerDeeper();
+      } else if (action === "duplicate") {
+        if (selectedEl) {
+          copySelectedElement();
+          pasteClipboardElement();
+        } else {
+          showToast("Select an element to duplicate");
+        }
+      } else if (action === "move") {
+        activeToolMode = "move";
+        syncDockUI("move");
+        document.body.classList.add("sp-mode-move");
+        showToast("Move Mode: Drag any element freely");
+      } else if (action === "resize") {
+        activeToolMode = "resize";
+        syncDockUI("resize");
+        document.body.classList.remove("sp-mode-move");
+        showToast("Stretch Mode: Drag corner handles to resize");
+      } else if (action === "delete") {
+        if (selectedEl) {
+          deleteElementNode(selectedEl);
+        } else {
+          showToast("Select an element to delete");
+        }
+      } else if (action === "undo") {
+        performUndo();
+      }
     });
   }
 
@@ -3053,27 +3237,27 @@
      Canvas Click & Right-Click Handler (VisBug Smart Picker)
      ══════════════════════════════════════════════════════════ */
   
-  // Right-click opens our clean StylePeek Inspector & Alignment drawer for the target element
+  // Right-click opens our clean StylePeek dropdown context menu right at the cursor position
   document.addEventListener("contextmenu", e => {
     if (!isEnabled || isOwn(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     const target = visbugPickElement(e.clientX, e.clientY) || e.target;
-    selectElement(target);
-    closeAllPopups("drawer");
-    if (drawer) {
-      drawer.classList.add("sp-open");
-      root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
-      if (transformCodeArea) {
-        transformCodeArea.focus();
-        transformCodeArea.select();
+    if (isPageRootOrFullWrapper(target)) {
+      if (!selectedEl) {
+        selectedEl = null;
+        selectBox.style.display = "none";
       }
+    } else {
+      selectElement(target);
     }
-    showToast("Inspector opened — edit CSS or code below");
+    closeAllPopups("contextMenu");
+    openContextMenu(e.clientX, e.clientY, selectedEl || target);
   }, true);
 
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
+    closeContextMenu();
 
     if (justFinishedDrag) {
       justFinishedDrag = false;
@@ -3275,6 +3459,10 @@
     }
 
     if (e.key === "Escape") {
+      if (contextMenu && contextMenu.style.display === "block") {
+        closeContextMenu();
+        return;
+      }
       const liveModal = document.getElementById("sp-h2d-interactive-modal");
       if (liveModal) {
         liveModal.remove();
