@@ -61,6 +61,11 @@
   box-shadow: 0 0 0 2px #7CE0D3, 0 8px 24px rgba(16, 56, 51, 0.22) !important;
 }
 
+.sp-multi-selected {
+  outline: 2px dashed #C84B44 !important;
+  outline-offset: 2px !important;
+}
+
 .sp-resize-handle {
   position: absolute;
   width: 10px;

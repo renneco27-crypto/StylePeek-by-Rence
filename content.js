@@ -5,6 +5,7 @@
   let isEnabled = false;
   let activeToolMode = "inspect"; // "inspect", "move", "resize", "style", "layers", "code", "delete"
   let selectedEl = null;
+  const multiSelectedEls = new Set();
   let hoveredEl = null;
   const undoStack = [];
 
@@ -911,6 +912,7 @@
     drawer.classList.remove("sp-open");
     selectBox.style.display = "none";
     clearPassthroughFrontNodes();
+    clearMultiSelection();
     isDeepLayerMode = false;
     selectedEl = null;
     showToast("Studio drawer closed");
@@ -952,6 +954,152 @@
     });
   })();
 
+  /* ── Multi-Selection State Helpers ── */
+  function clearMultiSelection() {
+    for (const el of multiSelectedEls) {
+      if (el && el.classList) el.classList.remove("sp-multi-selected");
+    }
+    multiSelectedEls.clear();
+  }
+
+  function updateMultiSelectUI() {
+    document.querySelectorAll(".sp-multi-selected").forEach(n => {
+      if (!multiSelectedEls.has(n)) n.classList.remove("sp-multi-selected");
+    });
+    for (const el of multiSelectedEls) {
+      el.classList.add("sp-multi-selected");
+    }
+
+    if (multiSelectedEls.size === 0) {
+      selectedEl = null;
+      selectBox.style.display = "none";
+      return;
+    }
+
+    if (multiSelectedEls.size === 1) {
+      selectedEl = Array.from(multiSelectedEls)[0];
+      updateSelectBox(selectedEl);
+      return;
+    }
+
+    // Multiple elements selected: compute combined bounding box
+    let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+    for (const el of multiSelectedEls) {
+      const r = el.getBoundingClientRect();
+      minLeft = Math.min(minLeft, r.left);
+      minTop = Math.min(minTop, r.top);
+      maxRight = Math.max(maxRight, r.right);
+      maxBottom = Math.max(maxBottom, r.bottom);
+    }
+
+    const boxW = Math.max(20, Math.round(maxRight - minLeft));
+    const boxH = Math.max(20, Math.round(maxBottom - minTop));
+    selectBox.style.display = "block";
+    selectBox.style.left = minLeft + "px";
+    selectBox.style.top = minTop + "px";
+    selectBox.style.width = boxW + "px";
+    selectBox.style.height = boxH + "px";
+    selectBox.classList.remove("sp-deep-mode");
+
+    if (minTop < 36) {
+      selectBadge.style.top = "4px";
+    } else {
+      selectBadge.style.top = "-34px";
+    }
+
+    const pageX = Math.round(minLeft + (window.scrollX || window.pageXOffset || 0));
+    const pageY = Math.round(minTop + (window.scrollY || window.pageYOffset || 0));
+
+    selectBadge.innerHTML = `<div class="sp-badge-info"><span class="sp-badge-tag">${multiSelectedEls.size} elements</span><span class="sp-badge-dim">(${boxW}×${boxH})</span><span class="sp-badge-coords">· X: ${pageX} Y: ${pageY}</span><span class="sp-badge-depth">· Multi-Select (Drag or Arrow keys to move, Ctrl+Click to exclude)</span></div><div class="sp-badge-sep"></div><div class="sp-badge-actions"><button type="button" class="sp-badge-action-btn" id="sp-badge-btn-clear-multi" title="Clear multi-selection">Deselect All</button></div>`;
+
+    const clearBtn = selectBadge.querySelector("#sp-badge-btn-clear-multi");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearMultiSelection();
+        selectedEl = null;
+        selectBox.style.display = "none";
+      });
+    }
+  }
+
+  function selectAllElements() {
+    clearMultiSelection();
+
+    const bodyKids = Array.from(document.body.children).filter(el => {
+      if (!el || isOwn(el)) return false;
+      if (["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG"].includes(el.tagName)) return false;
+      const cs = window.getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      return true;
+    });
+
+    const mainContainers = document.querySelectorAll("main, [role='main'], #__next, #root, .app, #app, [class*='container'], [class*='layout'], [class*='wrapper']");
+    const containerKids = [];
+    mainContainers.forEach(container => {
+      if (!isOwn(container)) {
+        Array.from(container.children).forEach(k => {
+          if (!isOwn(k) && !["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"].includes(k.tagName)) {
+            containerKids.push(k);
+          }
+        });
+      }
+    });
+
+    const movedElements = Array.from(document.querySelectorAll(".sp-custom-element, [style*='translate'], [style*='transform']")).filter(el => !isOwn(el));
+
+    const allCandidates = Array.from(new Set([...bodyKids, ...containerKids, ...movedElements]));
+    const finalSet = allCandidates.length > 0 ? allCandidates : bodyKids;
+    for (const el of finalSet) {
+      multiSelectedEls.add(el);
+    }
+
+    if (multiSelectedEls.size > 0) {
+      selectedEl = Array.from(multiSelectedEls)[0];
+      updateMultiSelectUI();
+      spPlayKeyClick(200);
+      showToast(`Selected all ${multiSelectedEls.size} elements (Drag or use Arrow keys to move, Ctrl+Click to exclude)`);
+    } else {
+      showToast("No selectable elements found on page");
+    }
+  }
+
+  function nudgeSelectedElements(key, step = 10) {
+    const targets = (multiSelectedEls.size > 0)
+      ? Array.from(multiSelectedEls)
+      : (selectedEl ? [selectedEl] : []);
+
+    if (targets.length === 0) return;
+
+    let dx = 0;
+    let dy = 0;
+    if (key === "ArrowLeft") dx = -step;
+    else if (key === "ArrowRight") dx = step;
+    else if (key === "ArrowUp") dy = -step;
+    else if (key === "ArrowDown") dy = step;
+
+    const undoItems = [];
+    for (const el of targets) {
+      ensurePositioned(el);
+      const cur = getElementTranslate(el);
+      const newX = cur.x + dx;
+      const newY = cur.y + dy;
+      setElementTranslate(el, newX, newY);
+      undoItems.push({ el, oldX: cur.x, oldY: cur.y, newX, newY });
+    }
+
+    undoStack.push({
+      type: "multi-move",
+      items: undoItems
+    });
+
+    updateMultiSelectUI();
+    spPlayKeyClick(140);
+    const dir = dx > 0 ? "right" : (dx < 0 ? "left" : (dy > 0 ? "down" : "up"));
+    showToast(`Moved ${targets.length} element${targets.length > 1 ? "s" : ""} ${dir} by ${Math.abs(dx || dy)}px`);
+  }
+
   /* ── Select and Inspect Element ── */
   function selectElement(el, preserveDeepStack = false) {
     if (!el || isOwn(el)) return;
@@ -960,6 +1108,9 @@
       isDeepLayerMode = false;
       selectBox.classList.remove("sp-deep-mode");
     }
+    clearMultiSelection();
+    multiSelectedEls.add(el);
+    el.classList.add("sp-multi-selected");
     selectedEl = el;
     isTargetLocked = true;
     unlockPending = false;
@@ -1689,49 +1840,104 @@
     startInlineTextEdit(p);
   }
 
-  function applyElementTransform() {
-    if (!selectedEl) {
-      showToast("Select an element first");
-      return;
-    }
-    const newCode = (transformCodeArea?.value || "").trim();
-    if (!newCode) return;
+  /* ── Robust HTML Snippet & Document Parser ── */
+  function parseTransformedHtml(newCode, refEl) {
+    const raw = (newCode || "").trim();
+    if (!raw) return null;
 
-    const parent = selectedEl.parentElement;
+    // Use DOMParser to safely parse any snippet or full HTML document
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(raw, "text/html");
+
+    // Any <style> tags in the pasted code are preserved and injected into document head so CSS renders
+    const styles = doc.querySelectorAll("style");
+    styles.forEach(s => {
+      if (s.textContent.trim()) {
+        const pageStyle = document.createElement("style");
+        pageStyle.textContent = s.textContent;
+        document.head.appendChild(pageStyle);
+      }
+    });
+
+    // Filter out headless / non-visual elements: <meta>, <script>, <title>, <link>, <head>, <html>, <base>
+    const isVisual = el => el && el.nodeType === Node.ELEMENT_NODE &&
+      !["META", "SCRIPT", "TITLE", "LINK", "HEAD", "HTML", "BASE"].includes(el.tagName.toUpperCase());
+
+    // 1. Check doc.body first (covers full documents <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>...</body></html>)
+    const bodyElements = Array.from(doc.body.children).filter(isVisual);
+
+    if (bodyElements.length === 1) {
+      return document.importNode(bodyElements[0], true);
+    }
+    if (bodyElements.length > 1) {
+      // Multiple elements in body: wrap them in a container matching the reference element
+      const wrapperTag = refEl && refEl.tagName && !["IMG", "INPUT", "HR", "BR"].includes(refEl.tagName.toUpperCase())
+        ? refEl.tagName.toLowerCase()
+        : "div";
+      const wrapper = document.createElement(wrapperTag);
+      bodyElements.forEach(el => wrapper.appendChild(document.importNode(el, true)));
+      return wrapper;
+    }
+
+    // 2. Fragment placed in head or body: query all visual elements
+    const allVisual = Array.from(doc.querySelectorAll("*")).filter(isVisual);
+    if (allVisual.length === 1) {
+      return document.importNode(allVisual[0], true);
+    }
+    if (allVisual.length > 1) {
+      const topVisual = allVisual.find(el => el.parentElement === doc.body || el.parentElement === doc.documentElement) || allVisual[0];
+      return document.importNode(topVisual, true);
+    }
+
+    // 3. Fallback: check if doc.body has direct text
+    const textContent = (doc.body.textContent || "").trim();
+    return { isPlainText: true, text: textContent || raw };
+  }
+
+  function executeElementTransform(oldEl, newCode, isModal = false) {
+    if (!oldEl) return;
+    const parent = oldEl.parentElement;
     if (!parent || isOwn(parent)) {
       showToast("Cannot transform root container");
       return;
     }
 
-    const temp = document.createElement("div");
-    temp.innerHTML = newCode;
-    const newEl = temp.firstElementChild;
+    const parsed = parseTransformedHtml(newCode, oldEl);
+    if (!parsed) {
+      showToast("No valid content to apply");
+      return;
+    }
 
-    if (!newEl) {
-      // User entered plain text without tags — overwrite the text inside it!
-      const oldText = selectedEl.innerText || selectedEl.textContent;
+    if (parsed.isPlainText) {
+      const oldText = oldEl.innerText || oldEl.textContent;
       undoStack.push({
         type: "text",
-        node: selectedEl,
+        node: oldEl,
         oldText: oldText,
-        newText: newCode
+        newText: parsed.text
       });
-      selectedEl.textContent = newCode;
-      updateSelectBox(selectedEl);
+      oldEl.textContent = parsed.text;
+      updateSelectBox(oldEl);
       spPlayKeyClick(210);
-      showToast("Text updated");
+      if (isModal) closeCodeModal();
+      showToast("Element text updated live");
+      return;
+    }
+
+    const newEl = parsed;
+    if (["META", "HEAD", "TITLE"].includes(newEl.tagName.toUpperCase())) {
+      showToast("Cannot replace with headless meta/head element");
       return;
     }
 
     // Preserve translate offset if already moved
-    const trans = getElementTranslate(selectedEl);
+    const trans = getElementTranslate(oldEl);
     if (trans.x !== 0 || trans.y !== 0) {
       setElementTranslate(newEl, trans.x, trans.y);
     }
     ensurePositioned(newEl);
     newEl.classList.add("sp-custom-element");
 
-    const oldEl = selectedEl;
     undoStack.push({
       type: "transform",
       oldEl: oldEl,
@@ -1742,7 +1948,15 @@
     parent.replaceChild(newEl, oldEl);
     selectElement(newEl);
     spPlayKeyClick(240);
-    showToast("Element code transformed");
+    if (isModal) closeCodeModal();
+    showToast("Element code transformed live!");
+  }
+
+  function applyElementTransform() {
+    if (!selectedEl) return;
+    const newCode = (transformCodeArea?.value || "").trim();
+    if (!newCode) return;
+    executeElementTransform(selectedEl, newCode, false);
   }
 
   function applyCustomCss() {
@@ -1858,55 +2072,7 @@
     if (!selectedEl) return;
     const newCode = (codeModalTextarea?.value || "").trim();
     if (!newCode) return;
-
-    const parent = selectedEl.parentElement;
-    if (!parent || isOwn(parent)) {
-      showToast("Cannot transform root container");
-      return;
-    }
-
-    const temp = document.createElement("div");
-    temp.innerHTML = newCode;
-    const newEl = temp.firstElementChild;
-
-    if (!newEl) {
-      // User entered plain text without tags — overwrite the text inside it!
-      const oldText = selectedEl.innerText || selectedEl.textContent;
-      undoStack.push({
-        type: "text",
-        node: selectedEl,
-        oldText: oldText,
-        newText: newCode
-      });
-      selectedEl.textContent = newCode;
-      updateSelectBox(selectedEl);
-      spPlayKeyClick(210);
-      closeCodeModal();
-      showToast("Element text updated live");
-      return;
-    }
-
-    // Preserve translate offset if already moved
-    const trans = getElementTranslate(selectedEl);
-    if (trans.x !== 0 || trans.y !== 0) {
-      setElementTranslate(newEl, trans.x, trans.y);
-    }
-    ensurePositioned(newEl);
-    newEl.classList.add("sp-custom-element");
-
-    const oldEl = selectedEl;
-    undoStack.push({
-      type: "transform",
-      oldEl: oldEl,
-      newEl: newEl,
-      parent: parent
-    });
-
-    parent.replaceChild(newEl, oldEl);
-    selectElement(newEl);
-    spPlayKeyClick(240);
-    closeCodeModal();
-    showToast("Element code transformed live!");
+    executeElementTransform(selectedEl, newCode, true);
   }
 
   if (codeModalImgApply) {
@@ -3175,13 +3341,17 @@
 
     const picked = visbugPickElement(e.clientX, e.clientY) || e.target;
     const isTargetOrChild = selectedEl && (selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move" || activeToolMode === "resize" || activeToolMode === "inspect") || isDeepLayerMode || isTargetOrChild;
+    const isMultiTargetOrChild = Array.from(multiSelectedEls).some(el => el === picked || el === e.target || el.contains(e.target));
+    const shouldAllowDrag = (activeToolMode === "move" || activeToolMode === "resize" || activeToolMode === "inspect") || isDeepLayerMode || isTargetOrChild || isMultiTargetOrChild;
 
     if (shouldAllowDrag) {
       const parentInteractive = picked.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6");
       let candidate = (selectedEl && (isDeepLayerMode || selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target)))
         ? selectedEl
         : (parentInteractive || picked);
+
+      if (multiSelectedEls.has(picked)) candidate = picked;
+      else if (parentInteractive && multiSelectedEls.has(parentInteractive)) candidate = parentInteractive;
 
       // NEVER allow dragging the entire page or full-viewport wrapper!
       if (!isDeepLayerMode && isPageRootOrFullWrapper(candidate)) {
@@ -3199,7 +3369,7 @@
       dragTarget = candidate;
       ensurePositioned(dragTarget);
 
-      if (activeToolMode === "inspect" && dragTarget && dragTarget !== selectedEl) {
+      if (activeToolMode === "inspect" && dragTarget && dragTarget !== selectedEl && multiSelectedEls.size <= 1) {
         selectElement(dragTarget);
       }
 
@@ -3224,13 +3394,21 @@
       }
 
       const curTranslate = getElementTranslate(dragTarget);
+      const multiStarts = new Map();
+      if (multiSelectedEls.size > 1 && multiSelectedEls.has(dragTarget)) {
+        for (const el of multiSelectedEls) {
+          ensurePositioned(el);
+          multiStarts.set(el, getElementTranslate(el));
+        }
+      }
       dragOrigin = {
         mouseX: e.clientX,
         mouseY: e.clientY,
         elemX: curTranslate.x,
         elemY: curTranslate.y,
         scrollX: window.scrollX || window.pageXOffset || 0,
-        scrollY: window.scrollY || window.pageYOffset || 0
+        scrollY: window.scrollY || window.pageYOffset || 0,
+        multiStarts
       };
 
       isDragCandidate = true;
@@ -3415,9 +3593,18 @@
           }
         }
 
-        setElementTranslate(dragTarget, dx, dy);
-        applyStationaryChildrenCounterMove(dx, dy);
-        updateSelectBox(dragTarget);
+        if (dragOrigin.multiStarts && dragOrigin.multiStarts.size > 1) {
+          const deltaX = dx - dragOrigin.elemX;
+          const deltaY = dy - dragOrigin.elemY;
+          for (const [el, startT] of dragOrigin.multiStarts.entries()) {
+            setElementTranslate(el, startT.x + deltaX, startT.y + deltaY);
+          }
+          updateMultiSelectUI();
+        } else {
+          setElementTranslate(dragTarget, dx, dy);
+          applyStationaryChildrenCounterMove(dx, dy);
+          updateSelectBox(dragTarget);
+        }
 
         if (!autoScrollRaf && (e.clientY < 80 || e.clientY > window.innerHeight - 80)) {
           autoScrollRaf = requestAnimationFrame(handleDragAutoScroll);
@@ -3470,23 +3657,42 @@
     if (isDragCandidate) {
       if (isDragging && dragTarget) {
         dragTarget.classList.remove("sp-free-dragging");
-        const stationarySnap = dragStationaryChildren.map(item => ({
-          el: item.el,
-          origX: item.origX,
-          origY: item.origY,
-          newX: item.el._spTranslate ? item.el._spTranslate.x : 0,
-          newY: item.el._spTranslate ? item.el._spTranslate.y : 0
-        }));
-        undoStack.push({
-          type: "move",
-          node: dragTarget,
-          oldTranslate: { x: dragOrigin.elemX, y: dragOrigin.elemY },
-          translate: { ...(dragTarget._spTranslate || { x: 0, y: 0 }) },
-          stationaryChildren: stationarySnap
-        });
-        showToast(stationarySnap.length > 0
-          ? "Moved background layer while keeping front elements still (Ctrl+Z to undo)"
-          : "Moved layer (Ctrl+Z to undo)");
+        if (dragOrigin.multiStarts && dragOrigin.multiStarts.size > 1) {
+          const multiItems = [];
+          for (const [el, startT] of dragOrigin.multiStarts.entries()) {
+            multiItems.push({
+              el,
+              oldX: startT.x,
+              oldY: startT.y,
+              newX: getElementTranslate(el).x,
+              newY: getElementTranslate(el).y
+            });
+          }
+          undoStack.push({
+            type: "multi-move",
+            items: multiItems
+          });
+          showToast(`Moved ${multiItems.length} elements together (Ctrl+Z to undo)`);
+          updateMultiSelectUI();
+        } else {
+          const stationarySnap = dragStationaryChildren.map(item => ({
+            el: item.el,
+            origX: item.origX,
+            origY: item.origY,
+            newX: item.el._spTranslate ? item.el._spTranslate.x : 0,
+            newY: item.el._spTranslate ? item.el._spTranslate.y : 0
+          }));
+          undoStack.push({
+            type: "move",
+            node: dragTarget,
+            oldTranslate: { x: dragOrigin.elemX, y: dragOrigin.elemY },
+            translate: { ...(dragTarget._spTranslate || { x: 0, y: 0 }) },
+            stationaryChildren: stationarySnap
+          });
+          showToast(stationarySnap.length > 0
+            ? "Moved background layer while keeping front elements still (Ctrl+Z to undo)"
+            : "Moved layer (Ctrl+Z to undo)");
+        }
         justFinishedDrag = true;
         setTimeout(() => { justFinishedDrag = false; }, 250);
       }
@@ -3557,7 +3763,29 @@
       return;
     }
 
+    // Ctrl+Click: Toggle inclusion in multi-selection!
+    if (e.ctrlKey || e.metaKey) {
+      if (target && !isPageRootOrFullWrapper(target)) {
+        if (multiSelectedEls.has(target)) {
+          multiSelectedEls.delete(target);
+          target.classList.remove("sp-multi-selected");
+          if (selectedEl === target) {
+            selectedEl = multiSelectedEls.size > 0 ? Array.from(multiSelectedEls)[multiSelectedEls.size - 1] : null;
+          }
+          showToast(`Excluded element (${multiSelectedEls.size} remaining)`);
+        } else {
+          multiSelectedEls.add(target);
+          target.classList.add("sp-multi-selected");
+          selectedEl = target;
+          showToast(`Included element (${multiSelectedEls.size} selected)`);
+        }
+        updateMultiSelectUI();
+        return;
+      }
+    }
+
     if (isPageRootOrFullWrapper(target)) {
+      clearMultiSelection();
       selectedEl = null;
       selectBox.style.display = "none";
       if (hoverBox) hoverBox.style.display = "none";
@@ -3567,7 +3795,10 @@
     }
 
     if (activeToolMode === "move" || activeToolMode === "resize") {
+      clearMultiSelection();
       selectedEl = target;
+      multiSelectedEls.add(target);
+      target.classList.add("sp-multi-selected");
       isTargetLocked = false;
       unlockPending = false;
       updateSelectBox(selectedEl);
@@ -3664,6 +3895,14 @@
       }
       updateSelectBox(action.node);
       showToast("Restored original position");
+    } else if (action.type === "multi-move" && Array.isArray(action.items)) {
+      for (const item of action.items) {
+        if (item.el) {
+          setElementTranslate(item.el, item.oldX, item.oldY);
+        }
+      }
+      updateMultiSelectUI();
+      showToast(`Restored positions of ${action.items.length} elements`);
     } else if (action.type === "align" && action.node) {
       action.node.style.display = action.oldDisplay || "";
       action.node.style.justifyContent = action.oldJustify || "";
@@ -3731,6 +3970,13 @@
     }
 
     if (e.key === "Escape") {
+      if (multiSelectedEls.size > 1) {
+        clearMultiSelection();
+        selectedEl = null;
+        selectBox.style.display = "none";
+        showToast("Cleared multi-selection");
+        return;
+      }
       if (contextMenu && contextMenu.style.display === "block") {
         closeContextMenu();
         return;
@@ -3755,6 +4001,9 @@
       } else {
         turnOffStylePeek();
       }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      selectAllElements();
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
       e.preventDefault();
       performUndo();
@@ -3771,6 +4020,15 @@
     } else if (e.altKey && e.code === "KeyC") {
       e.preventDefault();
       captureVisibleViewport();
+    } else if (isEnabled && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const targets = (multiSelectedEls.size > 0)
+        ? Array.from(multiSelectedEls)
+        : (selectedEl ? [selectedEl] : []);
+      if (targets.length > 0) {
+        e.preventDefault();
+        const step = e.shiftKey ? 50 : (e.altKey ? 1 : 10);
+        nudgeSelectedElements(e.key, step);
+      }
     } else if (isEnabled) {
       const k = e.key.toLowerCase();
       if (k === "i") {
@@ -3828,6 +4086,7 @@
     activeToolMode = "inspect";
     document.body.classList.remove("sp-mode-move");
     clearPassthroughFrontNodes();
+    clearMultiSelection();
     isDeepLayerMode = false;
     hoverBox.style.display = "none";
     hoverLbl.style.display = "none";
