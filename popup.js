@@ -1124,388 +1124,217 @@ function downloadBlobOrDataUrl(blob, filename) {
    4. Popup UI Wiring & Mutual Exclusion Status Sync
    ────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
+  // Segmented Control Tabs (Hick's Law - 3 Clear Modes)
+  const tabButtons = document.querySelectorAll(".segment-tab");
+  const viewPanels = {
+    edit: document.getElementById("view-edit"),
+    capture: document.getElementById("view-capture"),
+    export: document.getElementById("view-export")
+  };
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabButtons.forEach(b => b.classList.remove("active"));
+      Object.values(viewPanels).forEach(p => p && p.classList.remove("active"));
+      btn.classList.add("active");
+      const target = btn.getAttribute("data-tab");
+      if (viewPanels[target]) {
+        viewPanels[target].classList.add("active");
+      }
+    });
+  });
+
+  // Action Buttons
+  const btnLaunchStudio = document.getElementById("btnLaunchStudio");
+  const btnInspectStyle = document.getElementById("btnInspectStyle");
+  const btnFreeDrag = document.getElementById("btnFreeDrag");
+
+  const btnCaptureElement = document.getElementById("btnCaptureElement");
+  const btnOpenPreview = document.getElementById("btnOpenPreview");
+  const btnCopyLastCode = document.getElementById("btnCopyLastCode");
+  const btnToggleFigmaBar = document.getElementById("btnToggleFigmaBar");
+
+  const btnExportHtml = document.getElementById("btnExportHtml");
+  const btnExportZip = document.getElementById("btnExportZip");
+  const btnDetectTech = document.getElementById("btnDetectTech");
+  const btnBuildAndroid = document.getElementById("btnBuildAndroid");
+
   const autoScrollToggle = document.getElementById("autoScrollToggle");
   const treeCrawlToggle = document.getElementById("treeCrawlToggle");
   const scrapeLinksToggle = document.getElementById("scrapeLinksToggle");
   const keepScriptsToggle = document.getElementById("keepScriptsToggle");
-  const extractHtmlButton = document.getElementById("extractHtmlButton");
-  const extractButton = document.getElementById("extractButton");
-  const zipToHtmlButton = document.getElementById("zipToHtmlButton");
+
   const zipFileInput = document.getElementById("zipFileInput");
-
-  const parentFolderInput = document.getElementById("parentFolderInput");
-  const downloadParentFolderBtn = document.getElementById("downloadParentFolderBtn");
-  const buildAndroidAppBtn = document.getElementById("buildAndroidAppBtn");
   const parentFolderPicker = document.getElementById("parentFolderPicker");
-
-  const h2dStateBadge = document.getElementById("h2dStateBadge");
-  const visbugStateBadge = document.getElementById("visbugStateBadge");
-  const h2dSelectElementBtn = document.getElementById("h2dSelectElementBtn");
-  const h2dCaptureToolbarBtn = document.getElementById("h2dCaptureToolbarBtn");
-  const h2dOpenPreviewBtn = document.getElementById("h2dOpenPreviewBtn");
-  const copyLastCodeBtn = document.getElementById("copyLastCodeBtn");
-
-  const visbugToggleBtn = document.getElementById("visbugToggleBtn");
-  const stylepeekInspectBtn = document.getElementById("stylepeekInspectBtn");
-  const stylepeekDragBtn = document.getElementById("stylepeekDragBtn");
-
-  const detectTechBtn = document.getElementById("detectTechBtn");
-  const copyTechBtn = document.getElementById("copyTechBtn");
-  const techStackPanel = document.getElementById("techStackPanel");
-  const techCountBadge = document.getElementById("techCountBadge");
-
-  let lastTechReport = null;
-  let pendingParentFolderAction = "zip"; // "zip" | "android"
+  const statusPill = document.getElementById("statusPill");
 
   async function syncToolStates() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) return;
-      if (tab.url && tab.url.startsWith("file:///") && !parentFolderInput.value) {
-        const decoded = decodeURIComponent(tab.url.replace(/^file:\/\/\/?/i, ""));
-        const lastSlash = decoded.lastIndexOf("/");
-        if (lastSlash !== -1) {
-          parentFolderInput.value = decoded.slice(0, lastSlash);
-        }
-      }
       const state = await chrome.runtime.sendMessage({ action: "getToolStates", tabId: tab.id });
-      if (state?.ok) {
-        updateExclusionBadges(state.h2dOpen, state.visbugActive);
+      if (state?.ok && statusPill) {
+        if (state.visbugActive) {
+          statusPill.textContent = "Studio Active";
+          statusPill.classList.add("active");
+        } else if (state.h2dOpen) {
+          statusPill.textContent = "Figma Active";
+          statusPill.classList.add("active");
+        } else {
+          statusPill.textContent = "Ready";
+          statusPill.classList.remove("active");
+        }
       }
     } catch {}
   }
 
-  function updateExclusionBadges(h2dOn, visbugOn) {
-    if (h2dStateBadge) {
-      h2dStateBadge.textContent = h2dOn ? "FIGMA: ON" : "FIGMA: OFF";
-      h2dStateBadge.classList.toggle("on", Boolean(h2dOn));
-    }
-    if (visbugStateBadge) {
-      visbugStateBadge.textContent = visbugOn ? "STUDIO: ON" : "STUDIO: OFF";
-      visbugStateBadge.classList.toggle("on", Boolean(visbugOn));
-    }
-  }
-
   await syncToolStates();
 
-  // 1A. Scroll & Tree-Crawl -> Single .HTML
-  extractHtmlButton.addEventListener("click", async () => {
-    extractHtmlButton.disabled = true;
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) throw new Error("No active tab found.");
-      const { zip, websiteName, branchCount } = await buildWebsiteZipFromTab(tab, {
-        autoScroll: autoScrollToggle.checked,
-        treeCrawl: treeCrawlToggle.checked,
-        scrapeLinks: scrapeLinksToggle.checked
-      });
-      setStatus("Running zip2html inliner (CSS, fonts, images, states)...");
-      const { finalHtml, stats } = await convertJSZipToStandaloneHtml(zip, `${websiteName}.zip`, {
-        keepScripts: keepScriptsToggle.checked
-      });
-      const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
-      await downloadBlobOrDataUrl(blob, `${websiteName}.html`);
-      setStatus(
-        `Saved ${websiteName}.html (${stats.inlined} assets, ${branchCount} button states)`,
-        "ok"
-      );
-    } catch (err) {
-      setStatus(`Error: ${err.message || err}`, "err");
-    } finally {
-      extractHtmlButton.disabled = false;
-    }
-  });
-
-  // 1B. Extract Full Website .ZIP
-  extractButton.addEventListener("click", async () => {
-    extractButton.disabled = true;
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) throw new Error("No active tab found.");
-      const { zip, websiteName, branchCount } = await buildWebsiteZipFromTab(tab, {
-        autoScroll: autoScrollToggle.checked,
-        treeCrawl: treeCrawlToggle.checked,
-        scrapeLinks: scrapeLinksToggle.checked
-      });
-      const content = await zip.generateAsync({ type: "blob" });
-      await downloadBlobOrDataUrl(content, `${websiteName}.zip`);
-      setStatus(`Downloaded ${websiteName}.zip (${branchCount} interactive states)`, "ok");
-    } catch (err) {
-      setStatus(`Error: ${err.message || err}`, "err");
-    } finally {
-      extractButton.disabled = false;
-    }
-  });
-
-  // 1C. Convert any .ZIP file to standalone .HTML (zip2html.py)
-  zipToHtmlButton.addEventListener("click", () => {
-    zipFileInput.value = "";
-    zipFileInput.click();
-  });
-
-  zipFileInput.addEventListener("change", async e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    zipToHtmlButton.disabled = true;
-    try {
-      setStatus(`Reading ${file.name}...`);
-      const zip = await JSZip.loadAsync(file);
-      const { finalHtml, stats } = await convertJSZipToStandaloneHtml(zip, file.name, {
-        keepScripts: keepScriptsToggle.checked
-      });
-      const outName = file.name.replace(/\.zip$/i, "") + ".html";
-      const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
-      await downloadBlobOrDataUrl(blob, outName);
-      setStatus(`Converted ${outName} (${stats.inlined} assets inlined)`, "ok");
-    } catch (err) {
-      setStatus(`ZIP Error: ${err.message || err}`, "err");
-    } finally {
-      zipToHtmlButton.disabled = false;
-    }
-  });
-
-  // 2A. Bundle Static HTML Parent Folder
-  downloadParentFolderBtn.addEventListener("click", () => {
-    pendingParentFolderAction = "zip";
-    parentFolderPicker.value = "";
-    parentFolderPicker.click();
-  });
-
-  // 2B. Create Offline Android App (from current website or selected parent folder)
-  buildAndroidAppBtn.addEventListener("click", async () => {
-    buildAndroidAppBtn.disabled = true;
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) throw new Error("No active tab found.");
-      const customInput = (parentFolderInput.value || "").trim();
-      const appName = customInput
-        ? customInput.replace(/\\/g, "/").split("/").filter(Boolean).pop()
-        : toFolderName(tab.url);
-
-      const { zip: webZip, branchCount } = await buildWebsiteZipFromTab(tab, {
-        autoScroll: autoScrollToggle.checked,
-        treeCrawl: treeCrawlToggle.checked,
-        scrapeLinks: true
-      });
-      setStatus("Packaging StitchCSV Offline Android App (Safe Top/Bottom Margins)...");
-      const { outZip, cleanAppName } = await generateOfflineAndroidAppZip(webZip, appName);
-      const blob = await outZip.generateAsync({ type: "blob" });
-      await downloadBlobOrDataUrl(blob, `${cleanAppName}-Offline-Android-App.zip`);
-      setStatus(
-        `Created ${cleanAppName}-Offline-Android-App.zip (${branchCount} button states + Safe Margins)!`,
-        "ok"
-      );
-    } catch (err) {
-      setStatus(`Android App Error: ${err.message || err}`, "err");
-    } finally {
-      buildAndroidAppBtn.disabled = false;
-    }
-  });
-
-  parentFolderPicker.addEventListener("change", async e => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    downloadParentFolderBtn.disabled = true;
-    try {
-      setStatus(`Bundling ${files.length} files from parent folder...`);
-      const customName = (parentFolderInput.value || "").trim().replace(/\\/g, "/").split("/").filter(Boolean).pop();
-      const { zip, folderName, fileCount } = await buildZipFromFileList(files, customName || "static-parent-folder");
-
-      if (pendingParentFolderAction === "android") {
-        const { outZip, cleanAppName } = await generateOfflineAndroidAppZip(zip, folderName);
-        const blob = await outZip.generateAsync({ type: "blob" });
-        await downloadBlobOrDataUrl(blob, `${cleanAppName}-Offline-Android-App.zip`);
-        setStatus(`Created ${cleanAppName}-Offline-Android-App.zip (${fileCount} files)!`, "ok");
-      } else {
-        // Also generate both the Parent Folder .ZIP and the Offline Android App .ZIP if requested
-        const { outZip, cleanAppName } = await generateOfflineAndroidAppZip(zip, folderName);
-        const appBlob = await outZip.generateAsync({ type: "blob" });
-        await downloadBlobOrDataUrl(appBlob, `${cleanAppName}-Offline-Android-App.zip`);
-        setStatus(`Bundled parent folder (${fileCount} files) into ${cleanAppName}-Offline-Android-App.zip!`, "ok");
-      }
-    } catch (err) {
-      setStatus(`Folder Error: ${err.message || err}`, "err");
-    } finally {
-      downloadParentFolderBtn.disabled = false;
-    }
-  });
-
-  // 3A. Select Element -> Interactive On-Screen Preview & Copy (auto-disables VisBug)
-  h2dSelectElementBtn.addEventListener("click", async () => {
+  // Mode 1: Edit Page & Layers
+  btnLaunchStudio?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const res = await chrome.runtime.sendMessage({
-      action: "launchH2DToolbar",
-      tabId: tab.id,
-      command: "select_element"
-    });
-    if (res?.ok) {
-      updateExclusionBadges(true, false);
-      window.close();
+    const res = await chrome.runtime.sendMessage({ action: "toggleVisBug", tabId: tab.id });
+    if (res?.ok && res.active) {
+      setStatus("Layer Studio Launched", "ok");
+      setTimeout(() => window.close(), 300);
     } else {
-      setStatus(`Toolbar error: ${res?.error || "Unsupported page"}`, "err");
+      setStatus("Studio Closed");
     }
   });
 
-  // 3B. Toggle Floating Figma Capture Toolbar (Mutually Exclusive with VisBug)
-  h2dCaptureToolbarBtn.addEventListener("click", async () => {
+  btnInspectStyle?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const res = await chrome.runtime.sendMessage({
-      action: "launchH2DToolbar",
-      tabId: tab.id,
-      command: "toggle"
-    });
-    if (res?.ok) {
-      updateExclusionBadges(res.active, false);
-      if (res.active) {
-        setStatus("Figma Toolbar ON (VisBug automatically turned OFF)", "ok");
-      } else {
-        setStatus("Figma Toolbar OFF");
-      }
-    } else {
-      setStatus(`Toolbar error: ${res?.error || "Unsupported page"}`, "err");
-    }
+    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
+    chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => window.close());
   });
 
-  // 3C. Open Interactive On-Screen Preview Modal directly
-  h2dOpenPreviewBtn.addEventListener("click", async () => {
+  btnFreeDrag?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const res = await chrome.runtime.sendMessage({
-      action: "launchH2DToolbar",
-      tabId: tab.id,
-      command: "open_preview"
-    });
-    if (res?.ok) {
-      updateExclusionBadges(true, false);
-      window.close();
-    }
+    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
+    chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => window.close());
   });
 
-  // 3D. Copy Last Captured Element/Page HTML+CSS Code
-  copyLastCodeBtn.addEventListener("click", async () => {
+  // Mode 2: Capture
+  btnCaptureElement?.addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return;
+    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "select_element" });
+    if (res?.ok) window.close();
+  });
+
+  btnOpenPreview?.addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return;
+    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "open_preview" });
+    if (res?.ok) window.close();
+  });
+
+  btnCopyLastCode?.addEventListener("click", async () => {
     const data = await chrome.storage.local.get(["sp_last_captured_code"]);
     const code = data?.sp_last_captured_code;
     if (!code) {
-      setStatus("No captured code yet — click 'Select Element → Live Preview' first", "err");
+      setStatus("No captured code yet", "err");
       return;
     }
     await navigator.clipboard.writeText(code);
-    setStatus(`Copied ${Math.max(1, Math.round(code.length / 1024))} KB of HTML+CSS code to clipboard!`, "ok");
+    setStatus(`Copied ${Math.round(code.length / 1024)} KB code`, "ok");
   });
 
-  // 4A. Toggle VisBug Live Drag & Fix (Strictly Mutually Exclusive with Figma Toolbar)
-  visbugToggleBtn.addEventListener("click", async () => {
+  btnToggleFigmaBar?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const res = await chrome.runtime.sendMessage({
-      action: "toggleVisBug",
-      tabId: tab.id
-    });
-    if (res?.ok) {
-      updateExclusionBadges(false, res.active);
-      if (res.active) {
-        setStatus("VisBug ON (Figma Toolbar automatically turned OFF)", "ok");
-        setTimeout(() => window.close(), 350);
-      } else {
-        setStatus("VisBug OFF");
-      }
-    } else {
-      setStatus(`VisBug error: ${res?.error || "Unsupported page"}`, "err");
+    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "toggle" });
+    setStatus(res?.active ? "Figma Bar ON" : "Figma Bar OFF");
+  });
+
+  // Mode 3: Export
+  btnExportHtml?.addEventListener("click", async () => {
+    btnExportHtml.disabled = true;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) throw new Error("No active tab");
+      setStatus("Extracting page & inlining assets...");
+      const { zip, websiteName } = await buildWebsiteZipFromTab(tab, {
+        autoScroll: autoScrollToggle?.checked ?? true,
+        treeCrawl: treeCrawlToggle?.checked ?? true,
+        scrapeLinks: scrapeLinksToggle?.checked ?? false
+      });
+      const { finalHtml } = await convertJSZipToStandaloneHtml(zip, `${websiteName}.zip`, {
+        keepScripts: keepScriptsToggle?.checked ?? false
+      });
+      const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
+      await downloadBlobOrDataUrl(blob, `${websiteName}.html`);
+      setStatus(`Saved ${websiteName}.html`, "ok");
+    } catch (err) {
+      setStatus(`Export failed: ${err.message || err}`, "err");
+    } finally {
+      btnExportHtml.disabled = false;
     }
   });
 
-  // 4B. StylePeek Inspector & Free-Drag Mode
-  stylepeekInspectBtn.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
-    chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => {
-      window.close();
-    });
+  btnExportZip?.addEventListener("click", async () => {
+    btnExportZip.disabled = true;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) throw new Error("No active tab");
+      setStatus("Creating website .zip...");
+      const { zip, websiteName } = await buildWebsiteZipFromTab(tab, {
+        autoScroll: autoScrollToggle?.checked ?? true,
+        treeCrawl: treeCrawlToggle?.checked ?? true,
+        scrapeLinks: scrapeLinksToggle?.checked ?? false
+      });
+      const content = await zip.generateAsync({ type: "blob" });
+      await downloadBlobOrDataUrl(content, `${websiteName}.zip`);
+      setStatus(`Saved ${websiteName}.zip`, "ok");
+    } catch (err) {
+      setStatus(`Zip error: ${err.message || err}`, "err");
+    } finally {
+      btnExportZip.disabled = false;
+    }
   });
 
-  stylepeekDragBtn.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
-    chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => {
-      window.close();
-    });
-  });
-
-  // 5. Website TechStack Detector (ngpdngfmjfnkdjlgdallobombenfdckg — Unlimited Free)
-  async function runTechStackAudit() {
+  btnDetectTech?.addEventListener("click", async () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) return;
+      setStatus("Scanning tech stack...");
       const hdrRes = await chrome.runtime.sendMessage({ action: "getTabHeaders", tabId: tab.id }).catch(() => ({}));
       const headers = hdrRes?.headers || {};
-
-      let response = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
-      if (!response || !response.success) {
+      let res = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
+      if (!res?.grouped) {
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["technologies.js", "content.js"] }).catch(() => {});
-        response = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
+        res = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
       }
-
-      if (!response || !response.grouped) {
-        setStatus("Could not scan tech stack on this tab.", "err");
-        return;
+      if (res?.count) {
+        const topTech = Object.values(res.grouped).flat().map(i => i.name).slice(0, 4).join(", ");
+        setStatus(`Found ${res.count}: ${topTech}`, "ok");
+      } else {
+        setStatus("Static HTML/CSS/JS detected", "ok");
       }
-
-      lastTechReport = response;
-      techCountBadge.textContent = `${response.count} Detected`;
-      techStackPanel.style.display = "block";
-      techStackPanel.innerHTML = "";
-
-      if (response.count === 0) {
-        techStackPanel.innerHTML = '<div style="font-size:11px;color:#78716C;text-align:center;padding:6px;">No known framework signatures detected (Static HTML/CSS/JS).</div>';
-        setStatus("Tech scan complete: Static HTML/CSS/JS", "ok");
-        return;
-      }
-
-      for (const [cat, items] of Object.entries(response.grouped)) {
-        if (!items || !items.length) continue;
-        const catHeader = document.createElement("div");
-        catHeader.className = "tech-cat";
-        catHeader.textContent = `${cat} (${items.length})`;
-        techStackPanel.appendChild(catHeader);
-
-        const chipWrap = document.createElement("div");
-        chipWrap.className = "tech-chips";
-        for (const t of items) {
-          const chip = document.createElement("div");
-          chip.className = "tech-chip";
-          chip.title = t.description || t.name;
-          chip.innerHTML = `<span class="tech-dot"></span><span>${t.name}</span>`;
-          chipWrap.appendChild(chip);
-        }
-        techStackPanel.appendChild(chipWrap);
-      }
-
-      setStatus(`Detected ${response.count} technologies on ${response.hostname || "page"}!`, "ok");
-    } catch (err) {
-      setStatus(`Tech scan error: ${err.message || err}`, "err");
+    } catch (e) {
+      setStatus("Scan failed", "err");
     }
-  }
+  });
 
-  detectTechBtn.addEventListener("click", runTechStackAudit);
-
-  copyTechBtn.addEventListener("click", async () => {
-    if (!lastTechReport) {
-      await runTechStackAudit();
+  btnBuildAndroid?.addEventListener("click", async () => {
+    btnBuildAndroid.disabled = true;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) throw new Error("No active tab");
+      setStatus("Building Android project...");
+      const appName = toFolderName(tab.url);
+      const { zip: webZip } = await buildWebsiteZipFromTab(tab, { autoScroll: false, treeCrawl: false, scrapeLinks: true });
+      const { outZip, cleanAppName } = await generateOfflineAndroidAppZip(webZip, appName);
+      const blob = await outZip.generateAsync({ type: "blob" });
+      await downloadBlobOrDataUrl(blob, `${cleanAppName}-Offline-Android-App.zip`);
+      setStatus(`Saved ${cleanAppName}-Android.zip`, "ok");
+    } catch (e) {
+      setStatus(`Android error: ${e.message || e}`, "err");
+    } finally {
+      btnBuildAndroid.disabled = false;
     }
-    if (!lastTechReport) return;
-    const lines = [`# Tech Stack Audit — ${lastTechReport.url || ""}`, ""];
-    for (const [cat, items] of Object.entries(lastTechReport.grouped || {})) {
-      lines.push(`## ${cat}`);
-      for (const item of items) {
-        lines.push(`- **${item.name}**: ${item.description || ""}`);
-      }
-      lines.push("");
-    }
-    await navigator.clipboard.writeText(lines.join("\n"));
-    setStatus(`Copied ${lastTechReport.count} detected technologies to clipboard!`, "ok");
   });
 });
