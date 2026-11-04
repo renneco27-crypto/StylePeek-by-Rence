@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Style Peek Studio — Code Extractor, Element Capture & Live VisBug Hybrid",
+  "name": "stylepeek_by_rence",
   "version": "2.1.0",
   "default_locale": "en",
   "description": "Scroll & tree-crawl website code (.zip, single .html via zip2html, or Offline Android App), interactive element preview with parent/sibling & PNG/SVG/Figma copy, Website TechStack Detector, and mutually-exclusive VisBug live editing.",
@@ -21,7 +21,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Style Peek Studio — Hybrid Extractor, Figma Preview, VisBug & TechStack",
+    "default_title": "stylepeek_by_rence",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

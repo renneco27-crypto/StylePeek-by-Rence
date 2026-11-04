@@ -1171,8 +1171,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function syncToolStates() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) return;
-      const state = await chrome.runtime.sendMessage({ action: "getToolStates", tabId: tab.id });
+      if (!tab || !tab.id) return;
+      const state = await chrome.runtime.sendMessage({ action: "getToolStates", tabId: tab.id }).catch(() => null);
       if (state?.ok && statusPill) {
         if (state.visbugActive) {
           statusPill.textContent = "Studio Active";
@@ -1194,7 +1194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   btnLaunchStudio?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const res = await chrome.runtime.sendMessage({ action: "toggleVisBug", tabId: tab.id });
+    const res = await chrome.runtime.sendMessage({ action: "toggleVisBug", tabId: tab.id }).catch(() => null);
     if (res?.ok && res.active) {
       setStatus("Layer Studio Launched", "ok");
       setTimeout(() => window.close(), 300);
@@ -1205,16 +1205,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   btnInspectStyle?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
-    chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => window.close());
+    if (!tab || !tab.id) return;
+    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
+    chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => {
+      if (chrome.runtime.lastError) {}
+      window.close();
+    });
   });
 
   btnFreeDrag?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id });
-    chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => window.close());
+    if (!tab || !tab.id) return;
+    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
+    chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => {
+      if (chrome.runtime.lastError) {}
+      window.close();
+    });
   });
 
   // Mode 2: Capture
