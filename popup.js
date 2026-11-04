@@ -1352,8 +1352,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Action Buttons
   const btnLaunchStudio = document.getElementById("btnLaunchStudio");
-  const btnInspectStyle = document.getElementById("btnInspectStyle");
-  const btnFreeDrag = document.getElementById("btnFreeDrag");
 
   const btnCaptureElement = document.getElementById("btnCaptureElement");
   const btnOpenPreview = document.getElementById("btnOpenPreview");
@@ -1416,55 +1414,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         setStatus("Studio Closed");
       }
-    } catch (e) {
-      setStatus(`Error: ${e.message || e}`, "err");
-    }
-  });
-
-  btnInspectStyle?.addEventListener("click", async () => {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab || !tab.id) return;
-      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
-        setStatus("Cannot inspect browser system pages", "err");
-        return;
-      }
-      await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
-      chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => {
-        if (chrome.runtime.lastError) {
-          // Content script not ready yet, inject and retry
-          chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
-            chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" });
-            window.close();
-          });
-        } else {
-          window.close();
-        }
-      });
-    } catch (e) {
-      setStatus(`Error: ${e.message || e}`, "err");
-    }
-  });
-
-  btnFreeDrag?.addEventListener("click", async () => {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab || !tab.id) return;
-      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
-        setStatus("Cannot drag on browser system pages", "err");
-        return;
-      }
-      await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
-      chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => {
-        if (chrome.runtime.lastError) {
-          chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
-            chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" });
-            window.close();
-          });
-        } else {
-          window.close();
-        }
-      });
     } catch (e) {
       setStatus(`Error: ${e.message || e}`, "err");
     }
