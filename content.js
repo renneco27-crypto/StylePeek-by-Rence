@@ -3815,32 +3815,35 @@
           }
         }
       }
-      const script = document.createElement("script");
-      const eventId = "__sp_ts_detect_" + Math.random().toString(36).slice(2);
-      script.textContent = `
-        (function() {
-          const found = {};
-          const checks = ${JSON.stringify(allGlobals)};
-          for (const { tech, prop } of checks) {
-            try {
-              const parts = prop.split('.');
-              let val = window;
-              for (const p of parts) {
-                val = val?.[p];
-              }
-              if (val !== undefined && val !== null && val !== false) {
-                found[tech] = true;
-              }
-            } catch(e) {}
+
+      // 1. Direct window checks (safe, zero CSP violations)
+      for (const { tech, prop } of allGlobals) {
+        try {
+          const parts = prop.split('.');
+          let val = window;
+          for (const p of parts) {
+            val = val?.[p];
           }
-          document.documentElement.setAttribute('${eventId}', JSON.stringify(found));
-        })();
-      `;
-      document.documentElement.appendChild(script);
-      script.remove();
-      const raw = document.documentElement.getAttribute(eventId);
-      document.documentElement.removeAttribute(eventId);
-      if (raw) Object.assign(results, JSON.parse(raw));
+          if (val !== undefined && val !== null && val !== false) {
+            results[tech] = true;
+          }
+        } catch {}
+      }
+
+      // 2. Scan existing script tag texts and identifiers safely without executing code
+      const scripts = Array.from(document.querySelectorAll("script"));
+      const scriptText = scripts.map(s => (s.textContent || "").slice(0, 1000)).join(" ");
+      for (const { tech, prop } of allGlobals) {
+        if (!results[tech]) {
+          const simpleProp = prop.replace(/\./g, "[._]");
+          try {
+            if (new RegExp(`\\b${simpleProp}\\b`, "i").test(scriptText)) {
+              results[tech] = true;
+            }
+          } catch {}
+        }
+      }
+
       return results;
     } catch {
       return {};
