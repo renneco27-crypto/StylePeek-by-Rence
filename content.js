@@ -105,33 +105,6 @@
       <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Close Studio">${SP_ICONS.power}</button>
     </div>
 
-    <!-- Add to Page Modal (Strict ui-laws.txt: Zero Nested Cards, 1 Primary Coral CTA, Text Arrow Links) -->
-    <div id="sp-add-element-modal">
-      <div class="sp-add-modal-header">
-        <span class="sp-add-modal-title">Add to Page</span>
-        <button class="sp-modal-x" id="sp-add-modal-close" title="Close">${SP_ICONS.close}</button>
-      </div>
-      <div class="sp-add-modal-body">
-        <label class="sp-primary-btn sp-add-primary-cta" title="Upload an image from your computer">
-          Choose Picture
-          <input type="file" id="sp-add-img-file" accept="image/*" style="display:none">
-        </label>
-
-        <div class="sp-add-links-row">
-          <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-heading">Add Text →</button>
-          <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-box">Add Box →</button>
-        </div>
-
-        <details class="sp-add-url-details">
-          <summary class="sp-add-url-summary">Paste image URL</summary>
-          <div class="sp-add-input-row">
-            <input type="text" class="sp-input" id="sp-add-img-url" placeholder="https://...">
-            <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-img-url">Insert →</button>
-          </div>
-        </details>
-      </div>
-    </div>
-
     <div id="sp-drawer">
       <div id="sp-drawer-header">
         <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">${SP_ICONS.grip}</div>
@@ -235,6 +208,26 @@
               <button type="button" class="sp-text-arrow-btn" data-vb-align="between">Distribute →</button>
             </div>
           </div>
+
+          <div class="sp-css-quick-box">
+            <span class="sp-color-label">Element CSS Rules</span>
+            <div class="sp-css-quick-row">
+              <input type="text" class="sp-input" id="sp-element-css" placeholder="e.g. font-size: 20px; font-weight: bold;">
+              <button type="button" class="sp-text-arrow-btn" id="sp-btn-apply-css">Apply →</button>
+            </div>
+          </div>
+
+          <div class="sp-transform-code-box">
+            <div class="sp-transform-code-header">
+              <span class="sp-color-label">Transform Element Code</span>
+              <button type="button" class="sp-text-arrow-btn" id="sp-btn-apply-transform">Apply Code →</button>
+            </div>
+            <textarea class="sp-transform-textarea" id="sp-transform-code" placeholder="<div>...</div> or text" rows="4"></textarea>
+            <div class="sp-transform-code-footer">
+              <span class="sp-transform-hint">Edits HTML/text to transform element or overwrite text.</span>
+              <button type="button" class="sp-text-arrow-btn" id="sp-btn-reset-transform">Reset →</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -272,15 +265,12 @@
   const btnPdrawerClose      = root.querySelector("#sp-btn-pdrawer-close");
   let previewDrawerTab       = "element"; // "element", "parent", "neighbors"
 
-  const addModal          = root.querySelector("#sp-add-element-modal");
-  const addModalClose     = root.querySelector("#sp-add-modal-close");
-  const addImgUrlInput    = root.querySelector("#sp-add-img-url");
-  const btnInsertImgUrl   = root.querySelector("#sp-btn-insert-img-url");
-  const addImgFileInput   = root.querySelector("#sp-add-img-file");
-  const btnInsertBox      = root.querySelector("#sp-btn-insert-box");
-  const btnInsertHeading  = root.querySelector("#sp-btn-insert-heading");
-  const addHtmlCodeArea   = root.querySelector("#sp-add-html-code");
-  const btnInsertHtml     = root.querySelector("#sp-btn-insert-html");
+  const transformCodeArea   = root.querySelector("#sp-transform-code");
+  const btnApplyTransform   = root.querySelector("#sp-btn-apply-transform");
+  const btnResetTransform   = root.querySelector("#sp-btn-reset-transform");
+  const elementCssInput     = root.querySelector("#sp-element-css");
+  const btnApplyCss         = root.querySelector("#sp-btn-apply-css");
+  let spClipboardEl         = null;
 
   const toast             = root.querySelector("#sp-toast");
   const toastText         = root.querySelector("#sp-toast-text");
@@ -371,6 +361,23 @@
   let isTargetLocked      = true;
   let unlockPending       = false;
 
+  /* ── Strict Single Popup Manager ── */
+  function closeAllPopups(except = null) {
+    if (except !== "drawer" && drawer && drawer.classList.contains("sp-open")) {
+      drawer.classList.remove("sp-open");
+    }
+    if (except !== "preview") {
+      const liveModal = document.getElementById("sp-h2d-interactive-modal");
+      if (liveModal) liveModal.remove();
+    }
+    if (except !== "panel" && previewPanel && previewPanel.classList.contains("sp-show")) {
+      previewPanel.classList.remove("sp-show");
+    }
+    if (except !== "error" && errorModal && errorModal.classList.contains("sp-modal-show")) {
+      closeErrorModal();
+    }
+  }
+
   function showToast(msg, duration = 2400) {
     if (!toast || !toastText) return;
     toastText.textContent = msg;
@@ -441,22 +448,24 @@
       document.body.classList.toggle("sp-mode-move", tool === "move");
 
       if (tool === "add") {
-        openAddModal();
+        closeAllPopups();
+        showToast("Click blank space to add text, or drag an image to drop");
         return;
       } else if (tool === "style") {
+        closeAllPopups("drawer");
         drawer.classList.add("sp-open");
         root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
       } else if (tool === "inspect") {
-        drawer.classList.remove("sp-open");
-        showToast("Inspect Mode: Click to select, Right-click for Style & Alignment");
+        closeAllPopups();
+        showToast("Inspect Mode: Click to select, Right-click for Style & Code");
       } else if (tool === "move") {
-        drawer.classList.remove("sp-open");
+        closeAllPopups();
         showToast("Move Mode: Drag any element freely on canvas");
       } else if (tool === "resize") {
-        drawer.classList.remove("sp-open");
+        closeAllPopups();
         showToast("Stretch Mode: Click element, then drag corner handles to stretch");
       } else if (tool === "delete") {
-        drawer.classList.remove("sp-open");
+        closeAllPopups();
         showToast("Delete Mode: Click an element to remove (Ctrl+Z undo)");
       }
     });
@@ -716,8 +725,17 @@
       buildBreadcrumbs(el);
     } catch (err) {}
 
+    // Populate Transform Code & CSS Quick Inputs
+    if (transformCodeArea) {
+      transformCodeArea.value = el.outerHTML || el.textContent || "";
+    }
+    if (elementCssInput) {
+      elementCssInput.value = el.getAttribute("style") || "";
+    }
+
     // Drawer opens automatically ONLY when user is explicitly in "style" tool mode (or when right-clicked via contextmenu)
     if (activeToolMode === "style" && !isDragging && !justFinishedDrag) {
+      closeAllPopups("drawer");
       drawer.classList.add("sp-open");
     }
   }
@@ -737,7 +755,7 @@
     const clsStr = getPrimaryClass(el);
     const depthLabel = isDeepLayerMode ? ` · Deep Layer (${deepLayerIndex + 1}/${Math.max(1, deepLayerStack.length)})` : "";
 
-    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
+    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="Transform Element Code / Overwrite">Code</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
 
     const badgeBehindBtn = selectBadge.querySelector("#sp-badge-btn-layer-behind");
     if (badgeBehindBtn) {
@@ -748,11 +766,27 @@
       });
     }
 
+    const badgeCodeBtn = selectBadge.querySelector("#sp-badge-btn-code");
+    if (badgeCodeBtn) {
+      badgeCodeBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAllPopups("drawer");
+        drawer.classList.add("sp-open");
+        root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+        if (transformCodeArea) {
+          transformCodeArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          transformCodeArea.focus();
+        }
+      });
+    }
+
     const badgeStyleBtn = selectBadge.querySelector("#sp-badge-btn-style");
     if (badgeStyleBtn) {
       badgeStyleBtn.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
+        closeAllPopups("drawer");
         drawer.classList.add("sp-open");
         const styleTab = root.querySelector(".sp-drawer-tab[data-tab='style']");
         if (styleTab) styleTab.click();
@@ -1245,17 +1279,9 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     Add Custom Elements Modal & Insertion Handlers
+     Direct Insertion & Code Transformation Engine
+     (Drag-and-Drop Image, Blank-Click Text, Code Transform, Duplication)
      ══════════════════════════════════════════════════════════ */
-  function openAddModal() {
-    addModal.classList.add("sp-show");
-  }
-  function closeAddModal() {
-    addModal.classList.remove("sp-show");
-  }
-
-  addModalClose.addEventListener("click", closeAddModal);
-
   function insertElementIntoLiveSite(newEl, toastMsg) {
     if (!newEl) return;
     ensurePositioned(newEl);
@@ -1285,124 +1311,260 @@
 
     selectElement(newEl);
     undoStack.push({ type: "delete", node: newEl, parent: newEl.parentElement });
-    closeAddModal();
     if (toastMsg) showToast(toastMsg);
   }
 
-  function insertCustomImage(src) {
+  function insertDroppedImage(src, clientX, clientY) {
     if (!src) return;
+    const img = document.createElement("img");
+    img.className = "sp-custom-element";
+    img.src = src;
+    img.alt = "Inserted Image";
+    img.style.position = "absolute";
+    img.style.left = Math.round(clientX + (window.scrollX || 0) - 80) + "px";
+    img.style.top = Math.round(clientY + (window.scrollY || 0) - 80) + "px";
+    img.style.maxWidth = "340px";
+    img.style.height = "auto";
+    img.style.borderRadius = "8px";
+    img.style.boxShadow = "0 8px 24px rgba(28,28,30,0.18)";
+    img.style.display = "inline-block";
+    img.style.zIndex = isDeepLayerMode ? "0" : "10000";
+    img.style.cursor = "move";
 
-    const targetImg = (selectedEl && selectedEl.tagName === "IMG")
-      ? selectedEl
-      : (selectedEl && !isDeepLayerMode && selectedEl.querySelector("img") ? selectedEl.querySelector("img") : null);
+    document.body.appendChild(img);
+    ensurePositioned(img);
+    undoStack.push({ type: "delete", node: img, parent: document.body });
+    selectElement(img);
+    spPlayKeyClick(240);
+    showToast("Image placed on page — drag anywhere or stretch corners");
+  }
 
-    if (targetImg) {
-      const oldSrc = targetImg.src;
-      targetImg.src = src;
-      undoStack.push({
-        type: "img-replace",
-        node: targetImg,
-        oldSrc,
-        newSrc: src
-      });
-      updateSelectBox(selectedEl);
-      updateSandboxPreview(selectedEl);
-      populateDualCodePanes(selectedEl);
-      closeAddModal();
-      showToast("Live image replaced on page");
+  function insertNewTextAt(clientX, clientY, container) {
+    const p = document.createElement("p");
+    p.className = "sp-custom-element";
+    p.textContent = "New Text";
+    p.style.position = "absolute";
+    p.style.left = Math.round(clientX + (window.scrollX || 0)) + "px";
+    p.style.top = Math.round(clientY + (window.scrollY || 0)) + "px";
+    p.style.fontSize = "18px";
+    p.style.fontWeight = "600";
+    p.style.color = "#1C1C1E";
+    p.style.margin = "0";
+    p.style.padding = "4px 8px";
+    p.style.borderRadius = "4px";
+    p.style.zIndex = isDeepLayerMode ? "0" : "10000";
+    p.style.cursor = "text";
+    p.style.minWidth = "60px";
+
+    const targetParent = (container && container.nodeType === 1 && !isOwn(container)) ? container : document.body;
+    targetParent.appendChild(p);
+
+    ensurePositioned(p);
+    undoStack.push({ type: "delete", node: p, parent: targetParent });
+    selectElement(p);
+    spPlayKeyClick(200);
+    showToast("Text added — type your text directly");
+    startInlineTextEdit(p);
+  }
+
+  function applyElementTransform() {
+    if (!selectedEl) {
+      showToast("Select an element first");
+      return;
+    }
+    const newCode = (transformCodeArea?.value || "").trim();
+    if (!newCode) return;
+
+    const parent = selectedEl.parentElement;
+    if (!parent || isOwn(parent)) {
+      showToast("Cannot transform root container");
       return;
     }
 
-    const img = document.createElement("img");
-    img.src = src;
-    img.className = "sp-custom-element";
-    img.style.position = "relative";
-    img.style.width = "320px";
-    img.style.maxWidth = "90vw";
-    img.style.height = "auto";
-    img.style.borderRadius = "10px";
-    img.style.boxShadow = "0 12px 36px rgba(28,28,30,0.22)";
-    img.style.display = "block";
-    img.style.margin = "20px auto";
-    img.style.zIndex = isDeepLayerMode ? "0" : "9999";
+    const temp = document.createElement("div");
+    temp.innerHTML = newCode;
+    const newEl = temp.firstElementChild;
 
-    insertElementIntoLiveSite(img, "Picture added to page — drag anywhere or resize corners");
+    if (!newEl) {
+      // User entered plain text without tags — overwrite the text inside it!
+      const oldText = selectedEl.innerText || selectedEl.textContent;
+      undoStack.push({
+        type: "text",
+        node: selectedEl,
+        oldText: oldText,
+        newText: newCode
+      });
+      selectedEl.textContent = newCode;
+      updateSelectBox(selectedEl);
+      spPlayKeyClick(210);
+      showToast("Text updated");
+      return;
+    }
+
+    // Preserve translate offset if already moved
+    const trans = getElementTranslate(selectedEl);
+    if (trans.x !== 0 || trans.y !== 0) {
+      setElementTranslate(newEl, trans.x, trans.y);
+    }
+    ensurePositioned(newEl);
+    newEl.classList.add("sp-custom-element");
+
+    const oldEl = selectedEl;
+    undoStack.push({
+      type: "transform",
+      oldEl: oldEl,
+      newEl: newEl,
+      parent: parent
+    });
+
+    parent.replaceChild(newEl, oldEl);
+    selectElement(newEl);
+    spPlayKeyClick(240);
+    showToast("Element code transformed");
   }
 
-  addImgFileInput.addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        insertCustomImage(ev.target.result);
-      };
-      reader.readAsDataURL(file);
+  function applyCustomCss() {
+    if (!selectedEl) {
+      showToast("Select an element first");
+      return;
     }
-  });
+    const newCss = (elementCssInput?.value || "").trim();
+    const oldStyle = selectedEl.getAttribute("style") || "";
+    undoStack.push({
+      type: "style",
+      node: selectedEl,
+      oldStyle: oldStyle
+    });
 
-  btnInsertImgUrl.addEventListener("click", () => {
-    spPlayKeyClick(165);
-    const url = addImgUrlInput.value.trim();
-    if (url) {
-      insertCustomImage(url);
-      addImgUrlInput.value = "";
+    if (newCss) {
+      selectedEl.style.cssText = newCss;
+      ensurePositioned(selectedEl);
     } else {
-      showToast("Please enter an image URL");
+      selectedEl.removeAttribute("style");
+      ensurePositioned(selectedEl);
     }
-  });
+    updateSelectBox(selectedEl);
+    spPlayKeyClick(210);
+    showToast("CSS applied to element");
+  }
 
-  btnInsertBox.addEventListener("click", () => {
-    spPlayKeyClick(165);
-    const box = document.createElement("div");
-    box.className = "sp-custom-element";
-    box.textContent = "Custom Card Layer";
-    box.style.position = "relative";
-    box.style.padding = "24px 28px";
-    box.style.background = "#FAF9F6";
-    box.style.color = "#1C1C1E";
-    box.style.border = "1px solid #DCD9CE";
-    box.style.borderRadius = "12px";
-    box.style.fontSize = "16px";
-    box.style.fontWeight = "600";
-    box.style.boxShadow = "0 8px 24px rgba(28,28,30,0.12)";
-    box.style.display = "inline-block";
-    box.style.margin = "20px auto";
+  function copySelectedElement() {
+    if (!selectedEl || isOwn(selectedEl) || isPageRootOrFullWrapper(selectedEl)) {
+      showToast("Select an element to copy");
+      return;
+    }
+    spClipboardEl = selectedEl.cloneNode(true);
+    spPlayKeyClick(220);
+    showToast("Copied element (Ctrl+C)");
+  }
 
-    insertElementIntoLiveSite(box, "Added card box — drag to move or stretch corners");
-  });
+  function pasteClipboardElement() {
+    if (!spClipboardEl) {
+      showToast("Nothing copied yet — press Ctrl+C to copy");
+      return;
+    }
+    const replica = spClipboardEl.cloneNode(true);
+    replica.classList.add("sp-custom-element");
+    if (replica.id) {
+      replica.id = replica.id + "-copy-" + Math.floor(Math.random() * 1000);
+    }
 
-  btnInsertHeading.addEventListener("click", () => {
-    spPlayKeyClick(165);
-    const h = document.createElement("h2");
-    h.className = "sp-custom-element";
-    h.textContent = "New Headline";
-    h.style.position = "relative";
-    h.style.color = "inherit";
-    h.style.fontSize = "32px";
-    h.style.fontWeight = "800";
-    h.style.margin = "16px auto";
-    h.style.display = "block";
+    const refParent = (selectedEl && selectedEl.parentElement && !isOwn(selectedEl.parentElement))
+      ? selectedEl.parentElement
+      : document.body;
 
-    insertElementIntoLiveSite(h, "Added headline text — double-click to edit words");
-  });
+    if (selectedEl && selectedEl.nextSibling) {
+      refParent.insertBefore(replica, selectedEl.nextSibling);
+    } else {
+      refParent.appendChild(replica);
+    }
 
-  if (btnInsertHtml && addHtmlCodeArea) {
-    btnInsertHtml.addEventListener("click", () => {
-      spPlayKeyClick(165);
-      const raw = addHtmlCodeArea.value.trim();
-      if (!raw) return;
-      const wrap = document.createElement("div");
-      wrap.innerHTML = raw;
-      const newEl = wrap.firstElementChild || wrap;
-      newEl.style.position = "relative";
+    ensurePositioned(replica);
+    const origTrans = selectedEl ? getElementTranslate(selectedEl) : { x: 0, y: 0 };
+    setElementTranslate(replica, origTrans.x + 20, origTrans.y + 20);
 
-      insertElementIntoLiveSite(newEl, "Added custom HTML element");
+    undoStack.push({ type: "delete", node: replica, parent: refParent });
+    selectElement(replica);
+    spPlayKeyClick(240);
+    showToast("Replicated element (Ctrl+V)");
+  }
+
+  if (btnApplyTransform) {
+    btnApplyTransform.addEventListener("click", () => {
+      spPlayKeyClick(170);
+      applyElementTransform();
     });
   }
 
-  if (btnAddImage) btnAddImage.addEventListener("click", openAddModal);
-  if (btnAddDiv) btnAddDiv.addEventListener("click", openAddModal);
-  if (btnAddHtml) btnAddHtml.addEventListener("click", openAddModal);
+  if (btnResetTransform) {
+    btnResetTransform.addEventListener("click", () => {
+      spPlayKeyClick(150);
+      if (selectedEl && transformCodeArea) {
+        transformCodeArea.value = selectedEl.outerHTML || selectedEl.textContent || "";
+        showToast("Code reset to current element");
+      }
+    });
+  }
+
+  if (btnApplyCss) {
+    btnApplyCss.addEventListener("click", () => {
+      spPlayKeyClick(170);
+      applyCustomCss();
+    });
+  }
+
+  if (elementCssInput) {
+    elementCssInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applyCustomCss();
+      }
+    });
+  }
+
+  if (transformCodeArea) {
+    transformCodeArea.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        applyElementTransform();
+      }
+    });
+  }
+
+  // Automatic Drag & Drop of Images from Computer or Browser
+  window.addEventListener("dragover", e => {
+    if (!isEnabled) return;
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }, true);
+
+  window.addEventListener("drop", e => {
+    if (!isEnabled || isOwn(e.target)) return;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const imgFile = Array.from(files).find(f => f.type && f.type.startsWith("image/"));
+      if (imgFile) {
+        e.preventDefault();
+        e.stopPropagation();
+        const reader = new FileReader();
+        reader.onload = ev => {
+          insertDroppedImage(ev.target.result, e.clientX, e.clientY);
+        };
+        reader.readAsDataURL(imgFile);
+        return;
+      }
+    }
+
+    const textData = e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text/plain") || "";
+    if (textData && (/^https?:\/\/.+\.(png|jpe?g|gif|webp|svg|bmp)(\?.*)?$/i.test(textData.trim()) || textData.startsWith("data:image/"))) {
+      e.preventDefault();
+      e.stopPropagation();
+      insertDroppedImage(textData.trim(), e.clientX, e.clientY);
+      return;
+    }
+  }, true);
 
   /* ══════════════════════════════════════════════════════════
      Figma-Style Deep Layer & Stationary-Front Engine
@@ -2022,7 +2184,7 @@
   if (btnPutImage) {
     btnPutImage.addEventListener("click", () => {
       spPlayKeyClick(170);
-      openAddModal();
+      showToast("Drag an image file directly onto the page to add it");
     });
   }
 
@@ -2863,11 +3025,16 @@
     e.stopPropagation();
     const target = visbugPickElement(e.clientX, e.clientY) || e.target;
     selectElement(target);
+    closeAllPopups("drawer");
     if (drawer) {
       drawer.classList.add("sp-open");
       root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+      if (transformCodeArea) {
+        transformCodeArea.focus();
+        transformCodeArea.select();
+      }
     }
-    showToast("Inspector opened for <" + target.tagName.toLowerCase() + ">");
+    showToast("Inspector opened — edit CSS or code below");
   }, true);
 
   document.addEventListener("click", e => {
@@ -2883,6 +3050,15 @@
 
     const target = visbugPickElement(e.clientX, e.clientY) || e.target;
 
+    // Check if user clicked on blank space or in add mode -> add text directly!
+    if (activeToolMode === "add" || isPageRootOrFullWrapper(target)) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      insertNewTextAt(e.clientX, e.clientY, document.body);
+      return;
+    }
+
     if (activeToolMode === "move") {
       e.preventDefault();
       e.stopPropagation();
@@ -2893,8 +3069,7 @@
         unlockPending = false;
         updateSelectBox(selectedEl);
       }
-      drawer.classList.remove("sp-open");
-      if (previewPanel) previewPanel.classList.remove("sp-show");
+      closeAllPopups();
       return;
     }
 
@@ -2915,8 +3090,7 @@
       });
       target.remove();
       if (target === selectedEl) {
-        drawer.classList.remove("sp-open");
-        if (previewPanel) previewPanel.classList.remove("sp-show");
+        closeAllPopups();
         selectBox.style.display = "none";
         selectedEl = null;
       }
@@ -2939,6 +3113,7 @@
     selectElement(target);
 
     if (activeToolMode === "style") {
+      closeAllPopups("drawer");
       drawer.classList.add("sp-open");
       root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
     }
@@ -2957,11 +3132,20 @@
     if (action.type === "delete" && action.parent) {
       action.parent.insertBefore(action.node, action.next || null);
       showToast("Restored deleted element");
-    } else if (action.type === "html" && action.parent) {
+    } else if ((action.type === "html" || action.type === "transform") && action.parent) {
       action.parent.replaceChild(action.oldEl, action.newEl);
       selectedEl = action.oldEl;
       selectElement(selectedEl);
-      showToast("Restored previous HTML");
+      showToast("Restored previous code");
+    } else if (action.type === "style" && action.node) {
+      if (action.oldStyle) {
+        action.node.setAttribute("style", action.oldStyle);
+      } else {
+        action.node.removeAttribute("style");
+      }
+      ensurePositioned(action.node);
+      selectElement(action.node);
+      showToast("Restored previous CSS styles");
     } else if (action.type === "text" && action.node) {
       if (action.oldHtml !== undefined) {
         action.node.innerHTML = action.oldHtml;
@@ -3046,14 +3230,15 @@
     }
 
     if (e.key === "Escape") {
+      const liveModal = document.getElementById("sp-h2d-interactive-modal");
+      if (liveModal) {
+        liveModal.remove();
+        return;
+      }
       if (errorModal && errorModal.classList.contains("sp-modal-show")) {
         closeErrorModal();
-        closeAddModal();
-      } else if (addModal && addModal.classList.contains("sp-show")) {
-        closeAddModal();
       } else if ((drawer && drawer.classList.contains("sp-open")) || (previewPanel && previewPanel.classList.contains("sp-show"))) {
-        if (drawer) drawer.classList.remove("sp-open");
-        if (previewPanel) previewPanel.classList.remove("sp-show");
+        closeAllPopups();
         selectBox.style.display = "none";
         clearPassthroughFrontNodes();
         isDeepLayerMode = false;
@@ -3064,6 +3249,16 @@
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
       e.preventDefault();
       performUndo();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && !e.shiftKey) {
+      if (selectedEl) {
+        e.preventDefault();
+        copySelectedElement();
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && !e.shiftKey) {
+      if (spClipboardEl) {
+        e.preventDefault();
+        pasteClipboardElement();
+      }
     } else if (e.altKey && e.code === "KeyC") {
       e.preventDefault();
       captureVisibleViewport();
@@ -3076,9 +3271,10 @@
       } else if (k === "s") {
         activeToolMode = "resize"; syncDockUI("resize"); document.body.classList.remove("sp-mode-move"); showToast("Stretch Mode");
       } else if (k === "a") {
-        openAddModal();
+        activeToolMode = "add"; syncDockUI("add"); closeAllPopups();
+        showToast("Click blank space to add text, or drag an image to drop");
       } else if (k === "c") {
-        activeToolMode = "style"; syncDockUI("style"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+        activeToolMode = "style"; syncDockUI("style"); closeAllPopups("drawer"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
       } else if (k === "d") {
         activeToolMode = "delete"; syncDockUI("delete"); showToast("Delete Mode");
       } else if (e.key === "[" && selectedEl) {
@@ -3126,8 +3322,7 @@
     selectedEl = null;
     isTargetLocked = false;
     unlockPending = false;
-    closeErrorModal();
-    closeAddModal();
+    closeAllPopups();
 
     document.querySelectorAll(".sp-layer-isolated").forEach(n => {
       n.classList.remove("sp-layer-isolated");
@@ -3748,7 +3943,10 @@
       turnOffStylePeek();
     } else if (e.data.type === "STYLEPEEK_OPEN_ADD") {
       if (!isEnabled) turnOnStylePeek("inspect");
-      openAddModal();
+      activeToolMode = "add";
+      syncDockUI("add");
+      closeAllPopups();
+      showToast("Click blank space to add text, or drag an image to drop");
     } else if (e.data.type === "STYLEPEEK_SELECT") {
       if (!isEnabled) turnOnStylePeek("inspect");
       const target = e.data.selector ? document.querySelector(e.data.selector) : null;

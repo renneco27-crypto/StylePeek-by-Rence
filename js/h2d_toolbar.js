@@ -872,8 +872,15 @@ function spFlashLiveElement(el) {
 }
 
 function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks = {}) {
-  const existing = document.getElementById("sp-h2d-interactive-modal");
-  if (existing) existing.remove();
+  // Enforce single popup rule: close any open StylePeek drawer or error modal
+  try {
+    const existing = document.getElementById("sp-h2d-interactive-modal");
+    if (existing) existing.remove();
+    const styleDrawer = document.getElementById("stylepeek-root")?.shadowRoot?.getElementById("sp-drawer") || document.getElementById("sp-drawer");
+    if (styleDrawer) styleDrawer.classList.remove("sp-open");
+    const previewPanel = document.getElementById("stylepeek-root")?.shadowRoot?.getElementById("sp-inspect-preview-panel");
+    if (previewPanel) previewPanel.classList.remove("sp-show");
+  } catch {}
 
   let currentEl = initialEl && initialEl.nodeType === 1 ? initialEl : document.body;
   let currentH2DCapture = initialH2DCapture || null;
@@ -903,8 +910,11 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       .modal {
-        width: min(1040px, 94vw);
-        height: min(740px, 90vh);
+        width: min(580px, 92vw);
+        height: min(580px, 92vh);
+        aspect-ratio: 1 / 1;
+        max-width: 580px;
+        max-height: 580px;
         background: var(--color-surface, #FAF9F6);
         color: var(--color-ink, #1C1C1E);
         border: 1px solid var(--color-rule, #DCD9CE);
