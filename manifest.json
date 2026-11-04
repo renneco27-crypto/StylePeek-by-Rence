@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Style Peek Studio — Code Extractor, Element Capture & Live VisBug Hybrid",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "default_locale": "en",
-  "description": "Scroll & extract website code (.zip or single .html via zip2html), capture element/page HTML+CSS to clipboard, and live-drag/edit with VisBug & StylePeek.",
+  "description": "Scroll & tree-crawl website code (.zip, single .html via zip2html, or Offline Android App), interactive element preview with parent/sibling & PNG/SVG/Figma copy, Website TechStack Detector, and mutually-exclusive VisBug live editing.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -12,7 +12,8 @@
     "clipboardWrite",
     "pageCapture",
     "unlimitedStorage",
-    "contextMenus"
+    "contextMenus",
+    "webRequest"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -20,7 +21,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Website Code Extractor & Hybrid Studio",
+    "default_title": "Style Peek Studio — Hybrid Extractor, Figma Preview, VisBug & TechStack",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -35,7 +36,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["technologies.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }
@@ -48,7 +49,8 @@
         "img/*",
         "font/*.woff2",
         "dist/*",
-        "js/*"
+        "js/*",
+        "technologies.js"
       ],
       "matches": ["<all_urls>"]
     }

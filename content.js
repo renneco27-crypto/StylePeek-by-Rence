@@ -3567,15 +3567,583 @@ gsap.to("${selector}", {
     showToast("StylePeek OFF • Page restored to normal");
   }
 
+  /* ══════════════════════════════════════════════════════════
+     Website TechStack Detector Engine
+     (from ngpdngfmjfnkdjlgdallobombenfdckg)
+     ══════════════════════════════════════════════════════════ */
+  function detectPageJsGlobals(techCatalog) {
+    try {
+      const results = {};
+      const allGlobals = [];
+      for (const [, catData] of Object.entries(techCatalog || {})) {
+        for (const tech of catData.technologies || []) {
+          if (tech.patterns && tech.patterns.js) {
+            const jsVars = Array.isArray(tech.patterns.js) ? tech.patterns.js : [tech.patterns.js];
+            for (const g of jsVars) {
+              allGlobals.push({ tech: tech.name, prop: g });
+            }
+          }
+        }
+      }
+      const script = document.createElement("script");
+      const eventId = "__sp_ts_detect_" + Math.random().toString(36).slice(2);
+      script.textContent = `
+        (function() {
+          const found = {};
+          const checks = ${JSON.stringify(allGlobals)};
+          for (const { tech, prop } of checks) {
+            try {
+              const parts = prop.split('.');
+              let val = window;
+              for (const p of parts) {
+                val = val?.[p];
+              }
+              if (val !== undefined && val !== null && val !== false) {
+                found[tech] = true;
+              }
+            } catch(e) {}
+          }
+          document.documentElement.setAttribute('${eventId}', JSON.stringify(found));
+        })();
+      `;
+      document.documentElement.appendChild(script);
+      script.remove();
+      const raw = document.documentElement.getAttribute(eventId);
+      document.documentElement.removeAttribute(eventId);
+      if (raw) Object.assign(results, JSON.parse(raw));
+      return results;
+    } catch {
+      return {};
+    }
+  }
+
+  function detectTechnologiesOnPage(responseHeaders = {}) {
+    const TECH_CATALOG =
+      (typeof technologies !== "undefined" ? technologies : null) ||
+      (typeof window !== "undefined" && window.technologies ? window.technologies : null);
+    if (!TECH_CATALOG) {
+      return { success: false, grouped: {}, technologies: [], count: 0 };
+    }
+
+    const jsGlobalHits = detectPageJsGlobals(TECH_CATALOG);
+    const scripts = Array.from(document.querySelectorAll("script[src]"));
+    const links = Array.from(document.querySelectorAll('link[rel="stylesheet"], link[href]'));
+    const metas = Array.from(document.querySelectorAll("meta"));
+    const cookies = document.cookie || "";
+    const detectedTechs = [];
+    const grouped = {};
+
+    function checkPatterns(tech) {
+      if (!tech || !tech.patterns) return false;
+      const checks = [];
+
+      if (tech.patterns.js) {
+        const jsVars = Array.isArray(tech.patterns.js) ? tech.patterns.js : [tech.patterns.js];
+        checks.push(
+          Boolean(jsGlobalHits[tech.name]) ||
+            jsVars.some(varName => typeof window[varName] !== "undefined")
+        );
+      }
+
+      if (tech.patterns.dom) {
+        try {
+          checks.push(document.querySelector(tech.patterns.dom) !== null);
+        } catch {
+          checks.push(false);
+        }
+      }
+
+      if (tech.patterns.script) {
+        checks.push(scripts.some(script => tech.patterns.script.test(script.src)));
+      }
+
+      if (tech.patterns.css) {
+        checks.push(links.some(link => tech.patterns.css.test(link.href)));
+      }
+
+      if (tech.patterns.meta) {
+        checks.push(
+          metas.some(meta => {
+            const nameMatch =
+              !tech.patterns.meta.name ||
+              meta.getAttribute("name") === tech.patterns.meta.name ||
+              meta.getAttribute("property") === tech.patterns.meta.name;
+            const contentMatch =
+              !tech.patterns.meta.content ||
+              (meta.getAttribute("content") &&
+                tech.patterns.meta.content.test(meta.getAttribute("content")));
+            return nameMatch && contentMatch;
+          })
+        );
+      }
+
+      if (tech.patterns.cookie) {
+        checks.push(cookies.includes(tech.patterns.cookie));
+      }
+
+      return checks.some(c => c === true);
+    }
+
+    for (const [categoryKey, categoryData] of Object.entries(TECH_CATALOG)) {
+      const catLabel = `${categoryData.icon || "🔧"} ${categoryData.name || categoryKey}`;
+      for (const tech of categoryData.technologies || []) {
+        if (checkPatterns(tech)) {
+          const item = {
+            name: tech.name,
+            icon: tech.icon || categoryData.icon || "⚡",
+            category: categoryKey,
+            categoryName: catLabel,
+            color: "#38bdf8",
+            description: categoryData.name || categoryKey
+          };
+          detectedTechs.push(item);
+          if (!grouped[catLabel]) grouped[catLabel] = [];
+          grouped[catLabel].push(item);
+        }
+      }
+    }
+
+    // Also inspect HTTP response headers if provided (Cloudflare, Vercel, Netlify, Nginx, Next.js)
+    const headerRules = [
+      { header: "cf-ray", name: "Cloudflare", icon: "☁️", cat: "☁️ Hosting & CDN" },
+      { header: "x-vercel-id", name: "Vercel", icon: "▲", cat: "☁️ Hosting & CDN" },
+      { header: "x-nf-request-id", name: "Netlify", icon: "🌐", cat: "☁️ Hosting & CDN" },
+      { header: "x-powered-by", regex: /next\.js/i, name: "Next.js", icon: "▲", cat: "⚛️ Frontend Frameworks & Libraries" },
+      { header: "x-powered-by", regex: /express/i, name: "Express.js", icon: "🚂", cat: "🔧 Other Tools & Libraries" },
+      { header: "server", regex: /cloudflare/i, name: "Cloudflare", icon: "☁️", cat: "☁️ Hosting & CDN" },
+      { header: "server", regex: /nginx/i, name: "Nginx", icon: "🟩", cat: "☁️ Hosting & CDN" }
+    ];
+    for (const hr of headerRules) {
+      const val = responseHeaders && responseHeaders[hr.header];
+      if (val && (!hr.regex || hr.regex.test(val))) {
+        if (!detectedTechs.some(t => t.name === hr.name)) {
+          const item = {
+            name: hr.name,
+            icon: hr.icon,
+            category: "hosting",
+            categoryName: hr.cat,
+            color: "#38bdf8",
+            description: `Detected via HTTP header (${hr.header})`
+          };
+          detectedTechs.push(item);
+          if (!grouped[hr.cat]) grouped[hr.cat] = [];
+          grouped[hr.cat].push(item);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      grouped,
+      technologies: detectedTechs,
+      count: detectedTechs.length,
+      url: window.location.href,
+      hostname: window.location.hostname || "local-file"
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Ad-Safe Tree Button-Clicking State Crawler + Undo Engine
+     ══════════════════════════════════════════════════════════ */
+  const AD_SELECTOR_PATTERNS = [
+    "ins.adsbygoogle",
+    "[id^='google_ads']",
+    "iframe#google_esf",
+    "[data-ad-client]",
+    "[data-ad-slot]",
+    "[data-ad-format]",
+    "[data-google-query-id]",
+    "[id*='adsense' i]",
+    "[class*='adsense' i]",
+    "[id*='ad-slot' i]",
+    "[class*='ad-slot' i]",
+    "[class*='ad-banner' i]",
+    "[class*='ad-container' i]",
+    "[data-ad]",
+    "amp-ad"
+  ].join(", ");
+
+  const AD_URL_REGEX = /(googlesyndication\.com|doubleclick\.net|googleadservices\.com|adservice\.google|google\.com\/aclk|google\.com\/url\?|gclid=|utm_medium=cpc|taboola\.com|outbrain\.com|criteo\.com|amazon-adsystem\.com|adnxs\.com)/i;
+
+  function isAdOrRedirectElement(el) {
+    if (!el || el.nodeType !== 1) return true;
+    try {
+      if (el.matches(AD_SELECTOR_PATTERNS) || (el.closest && el.closest(AD_SELECTOR_PATTERNS))) {
+        return true;
+      }
+    } catch {}
+    const checkAttrs = ["href", "src", "data-url", "data-href", "onclick", "action"];
+    let cur = el;
+    while (cur && cur.nodeType === 1 && cur !== document.body) {
+      for (const attr of checkAttrs) {
+        const val = cur.getAttribute(attr) || "";
+        if (val && AD_URL_REGEX.test(val)) return true;
+      }
+      const idCls = `${cur.id || ""} ${typeof cur.className === "string" ? cur.className : ""}`;
+      if (/\b(adsbygoogle|adsense|google_ads|doubleclick|sponsored-ad|ad-unit|taboola|outbrain)\b/i.test(idCls)) {
+        return true;
+      }
+      cur = cur.parentElement;
+    }
+    return false;
+  }
+
+  async function exploreAndRecordAllBranchStates() {
+    let cancelRequested = false;
+    let pill = document.createElement("div");
+    pill.setAttribute("data-h2d-ignore", "true");
+    pill.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: #F8FAFC;
+      border: 1px solid #38BDF8;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      padding: 10px 22px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    `;
+    pill.innerHTML = `
+      <span style="display:inline-block;">⚡</span>
+      <span id="sp-bfs-msg">Scanning home screen & tree-crawling buttons (Ads skipped)...</span>
+      <kbd style="background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:4px;font-size:11px;border:1px solid rgba(255,255,255,0.25);">ESC to Finish</kbd>
+    `;
+    document.body.appendChild(pill);
+
+    const onKeyEsc = e => {
+      if (e.key === "Escape") {
+        cancelRequested = true;
+        const msgEl = pill ? pill.querySelector("#sp-bfs-msg") : null;
+        if (msgEl) msgEl.textContent = "Finalizing recorded states...";
+      }
+    };
+    window.addEventListener("keydown", onKeyEsc, true);
+
+    const onNavIntercept = e => {
+      const link = e.target.closest ? e.target.closest("a, form") : null;
+      if (link) {
+        if (link.tagName === "FORM") {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const href = link.getAttribute("href") || "";
+        if (!href.startsWith("#") && !href.startsWith("javascript:")) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    window.addEventListener("click", onNavIntercept, true);
+    window.addEventListener("submit", onNavIntercept, true);
+
+    const prevBeforeUnload = window.onbeforeunload;
+    const prevWindowOpen = window.open;
+    window.onbeforeunload = e => { e.preventDefault(); return ""; };
+    try { window.open = () => null; } catch {}
+
+    let bidCounter = 1;
+    let cidCounter = 1;
+    const visitedBids = new Set();
+    const branchStates = [];
+    const maxClicks = 50;
+    let totalClicks = 0;
+
+    function isCandidateTrigger(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (isOwn(el) || (el.closest && el.closest("#sp-root, #__figma_h2d_chrome_extension_toolbar__, vis-bug"))) return false;
+      if (el === pill || pill.contains(el)) return false;
+      if (el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+      if (isAdOrRedirectElement(el)) return false;
+
+      const txt = (el.textContent || el.value || el.getAttribute("title") || el.getAttribute("aria-label") || "").trim().toLowerCase();
+      if (/^(log\s*out|sign\s*out|delete|remove|clear\s*data|cancel|destroy|buy\s*now|checkout|pay\b|subscribe|sponsor|advertisement|ad\b)/i.test(txt)) {
+        return false;
+      }
+
+      if (el.tagName === "A") {
+        const href = (el.getAttribute("href") || "").trim();
+        if (href && !href.startsWith("#") && !href.startsWith("javascript:")) {
+          return false;
+        }
+      }
+
+      const tag = el.tagName.toLowerCase();
+      const role = el.getAttribute("role");
+      if (["button", "summary"].includes(tag)) return true;
+      if (["button", "tab", "switch", "menuitem"].includes(role)) return true;
+      if (el.hasAttribute("data-toggle") || el.hasAttribute("data-bs-toggle") || el.hasAttribute("aria-expanded") || el.hasAttribute("aria-controls")) return true;
+      if (el.classList && (el.classList.contains("tab") || el.classList.contains("nav-link") || el.classList.contains("accordion-button"))) return true;
+
+      try {
+        const cs = window.getComputedStyle(el);
+        if (cs.cursor === "pointer" && el.offsetWidth >= 14 && el.offsetHeight >= 14) {
+          if (el.offsetWidth < window.innerWidth * 0.9 && el.offsetHeight < window.innerHeight * 0.5) {
+            return true;
+          }
+        }
+      } catch {}
+      return false;
+    }
+
+    function ensureBid(el) {
+      if (!el.getAttribute("data-sp-bid")) {
+        el.setAttribute("data-sp-bid", `b-${bidCounter++}`);
+      }
+      return el.getAttribute("data-sp-bid");
+    }
+
+    function ensureCid(el) {
+      if (!el.getAttribute("data-sp-cid")) {
+        el.setAttribute("data-sp-cid", `c-${cidCounter++}`);
+      }
+      return el.getAttribute("data-sp-cid");
+    }
+
+    function dispatchRealisticClick(el) {
+      try {
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+      } catch {}
+      const opts = { bubbles: true, cancelable: true, view: window };
+      el.dispatchEvent(new PointerEvent("pointerdown", opts));
+      el.dispatchEvent(new MouseEvent("mousedown", opts));
+      el.dispatchEvent(new PointerEvent("pointerup", opts));
+      el.dispatchEvent(new MouseEvent("mouseup", opts));
+      try { el.click(); } catch {}
+    }
+
+    function getTriggerLabel(el) {
+      let l = (el.textContent || el.getAttribute("title") || el.getAttribute("aria-label") || el.value || "").trim().replace(/\s+/g, " ");
+      if (l.length > 28) l = l.slice(0, 26) + "…";
+      return l || el.tagName.toLowerCase();
+    }
+
+    async function clickCaptureAndUndo(item, depthLabel) {
+      const lbl = getTriggerLabel(item.el);
+      if (pill) {
+        const msgEl = pill.querySelector("#sp-bfs-msg");
+        if (msgEl) msgEl.textContent = `${depthLabel}: Pressing "${lbl}" & capturing panel state...`;
+      }
+
+      const capturedMutations = [];
+      const undoRecords = [];
+      const preHtmlMap = new Map();
+
+      const observer = new MutationObserver(records => {
+        for (const rec of records) {
+          const tgt = rec.target;
+          if (!tgt || tgt.nodeType !== 1 || isOwn(tgt) || tgt === pill || pill.contains(tgt)) continue;
+          if (isAdOrRedirectElement(tgt)) continue;
+          const cid = ensureCid(tgt);
+          if (rec.type === "attributes") {
+            const attrName = rec.attributeName;
+            if (!attrName || attrName.startsWith("data-sp-")) continue;
+            capturedMutations.push({
+              cid,
+              type: "attr",
+              attr: attrName,
+              val: tgt.getAttribute(attrName),
+              className: typeof tgt.className === "string" ? tgt.className : undefined
+            });
+            undoRecords.push({
+              node: tgt,
+              type: "attr",
+              attr: attrName,
+              oldValue: rec.oldValue
+            });
+          } else if (rec.type === "childList") {
+            if (!preHtmlMap.has(tgt)) {
+              preHtmlMap.set(tgt, tgt.innerHTML);
+            }
+            capturedMutations.push({
+              cid,
+              type: "child",
+              innerHTML: tgt.innerHTML
+            });
+            undoRecords.push({
+              node: tgt,
+              type: "childList",
+              addedNodes: Array.from(rec.addedNodes),
+              removedNodes: Array.from(rec.removedNodes),
+              nextSibling: rec.nextSibling
+            });
+          }
+        }
+      });
+
+      observer.observe(document.body, {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ["class", "style", "aria-expanded", "aria-selected", "aria-hidden", "hidden", "open", "data-state"],
+        childList: true,
+        subtree: true
+      });
+
+      const currentTarget = document.querySelector(`[data-sp-bid="${item.bid}"]`) || item.el;
+      dispatchRealisticClick(currentTarget);
+      totalClicks++;
+      await new Promise(r => setTimeout(r, 140));
+      observer.disconnect();
+
+      // Discover newly revealed child triggers inside this opened state before undoing
+      const childItems = [];
+      if (item.depth < 3) {
+        const visibleNow = Array.from(document.querySelectorAll("*")).filter(el => {
+          if (!isCandidateTrigger(el)) return false;
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+        for (const childEl of visibleNow) {
+          const childBid = ensureBid(childEl);
+          if (!visitedBids.has(childBid)) {
+            childItems.push({
+              el: childEl,
+              bid: childBid,
+              path: [...item.path, childBid],
+              parentPath: item.path,
+              depth: item.depth + 1
+            });
+          }
+        }
+      }
+
+      if (capturedMutations.length > 0) {
+        branchStates.push({
+          bid: item.bid,
+          path: item.path,
+          label: lbl,
+          depth: item.depth,
+          mutations: capturedMutations,
+          childBids: childItems.map(c => c.bid)
+        });
+      }
+
+      // UNDO / REVERT back to the main screen state!
+      for (let u = undoRecords.length - 1; u >= 0; u--) {
+        const rec = undoRecords[u];
+        try {
+          if (rec.type === "attr") {
+            if (rec.oldValue === null) {
+              rec.node.removeAttribute(rec.attr);
+            } else {
+              rec.node.setAttribute(rec.attr, rec.oldValue);
+            }
+          } else if (rec.type === "childList") {
+            rec.addedNodes.forEach(n => {
+              if (n.parentNode === rec.node) rec.node.removeChild(n);
+            });
+            rec.removedNodes.forEach(n => {
+              rec.node.insertBefore(n, rec.nextSibling || null);
+            });
+          }
+        } catch {}
+      }
+      await new Promise(r => setTimeout(r, 40));
+
+      return childItems;
+    }
+
+    try {
+      const allInitialTriggers = Array.from(document.querySelectorAll("*")).filter(el => {
+        if (!isCandidateTrigger(el)) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+
+      const level1Queue = allInitialTriggers.map(el => {
+        const bid = ensureBid(el);
+        return { el, bid, path: [bid], depth: 1 };
+      });
+      const level2Queue = [];
+      const level3Queue = [];
+
+      // Level 1: Home screen buttons
+      for (let i = 0; i < level1Queue.length; i++) {
+        if (cancelRequested || totalClicks >= maxClicks) break;
+        const item = level1Queue[i];
+        if (visitedBids.has(item.bid)) continue;
+        visitedBids.add(item.bid);
+        const discovered = await clickCaptureAndUndo(item, `Level 1 (${i + 1}/${level1Queue.length})`);
+        for (const d of discovered) {
+          if (!level2Queue.some(q => q.bid === d.bid)) level2Queue.push(d);
+        }
+      }
+
+      // Level 2: Sub-branch buttons inside panels/drawers/popups
+      for (let i = 0; i < level2Queue.length; i++) {
+        if (cancelRequested || totalClicks >= maxClicks) break;
+        const item = level2Queue[i];
+        if (visitedBids.has(item.bid)) continue;
+        visitedBids.add(item.bid);
+
+        // Replay parent path to reach Level 2 trigger, then click & undo all back to main screen
+        for (const ancBid of item.parentPath || []) {
+          const ancEl = document.querySelector(`[data-sp-bid="${ancBid}"]`);
+          if (ancEl) {
+            dispatchRealisticClick(ancEl);
+            await new Promise(r => setTimeout(r, 70));
+          }
+        }
+        const discovered = await clickCaptureAndUndo(item, `Level 2 (${i + 1}/${level2Queue.length})`);
+        for (const d of discovered) {
+          if (!level3Queue.some(q => q.bid === d.bid)) level3Queue.push(d);
+        }
+      }
+
+      // Restore initial home screen state if any Level 1 tab was toggled
+      if (level1Queue.length > 0) {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }
+    } catch (err) {
+      console.warn("[StylePeek] Tree State Crawl warning:", err);
+    } finally {
+      window.removeEventListener("keydown", onKeyEsc, true);
+      window.removeEventListener("click", onNavIntercept, true);
+      window.removeEventListener("submit", onNavIntercept, true);
+      window.onbeforeunload = prevBeforeUnload;
+      try { window.open = prevWindowOpen; } catch {}
+      if (pill) {
+        try { pill.remove(); } catch {}
+      }
+    }
+
+    return branchStates;
+  }
+
   /* ── Chrome Extension Messaging ── */
   if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg, _, res) => {
+      if (!msg || typeof msg !== "object") return false;
       if (msg.action === "turnOn") {
         turnOnStylePeek(msg.mode || "inspect");
         res({ active: isEnabled, mode: activeToolMode });
-      } else if (msg.action === "turnOff") {
-        turnOffStylePeek();
+      } else if (msg.action === "turnOff" || msg.action === "disableAllModes") {
+        if (isEnabled) turnOffStylePeek();
         res({ active: isEnabled });
+      } else if (msg.action === "toggleInspect") {
+        if (isEnabled && activeToolMode === "inspect") {
+          turnOffStylePeek();
+        } else {
+          turnOnStylePeek("inspect");
+        }
+        res({ active: isEnabled, mode: activeToolMode });
+      } else if (msg.action === "toggleDrag") {
+        if (isEnabled && activeToolMode === "move") {
+          turnOffStylePeek();
+        } else {
+          turnOnStylePeek("move");
+        }
+        res({ active: isEnabled, mode: activeToolMode });
       } else if (msg.action === "startTool") {
         turnOnStylePeek(msg.mode);
         res({ active: isEnabled, mode: activeToolMode });
@@ -3584,6 +4152,16 @@ gsap.to("${selector}", {
       } else if (msg.action === "captureViewport") {
         captureVisibleViewport();
         res({ success: true });
+      } else if (msg.action === "detectTechStack" || msg.type === "DETECT_TECH") {
+        const result = detectTechnologiesOnPage(msg.headers || {});
+        res(result);
+      } else if (msg.action === "crawlTreeStates") {
+        exploreAndRecordAllBranchStates().then(states => {
+          res({ ok: true, states });
+        }).catch(err => {
+          res({ ok: false, states: [], error: err?.message || String(err) });
+        });
+        return true;
       }
       return true;
     });
@@ -3636,6 +4214,9 @@ gsap.to("${selector}", {
         }
       } catch (e) {}
 
+      // 1b. Run Ad-Safe Tree Button-Clicking State Crawler & Undo back to main screen
+      const recordedBranches = await exploreAndRecordAllBranchStates();
+
       // 2. Hide any active extension toasts & popovers before cloning
       if (toast) toast.classList.remove("sp-show");
       if (selectBox) selectBox.style.display = "none";
@@ -3650,19 +4231,28 @@ gsap.to("${selector}", {
       document.documentElement.appendChild(root);
       if (isEnabled && selectedEl) updateSelectBox(selectedEl);
 
-      // 4. Purge scripts, iframes, and StylePeek extension elements
+      // Clean temporary live attributes from active page
+      document.querySelectorAll("[data-sp-bid]").forEach(el => el.removeAttribute("data-sp-bid"));
+      document.querySelectorAll("[data-sp-cid]").forEach(el => el.removeAttribute("data-sp-cid"));
+
+      // 4. Purge scripts, iframes, Google AdSense / ads, and StylePeek extension elements
       docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
       docClone.querySelectorAll("iframe#google_esf, iframe").forEach(f => f.remove());
+      try {
+        docClone.querySelectorAll(AD_SELECTOR_PATTERNS).forEach(ad => ad.remove());
+      } catch {}
       docClone.querySelectorAll("#sp-root, [id^='sp-'], [class^='sp-'], [class*=' sp-'], .sp-popover, #sp-dock, #sp-sidebar-dock, #sp-drawer, #sp-inspect-preview-panel, #sp-error-modal, #sp-toast, #sp-select-box, #sp-hover-box, #sp-hover-label").forEach(e => e.remove());
 
-      // 5. Clean residual attributes and verify ZERO extension UI text remains in the clone
+      // 5. Clean residual attributes, preserving data-sp-bid and data-sp-cid for offline interactive playback
       const allClonedNodes = Array.from(docClone.querySelectorAll("*"));
       for (const node of allClonedNodes) {
         if (!node.parentNode) continue;
 
-        // Strip temporary data attributes
+        // Strip temporary data attributes (except data-sp-bid & data-sp-cid)
         Array.from(node.attributes || []).forEach(attr => {
-          if (attr.name.startsWith("data-sp-")) node.removeAttribute(attr.name);
+          if (attr.name.startsWith("data-sp-") && attr.name !== "data-sp-bid" && attr.name !== "data-sp-cid") {
+            node.removeAttribute(attr.name);
+          }
         });
 
         // Strip extension classes
@@ -3784,6 +4374,54 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       styleEl.textContent = fullCSS;
       cloneHead.appendChild(styleEl);
 
+      // 8b. Inject Offline Interactive State Data and Engine if button states were recorded
+      if (Array.isArray(recordedBranches) && recordedBranches.length > 0) {
+        const stateDataScript = document.createElement("script");
+        stateDataScript.id = "sp-state-data";
+        stateDataScript.type = "application/json";
+        stateDataScript.textContent = JSON.stringify(recordedBranches);
+        cloneBody.appendChild(stateDataScript);
+
+        const offlineRuntimeScript = document.createElement("script");
+        offlineRuntimeScript.id = "sp-offline-runtime";
+        offlineRuntimeScript.textContent = `
+(function() {
+  try {
+    var raw = document.getElementById("sp-state-data");
+    if (!raw) return;
+    var states = JSON.parse(raw.textContent || "[]");
+    if (!states.length) return;
+    var stateMap = {};
+    states.forEach(function(s) { stateMap[s.bid] = s; });
+    document.addEventListener("click", function(e) {
+      var trigger = e.target.closest ? e.target.closest("[data-sp-bid]") : null;
+      if (!trigger) return;
+      var bid = trigger.getAttribute("data-sp-bid");
+      var state = stateMap[bid];
+      if (!state) return;
+      if (trigger.tagName === "A") {
+        var href = trigger.getAttribute("href") || "";
+        if (href.startsWith("#") || href.startsWith("javascript:")) e.preventDefault();
+      }
+      if (Array.isArray(state.mutations)) {
+        state.mutations.forEach(function(m) {
+          var target = document.querySelector('[data-sp-cid="' + m.cid + '"]');
+          if (!target) return;
+          if (m.className !== undefined) target.className = m.className;
+          if (m.attr && m.val !== undefined) {
+            if (m.val === null) target.removeAttribute(m.attr);
+            else target.setAttribute(m.attr, m.val);
+          }
+          if (m.innerHTML !== undefined) target.innerHTML = m.innerHTML;
+        });
+      }
+    }, true);
+  } catch(e) {}
+})();
+`;
+        cloneBody.appendChild(offlineRuntimeScript);
+      }
+
       // 9. Download full page file cleanly (Local HTML + Web)
       const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
       const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30) || "slide";
@@ -3815,7 +4453,7 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
               url: dataUrl,
               filename: filename
             }, response => {
-              if (chrome.runtime.lastError || !response || !response.success) {
+              if (chrome.runtime.lastError || !response || (!response.ok && !response.success)) {
                 resolve(false);
               } else {
                 resolve(true);

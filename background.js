@@ -402,6 +402,35 @@ async function captureElementPreview(windowId, payload) {
   }
 }
 
+async function captureElementPng(windowId, payload) {
+  try {
+    const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const { rect, devicePixelRatio } = payload || {};
+      if (!rect) return dataUrl;
+      const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
+      const sx = Math.max(0, Math.round(rect.x * dpr));
+      const sy = Math.max(0, Math.round(rect.y * dpr));
+      const sw = Math.min(bitmap.width - sx, Math.max(1, Math.round(rect.width * dpr)));
+      const sh = Math.min(bitmap.height - sy, Math.max(1, Math.round(rect.height * dpr)));
+      if (sw <= 0 || sh <= 0) return dataUrl;
+      const canvas = new OffscreenCanvas(sw, sh);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return dataUrl;
+      ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+      const outBlob = await canvas.convertToBlob({ type: "image/png" });
+      return await arrayBufferToDataUrl(await outBlob.arrayBuffer(), "image/png");
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    return undefined;
+  }
+}
+
 const IMAGE_TRANSCODE_FORMATS = new Set(["image/avif", "image/heif", "image/heic"]);
 
 async function transcodeImageBlobToWebp(blob) {
@@ -440,27 +469,90 @@ async function fetchAssetsAsBase64(urls) {
   return Promise.all((urls || []).map(fetchOneAssetAsBase64));
 }
 
-async function injectH2DToolbar(tabId, command) {
-  await ToolbarTabStorage.forTab(tabId).open();
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["js/h2d_toolbar.js"]
-  });
-  if (command) {
-    await chrome.tabs.sendMessage(tabId, {
-      type: "FIGMA_H2D_TOOLBAR_COMMAND",
-      command
-    }).catch(() => {});
-  }
-}
-
 /* ──────────────────────────────────────────────────────────
    VisBug Live Dragging & Design State (from kdmdoinnkaeognnpegpkepdnggeaodkn)
+   & Strict Mutual Exclusion (VisBug <-> Figma H2D Toolbar)
    ────────────────────────────────────────────────────────── */
 const visbugState = {
   loaded: {},
   injected: {}
 };
+
+async function disableH2DToolbar(tabId) {
+  if (!tabId) return;
+  try {
+    await ToolbarTabStorage.forTab(tabId).close();
+  } catch {}
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "FIGMA_H2D_TOOLBAR_COMMAND",
+      command: "close"
+    });
+  } catch {}
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const host = document.getElementById("__figma_h2d_chrome_extension_toolbar__");
+        if (host) host.remove();
+        const altHost = document.getElementById("__figma_html_to_design_toolbar_host__");
+        if (altHost) altHost.remove();
+        const modal = document.getElementById("sp-h2d-interactive-modal");
+        if (modal) modal.remove();
+      }
+    });
+  } catch {}
+}
+
+async function disableVisBug(tabId) {
+  if (!tabId) return;
+  if (visbugState.loaded[tabId] && visbugState.injected[tabId]) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["toolbar/eject.js"]
+      });
+    } catch {}
+    visbugState.injected[tabId] = false;
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        document.querySelectorAll("vis-bug, vis-bug-handles, vis-bug-hover, vis-bug-label, vis-bug-offscreen-label, vis-bug-distance, vis-bug-grip, vis-bug-boxmodel, vis-bug-metatip, vis-bug-ally, vis-bug-corners, vis-bug-hotkeys").forEach(el => el.remove());
+      }
+    });
+  } catch {}
+}
+
+async function injectH2DToolbar(tabId, command) {
+  // Mutual Exclusion: Turning ON Figma Toolbar automatically turns OFF VisBug
+  await disableVisBug(tabId);
+  try {
+    await chrome.tabs.sendMessage(tabId, { action: "disableAllModes" });
+  } catch {}
+
+  if (command === "toggle") {
+    const alreadyOpen = await ToolbarTabStorage.forTab(tabId).isOpen();
+    if (alreadyOpen) {
+      await disableH2DToolbar(tabId);
+      return false;
+    }
+  }
+
+  await ToolbarTabStorage.forTab(tabId).open();
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["js/h2d_toolbar.js"]
+  });
+  if (command && command !== "toggle") {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "FIGMA_H2D_TOOLBAR_COMMAND",
+      command
+    }).catch(() => {});
+  }
+  return true;
+}
 
 async function toggleVisBug(tabId) {
   if (!tabId) return false;
@@ -471,26 +563,59 @@ async function toggleVisBug(tabId) {
     });
     visbugState.injected[tabId] = false;
     return false;
-  } else if (visbugState.loaded[tabId] && !visbugState.injected[tabId]) {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["toolbar/restore.js"]
-    });
-    visbugState.injected[tabId] = true;
-    return true;
   } else {
-    await chrome.scripting.insertCSS({
-      target: { tabId },
-      files: ["toolbar/bundle.css"]
-    });
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["toolbar/inject.js"]
-    });
-    visbugState.loaded[tabId] = true;
-    visbugState.injected[tabId] = true;
-    return true;
+    // Mutual Exclusion: Turning ON VisBug automatically turns OFF Figma H2D Toolbar
+    await disableH2DToolbar(tabId);
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: "disableAllModes" });
+    } catch {}
+
+    if (visbugState.loaded[tabId] && !visbugState.injected[tabId]) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["toolbar/restore.js"]
+      });
+      visbugState.injected[tabId] = true;
+      return true;
+    } else {
+      await chrome.scripting.insertCSS({
+        target: { tabId },
+        files: ["toolbar/bundle.css"]
+      });
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["toolbar/inject.js"]
+      });
+      visbugState.loaded[tabId] = true;
+      visbugState.injected[tabId] = true;
+      return true;
+    }
   }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Website TechStack Detector HTTP Header Capture
+   (from ngpdngfmjfnkdjlgdallobombenfdckg)
+   ────────────────────────────────────────────────────────── */
+const tabResponseHeaders = new Map();
+
+if (chrome.webRequest && chrome.webRequest.onHeadersReceived) {
+  try {
+    chrome.webRequest.onHeadersReceived.addListener(
+      details => {
+        if (details.type !== "main_frame" || details.tabId < 0) return;
+        const headersObj = {};
+        for (const h of details.responseHeaders || []) {
+          if (h.name) {
+            headersObj[h.name.toLowerCase()] = h.value || "";
+          }
+        }
+        tabResponseHeaders.set(details.tabId, headersObj);
+      },
+      { urls: ["<all_urls>"] },
+      ["responseHeaders"]
+    );
+  } catch {}
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
@@ -515,6 +640,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
   pageGenerationByTab.delete(tabId);
   delete visbugState.loaded[tabId];
   delete visbugState.injected[tabId];
+  tabResponseHeaders.delete(tabId);
   ToolbarTabStorage.forTab(tabId).clear().catch(() => {});
 });
 
@@ -541,7 +667,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // 2. Popup triggers for H2D Toolbar & VisBug
+  // 2. Get active tool states & HTTP headers for popup
+  if (msg && msg.action === "getToolStates") {
+    const tabId = msg.tabId || sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ ok: true, h2dOpen: false, visbugActive: false, headers: {} });
+      return false;
+    }
+    ToolbarTabStorage.forTab(tabId).isOpen().then(h2dOpen => {
+      sendResponse({
+        ok: true,
+        h2dOpen: Boolean(h2dOpen),
+        visbugActive: Boolean(visbugState.injected[tabId]),
+        headers: tabResponseHeaders.get(tabId) || {}
+      });
+    }).catch(() => {
+      sendResponse({
+        ok: true,
+        h2dOpen: false,
+        visbugActive: Boolean(visbugState.injected[tabId]),
+        headers: tabResponseHeaders.get(tabId) || {}
+      });
+    });
+    return true;
+  }
+
+  if (msg && msg.action === "getTabHeaders") {
+    const tabId = msg.tabId || sender?.tab?.id;
+    sendResponse({ ok: true, headers: (tabId && tabResponseHeaders.get(tabId)) || {} });
+    return false;
+  }
+
+  // 3. Popup triggers for H2D Toolbar & VisBug (Strictly Mutually Exclusive)
   if (msg && msg.action === "launchH2DToolbar") {
     const tabId = msg.tabId || sender?.tab?.id;
     if (!tabId) {
@@ -549,8 +706,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return false;
     }
     injectH2DToolbar(tabId, msg.command)
-      .then(() => sendResponse({ ok: true }))
+      .then(active => sendResponse({ ok: true, active, visbugActive: false }))
       .catch(err => sendResponse({ ok: false, error: err?.message || String(err) }));
+    return true;
+  }
+
+  if (msg && msg.action === "closeH2DToolbar") {
+    const tabId = msg.tabId || sender?.tab?.id;
+    disableH2DToolbar(tabId)
+      .then(() => sendResponse({ ok: true, active: false }))
+      .catch(() => sendResponse({ ok: true, active: false }));
     return true;
   }
 
@@ -561,12 +726,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return false;
     }
     toggleVisBug(tabId)
-      .then(active => sendResponse({ ok: true, active }))
+      .then(active => sendResponse({ ok: true, active, h2dOpen: false }))
       .catch(err => sendResponse({ ok: false, error: err?.message || String(err) }));
     return true;
   }
 
-  // 3. H2D Toolbar background commands (H2D_*)
+  // 4. H2D Toolbar background commands (H2D_*)
   if (msg && typeof msg.cmd === "string") {
     const handleCmd = async () => {
       switch (msg.cmd) {
@@ -581,6 +746,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case "H2D_CAPTURE_ELEMENT_PREVIEW":
           if (sender?.tab?.windowId == null) return undefined;
           return await captureElementPreview(sender.tab.windowId, msg.payload);
+        case "H2D_CAPTURE_ELEMENT_PNG":
+          if (sender?.tab?.windowId == null) return undefined;
+          return await captureElementPng(sender.tab.windowId, msg.payload);
         case "H2D_FETCH_ASSETS":
           return await fetchAssetsAsBase64(msg.payload?.urls || []);
         case "H2D_TOOLBAR_CLOSED":
