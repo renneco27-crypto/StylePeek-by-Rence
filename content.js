@@ -730,6 +730,11 @@
     btn.addEventListener("click", () => {
       spPlayKeyClick(180);
       const tool = btn.dataset.tool;
+      if (tool === "inspect" && activeToolMode === "inspect") {
+        turnOffStylePeek();
+        showToast("Inspect mode off — page buttons restored");
+        return;
+      }
       activeToolMode = tool;
       syncDockUI(tool);
       document.body.classList.toggle("sp-mode-move", tool === "move");
@@ -744,7 +749,7 @@
         root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
       } else if (tool === "inspect") {
         closeAllPopups();
-        showToast("Inspect Mode: Click to select, Right-click for Style & Code");
+        showToast("Inspect Mode: Buttons locked, animations active (Click inspect again to unlock)");
       } else if (tool === "move") {
         closeAllPopups();
         showToast("Move Mode: Drag any element freely on canvas");
@@ -3091,13 +3096,54 @@
     }
   }
 
-  // Intercept pointerdown in capture phase so stubborn buttons with JS pointerdown/press animations
-  // do not snap back or trigger page press handlers while StylePeek Studio is active
-  document.addEventListener("pointerdown", e => {
-    if (!isEnabled || isOwn(e.target) || activeEditingNode) return;
-    if (e.button === 0) {
-      e.stopPropagation();
+  /* ══════════════════════════════════════════════════════════
+     Watertight Event Freeze & Protection in Studio / Inspect Mode
+     Prevents host page button activations, redirects, native file/folder
+     dialogs, alert boxes, and outside-click popup dismissals.
+     CSS animations & hover states remain fully functional.
+     ══════════════════════════════════════════════════════════ */
+  function shouldGuardHostEvent(e) {
+    if (!isEnabled) return false;
+    if (isOwn(e.target)) return false;
+    if (activeEditingNode && (activeEditingNode === e.target || activeEditingNode.contains(e.target))) return false;
+    return true;
+  }
+
+  // Intercept at window capture level (highest ancestor in DOM dispatch)
+  window.addEventListener("pointerdown", e => {
+    if (!shouldGuardHostEvent(e)) return;
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const tag = e.target.tagName ? e.target.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "select" || tag === "button" || tag === "a" || e.target.closest("label, a, button, input[type='file'], [type='file']")) {
+      e.preventDefault();
     }
+  }, true);
+
+  window.addEventListener("pointerup", e => {
+    if (!shouldGuardHostEvent(e)) return;
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }, true);
+
+  window.addEventListener("mouseup", e => {
+    if (!shouldGuardHostEvent(e)) return;
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }, true);
+
+  window.addEventListener("auxclick", e => {
+    if (!shouldGuardHostEvent(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }, true);
+
+  window.addEventListener("submit", e => {
+    if (!isEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
   }, true);
 
   document.addEventListener("mousedown", e => {
@@ -3113,6 +3159,11 @@
 
     // Stop page mousedown handlers so animated buttons don't think they are being clicked by the site
     e.stopPropagation();
+    e.stopImmediatePropagation();
+    const tag = e.target.tagName ? e.target.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "select" || tag === "button" || tag === "a" || e.target.closest("label, a, button, input[type='file'], [type='file']")) {
+      e.preventDefault();
+    }
 
     // NEVER start element dragging when in Delete mode, or while actively dragging corner handles!
     if (isResizing || activeToolMode === "delete") {
@@ -3483,13 +3534,18 @@
 
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
+    if (activeEditingNode && (activeEditingNode === e.target || activeEditingNode.contains(e.target))) return;
+
+    // Watertight: NEVER let host page buttons, links, or background clicks execute!
+    // This stops redirects, native alert boxes, form submits, and keeps popups/modals from closing!
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
     closeContextMenu();
 
     if (justFinishedDrag) {
       justFinishedDrag = false;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
       return;
     }
 
@@ -3497,9 +3553,6 @@
 
     // Only Add mode adds text
     if (activeToolMode === "add") {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
       insertNewTextAt(e.clientX, e.clientY, document.body);
       return;
     }
@@ -3514,9 +3567,6 @@
     }
 
     if (activeToolMode === "move" || activeToolMode === "resize") {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
       selectedEl = target;
       isTargetLocked = false;
       unlockPending = false;
@@ -3524,10 +3574,6 @@
       closeAllPopups();
       return;
     }
-
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
 
     if (activeToolMode === "delete") {
       if (isPageRootOrFullWrapper(target)) {
@@ -3728,7 +3774,14 @@
     } else if (isEnabled) {
       const k = e.key.toLowerCase();
       if (k === "i") {
-        activeToolMode = "inspect"; syncDockUI("inspect"); showToast("Inspect Mode");
+        if (activeToolMode === "inspect") {
+          turnOffStylePeek();
+          showToast("Inspect mode off — page buttons restored");
+        } else {
+          activeToolMode = "inspect";
+          syncDockUI("inspect");
+          showToast("Inspect Mode: Buttons locked, animations active (Press I again to unlock)");
+        }
       } else if (k === "m") {
         activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("Move Mode");
       } else if (k === "s") {
