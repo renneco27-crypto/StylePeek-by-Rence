@@ -755,7 +755,10 @@
     const clsStr = getPrimaryClass(el);
     const depthLabel = isDeepLayerMode ? ` · Deep Layer (${deepLayerIndex + 1}/${Math.max(1, deepLayerStack.length)})` : "";
 
-    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="Transform Element Code / Overwrite">Code</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
+    const pageX = Math.round(r.left + (window.scrollX || window.pageXOffset || 0));
+    const pageY = Math.round(r.top + (window.scrollY || window.pageYOffset || 0));
+
+    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)} · X: ${pageX} Y: ${pageY})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="Transform Element Code / Overwrite">Code</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
 
     const badgeBehindBtn = selectBadge.querySelector("#sp-badge-btn-layer-behind");
     if (badgeBehindBtn) {
@@ -797,7 +800,7 @@
   /* ── 4-Corner Live Resizing / Stretching ── */
   let isResizing = false;
   let resizeDir = "";
-  let resizeStart = { mouseX: 0, mouseY: 0, width: 0, height: 0, startStyleW: "", startStyleH: "" };
+  let resizeStart = { mouseX: 0, mouseY: 0, width: 0, height: 0, startStyleW: "", startStyleH: "", transX: 0, transY: 0 };
 
   selectBox.querySelectorAll(".sp-resize-handle").forEach(handle => {
     handle.addEventListener("mousedown", e => {
@@ -805,16 +808,20 @@
       isResizing = true;
       resizeDir = handle.dataset.dir;
       const r = selectedEl.getBoundingClientRect();
+      const curTrans = getElementTranslate(selectedEl);
       resizeStart = {
         mouseX: e.clientX,
         mouseY: e.clientY,
         width: r.width,
         height: r.height,
         startStyleW: selectedEl.style.width,
-        startStyleH: selectedEl.style.height
+        startStyleH: selectedEl.style.height,
+        transX: curTrans.x,
+        transY: curTrans.y
       };
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
     });
   });
 
@@ -825,22 +832,34 @@
 
     let newW = resizeStart.width;
     let newH = resizeStart.height;
+    let newX = resizeStart.transX;
+    let newY = resizeStart.transY;
 
     if (resizeDir === "se") {
-      newW += deltaX; newH += deltaY;
+      newW = Math.max(16, Math.round(resizeStart.width + deltaX));
+      newH = Math.max(16, Math.round(resizeStart.height + deltaY));
     } else if (resizeDir === "sw") {
-      newW -= deltaX; newH += deltaY;
+      newW = Math.max(16, Math.round(resizeStart.width - deltaX));
+      newH = Math.max(16, Math.round(resizeStart.height + deltaY));
+      const actualDeltaW = newW - resizeStart.width;
+      newX = resizeStart.transX - actualDeltaW;
     } else if (resizeDir === "ne") {
-      newW += deltaX; newH -= deltaY;
+      newW = Math.max(16, Math.round(resizeStart.width + deltaX));
+      newH = Math.max(16, Math.round(resizeStart.height - deltaY));
+      const actualDeltaH = newH - resizeStart.height;
+      newY = resizeStart.transY - actualDeltaH;
     } else if (resizeDir === "nw") {
-      newW -= deltaX; newH -= deltaY;
+      newW = Math.max(16, Math.round(resizeStart.width - deltaX));
+      newH = Math.max(16, Math.round(resizeStart.height - deltaY));
+      const actualDeltaW = newW - resizeStart.width;
+      const actualDeltaH = newH - resizeStart.height;
+      newX = resizeStart.transX - actualDeltaW;
+      newY = resizeStart.transY - actualDeltaH;
     }
-
-    newW = Math.max(16, Math.round(newW));
-    newH = Math.max(16, Math.round(newH));
 
     selectedEl.style.width = newW + "px";
     selectedEl.style.height = newH + "px";
+    setElementTranslate(selectedEl, newX, newY);
     updateSelectBox(selectedEl);
     updateSandboxPreview(selectedEl);
   }, true);
@@ -848,15 +867,18 @@
   window.addEventListener("mouseup", () => {
     if (isResizing && selectedEl) {
       isResizing = false;
+      const curTrans = getElementTranslate(selectedEl);
       undoStack.push({
         type: "resize",
         node: selectedEl,
         oldW: resizeStart.startStyleW,
         oldH: resizeStart.startStyleH,
         newW: selectedEl.style.width,
-        newH: selectedEl.style.height
+        newH: selectedEl.style.height,
+        oldTranslate: { x: resizeStart.transX, y: resizeStart.transY },
+        newTranslate: { x: curTrans.x, y: curTrans.y }
       });
-      showToast(`↔️ Stretched element to ${selectedEl.style.width} × ${selectedEl.style.height}`);
+      showToast(`Stretched element to ${selectedEl.style.width} × ${selectedEl.style.height}`);
     }
   }, true);
 
@@ -2447,7 +2469,7 @@
       }
     } catch (err) {}
 
-    showToast("✏️ Editing words live • Enter for new line div with matching font, Esc to cancel");
+    showToast("Editing words live • Enter for new line div with matching font, Esc to cancel");
 
     function onBlur() {
       finishInlineTextEdit(textEl);
@@ -2562,7 +2584,7 @@
       updateSandboxPreview(selectedEl);
       populateDualCodePanes(selectedEl);
       updateSelectBox(selectedEl);
-      showToast("✓ Saved word edits • Formatted lines & fonts preserved!");
+      showToast("Saved word edits • Formatted lines and fonts preserved");
     }
     if (activeEditingNode === node) activeEditingNode = null;
   }
@@ -2674,8 +2696,8 @@
     // Stop page mousedown handlers so animated buttons don't think they are being clicked by the site
     e.stopPropagation();
 
-    // NEVER start element dragging when in Stretch (resize) or Delete mode, or while resizing handles!
-    if (isResizing || activeToolMode === "resize" || activeToolMode === "delete") {
+    // NEVER start element dragging when in Delete mode, or while actively dragging corner handles!
+    if (isResizing || activeToolMode === "delete") {
       isDragCandidate = false;
       isDragging = false;
       dragTarget = null;
@@ -2684,7 +2706,7 @@
 
     const picked = visbugPickElement(e.clientX, e.clientY) || e.target;
     const isTargetOrChild = selectedEl && (selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move") || isDeepLayerMode || isTargetOrChild;
+    const shouldAllowDrag = (activeToolMode === "move" || activeToolMode === "resize") || isDeepLayerMode || isTargetOrChild;
 
     if (shouldAllowDrag) {
       const parentInteractive = picked.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6");
@@ -2754,7 +2776,7 @@
   document.addEventListener("mousemove", e => {
     if (!isEnabled) return;
 
-    if (isDragCandidate && dragTarget && !isResizing && activeToolMode !== "resize" && activeToolMode !== "delete") {
+    if (isDragCandidate && dragTarget && !isResizing && activeToolMode !== "delete") {
       lastDragMouseEvent = e;
       const dist = Math.hypot(e.clientX - dragOrigin.mouseX, e.clientY - dragOrigin.mouseY);
       // Once mouse moves more than 3px, treat as intentional drag
@@ -3007,6 +3029,7 @@
      ══════════════════════════════════════════════════════════ */
   document.addEventListener("dblclick", e => {
     if (!isEnabled || isOwn(e.target)) return;
+    if (activeToolMode !== "inspect") return;
     if (isTextEditableCandidate(e.target)) {
       e.preventDefault();
       e.stopPropagation();
@@ -3050,8 +3073,8 @@
 
     const target = visbugPickElement(e.clientX, e.clientY) || e.target;
 
-    // Check if user clicked on blank space or in add mode -> add text directly!
-    if (activeToolMode === "add" || isPageRootOrFullWrapper(target)) {
+    // Only Add mode, or Inspect mode when clicking on blank space, adds text
+    if (activeToolMode === "add" || (activeToolMode === "inspect" && isPageRootOrFullWrapper(target))) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -3059,7 +3082,7 @@
       return;
     }
 
-    if (activeToolMode === "move") {
+    if (activeToolMode === "move" || activeToolMode === "resize") {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -3068,6 +3091,9 @@
         isTargetLocked = false;
         unlockPending = false;
         updateSelectBox(selectedEl);
+      } else {
+        selectedEl = null;
+        selectBox.style.display = "none";
       }
       closeAllPopups();
       return;
@@ -3189,6 +3215,9 @@
     } else if (action.type === "resize" && action.node) {
       action.node.style.width = action.oldW;
       action.node.style.height = action.oldH;
+      if (action.oldTranslate) {
+        setElementTranslate(action.node, action.oldTranslate.x, action.oldTranslate.y);
+      }
       updateSelectBox(action.node);
       showToast("Restored original dimensions");
     } else if (action.type === "img-replace" && action.node) {
@@ -3962,7 +3991,7 @@
      Full-Page Site Auto-Scroll Capture & Download (Clean, No Extension Artifacts)
      ══════════════════════════════════════════════════════════ */
   async function captureVisibleViewport() {
-    showToast("📸 Capturing rendered slide / viewport cleanly...");
+    showToast("Capturing rendered slide / viewport cleanly...");
 
     try {
       const origScrollX = window.scrollX || window.pageXOffset || 0;
@@ -4275,7 +4304,7 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       }
     } catch (err) {
       console.error("[StylePeek] captureVisibleViewport fatal error:", err);
-      showToast("❌ Capture error: " + (err.message || "Failed to save"));
+      showToast("Capture error: " + (err.message || "Failed to save"));
     }
   }
 })();
