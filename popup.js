@@ -1336,7 +1336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab || !tab.id) throw new Error("No active tab");
-      setStatus("Capturing visible page as HTML...");
+      setStatus("Scrolling down panel & saving HTML...");
 
       // Send captureViewport to execute captureVisibleViewport() on the tab
       let res = await chrome.tabs.sendMessage(tab.id, { action: "captureViewport" }).catch(() => null);

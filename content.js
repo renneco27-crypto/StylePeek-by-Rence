@@ -4428,7 +4428,7 @@
      Full-Page Site Auto-Scroll Capture & Download (Clean, No Extension Artifacts)
      ══════════════════════════════════════════════════════════ */
   async function captureVisibleViewport() {
-    showToast("Capturing rendered slide / viewport cleanly...");
+    showToast("Scrolling down panel to capture full page...");
 
     try {
       const origScrollX = window.scrollX || window.pageXOffset || 0;
@@ -4437,63 +4437,72 @@
       // 1. Auto-scroll down the website's main panel (and window) to trigger all lazy-loaded images & content
       try {
         const promoteLazy = () => {
-          document.querySelectorAll("img, [data-src], [data-lazy-src], [data-original]").forEach(el => {
+          document.querySelectorAll("img, [data-src], [data-lazy-src], [data-original], [data-lazy], [data-bg], [data-bg-url]").forEach(el => {
             if (el.tagName === "IMG" && el.loading === "lazy") el.loading = "eager";
-            const lazySrc = el.getAttribute("data-src") || el.getAttribute("data-lazy-src") || el.getAttribute("data-original");
+            const lazySrc = el.getAttribute("data-src") || el.getAttribute("data-lazy-src") || el.getAttribute("data-original") || el.getAttribute("data-lazy");
             if (lazySrc && el.tagName === "IMG" && (!el.src || el.src.startsWith("data:image/svg") || el.src.startsWith("data:image/gif"))) {
               el.src = lazySrc;
+            }
+            const bgSrc = el.getAttribute("data-bg") || el.getAttribute("data-bg-url");
+            if (bgSrc && !el.style.backgroundImage) {
+              el.style.backgroundImage = `url("${bgSrc}")`;
             }
           });
         };
         promoteLazy();
 
-        // Check if an inner container or panel is scrollable
+        // Check if an inner container or panel is scrollable (find the one with largest scrollHeight)
         const candidates = Array.from(document.querySelectorAll("main, [role='main'], [class*='deck'], [class*='slide'], [class*='panel'], [class*='content'], article, section, div"));
         let scrollablePanel = null;
+        let maxScrollHeight = 0;
         for (const el of candidates) {
-          if (el.clientHeight > 180 && el.scrollHeight > el.clientHeight + 60) {
+          if (el.clientHeight > 150 && el.scrollHeight > el.clientHeight + 60) {
             const cs = window.getComputedStyle(el);
             const oy = cs.overflowY || cs.overflow;
-            if (oy === "auto" || oy === "scroll") {
-              scrollablePanel = el;
-              break;
+            if (oy === "auto" || oy === "scroll" || oy === "overlay") {
+              if (el.scrollHeight > maxScrollHeight) {
+                maxScrollHeight = el.scrollHeight;
+                scrollablePanel = el;
+              }
             }
           }
         }
 
+        // Smoothly and visibly scroll down the inner panel if present
         if (scrollablePanel) {
           const pOrigY = scrollablePanel.scrollTop;
           const pTotal = scrollablePanel.scrollHeight;
-          const step = Math.max(300, Math.floor(scrollablePanel.clientHeight * 0.75));
-          for (let pos = 0; pos < pTotal; pos += step) {
+          const step = Math.max(250, Math.floor(scrollablePanel.clientHeight * 0.65));
+          for (let pos = 0; pos <= pTotal; pos += step) {
             scrollablePanel.scrollTop = pos;
             promoteLazy();
-            await new Promise(r => setTimeout(r, 35));
+            await new Promise(r => setTimeout(r, 65));
           }
           scrollablePanel.scrollTop = pTotal;
           promoteLazy();
-          await new Promise(r => setTimeout(r, 80));
+          await new Promise(r => setTimeout(r, 120));
           scrollablePanel.scrollTop = pOrigY;
-          await new Promise(r => setTimeout(r, 35));
+          await new Promise(r => setTimeout(r, 50));
         }
 
+        // Smoothly and visibly scroll down the window / document
         const scrollHeight = Math.max(
           document.body ? document.body.scrollHeight : 0,
           document.documentElement ? document.documentElement.scrollHeight : 0,
           window.innerHeight
         );
-        if (scrollHeight > window.innerHeight + 80) {
-          const step = Math.max(350, Math.floor(window.innerHeight * 0.75));
-          for (let pos = 0; pos < scrollHeight; pos += step) {
+        if (scrollHeight > window.innerHeight + 60) {
+          const step = Math.max(280, Math.floor(window.innerHeight * 0.65));
+          for (let pos = 0; pos <= scrollHeight; pos += step) {
             window.scrollTo(0, pos);
             promoteLazy();
-            await new Promise(r => setTimeout(r, 35));
+            await new Promise(r => setTimeout(r, 65));
           }
           window.scrollTo(0, scrollHeight);
           promoteLazy();
-          await new Promise(r => setTimeout(r, 80));
+          await new Promise(r => setTimeout(r, 120));
           window.scrollTo(origScrollX, origScrollY);
-          await new Promise(r => setTimeout(r, 40));
+          await new Promise(r => setTimeout(r, 60));
         }
       } catch (e) {}
 
