@@ -3964,28 +3964,68 @@
       const origScrollX = window.scrollX || window.pageXOffset || 0;
       const origScrollY = window.scrollY || window.pageYOffset || 0;
 
-      // 1. Gently load images (auto-scroll only if tall multi-screen page)
+      // 1. Auto-scroll down the website's main panel (and window) to trigger all lazy-loaded images & content
       try {
+        const promoteLazy = () => {
+          document.querySelectorAll("img, [data-src], [data-lazy-src], [data-original]").forEach(el => {
+            if (el.tagName === "IMG" && el.loading === "lazy") el.loading = "eager";
+            const lazySrc = el.getAttribute("data-src") || el.getAttribute("data-lazy-src") || el.getAttribute("data-original");
+            if (lazySrc && el.tagName === "IMG" && (!el.src || el.src.startsWith("data:image/svg") || el.src.startsWith("data:image/gif"))) {
+              el.src = lazySrc;
+            }
+          });
+        };
+        promoteLazy();
+
+        // Check if an inner container or panel is scrollable
+        const candidates = Array.from(document.querySelectorAll("main, [role='main'], [class*='deck'], [class*='slide'], [class*='panel'], [class*='content'], article, section, div"));
+        let scrollablePanel = null;
+        for (const el of candidates) {
+          if (el.clientHeight > 180 && el.scrollHeight > el.clientHeight + 60) {
+            const cs = window.getComputedStyle(el);
+            const oy = cs.overflowY || cs.overflow;
+            if (oy === "auto" || oy === "scroll") {
+              scrollablePanel = el;
+              break;
+            }
+          }
+        }
+
+        if (scrollablePanel) {
+          const pOrigY = scrollablePanel.scrollTop;
+          const pTotal = scrollablePanel.scrollHeight;
+          const step = Math.max(300, Math.floor(scrollablePanel.clientHeight * 0.75));
+          for (let pos = 0; pos < pTotal; pos += step) {
+            scrollablePanel.scrollTop = pos;
+            promoteLazy();
+            await new Promise(r => setTimeout(r, 35));
+          }
+          scrollablePanel.scrollTop = pTotal;
+          promoteLazy();
+          await new Promise(r => setTimeout(r, 80));
+          scrollablePanel.scrollTop = pOrigY;
+          await new Promise(r => setTimeout(r, 35));
+        }
+
         const scrollHeight = Math.max(
           document.body ? document.body.scrollHeight : 0,
           document.documentElement ? document.documentElement.scrollHeight : 0,
           window.innerHeight
         );
-        if (scrollHeight > window.innerHeight + 120) {
-          const step = Math.max(350, Math.floor(window.innerHeight * 0.8));
+        if (scrollHeight > window.innerHeight + 80) {
+          const step = Math.max(350, Math.floor(window.innerHeight * 0.75));
           for (let pos = 0; pos < scrollHeight; pos += step) {
             window.scrollTo(0, pos);
-            await new Promise(r => setTimeout(r, 40));
+            promoteLazy();
+            await new Promise(r => setTimeout(r, 35));
           }
           window.scrollTo(0, scrollHeight);
-          await new Promise(r => setTimeout(r, 100));
+          promoteLazy();
+          await new Promise(r => setTimeout(r, 80));
           window.scrollTo(origScrollX, origScrollY);
-          await new Promise(r => setTimeout(r, 60));
+          await new Promise(r => setTimeout(r, 40));
         }
       } catch (e) {}
-
-      // 1b. Run Ad-Safe Tree Button-Clicking State Crawler & Undo back to main screen
-      const recordedBranches = await exploreAndRecordAllBranchStates();
 
       // 2. Hide any active extension toasts & popovers before cloning
       if (toast) toast.classList.remove("sp-show");
@@ -4143,54 +4183,6 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       const styleEl = document.createElement("style");
       styleEl.textContent = fullCSS;
       cloneHead.appendChild(styleEl);
-
-      // 8b. Inject Offline Interactive State Data and Engine if button states were recorded
-      if (Array.isArray(recordedBranches) && recordedBranches.length > 0) {
-        const stateDataScript = document.createElement("script");
-        stateDataScript.id = "sp-state-data";
-        stateDataScript.type = "application/json";
-        stateDataScript.textContent = JSON.stringify(recordedBranches);
-        cloneBody.appendChild(stateDataScript);
-
-        const offlineRuntimeScript = document.createElement("script");
-        offlineRuntimeScript.id = "sp-offline-runtime";
-        offlineRuntimeScript.textContent = `
-(function() {
-  try {
-    var raw = document.getElementById("sp-state-data");
-    if (!raw) return;
-    var states = JSON.parse(raw.textContent || "[]");
-    if (!states.length) return;
-    var stateMap = {};
-    states.forEach(function(s) { stateMap[s.bid] = s; });
-    document.addEventListener("click", function(e) {
-      var trigger = e.target.closest ? e.target.closest("[data-sp-bid]") : null;
-      if (!trigger) return;
-      var bid = trigger.getAttribute("data-sp-bid");
-      var state = stateMap[bid];
-      if (!state) return;
-      if (trigger.tagName === "A") {
-        var href = trigger.getAttribute("href") || "";
-        if (href.startsWith("#") || href.startsWith("javascript:")) e.preventDefault();
-      }
-      if (Array.isArray(state.mutations)) {
-        state.mutations.forEach(function(m) {
-          var target = document.querySelector('[data-sp-cid="' + m.cid + '"]');
-          if (!target) return;
-          if (m.className !== undefined) target.className = m.className;
-          if (m.attr && m.val !== undefined) {
-            if (m.val === null) target.removeAttribute(m.attr);
-            else target.setAttribute(m.attr, m.val);
-          }
-          if (m.innerHTML !== undefined) target.innerHTML = m.innerHTML;
-        });
-      }
-    }, true);
-  } catch(e) {}
-})();
-`;
-        cloneBody.appendChild(offlineRuntimeScript);
-      }
 
       // 9. Download full page file cleanly (Local HTML + Web)
       const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
