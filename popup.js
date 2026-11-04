@@ -431,6 +431,56 @@ async function buildWebsiteZipFromTab(tab, options = {}) {
     );
   }
 
+  // Package with pnpm / npm dev server configuration (Law: zero-friction local run)
+  const packageJson = JSON.stringify(
+    {
+      name: websiteName || "captured-website",
+      version: "1.0.0",
+      private: true,
+      type: "module",
+      scripts: {
+        dev: "sirv . --port 3000 --open --cors --dev",
+        start: "sirv . --port 3000 --open --cors",
+        serve: "npx serve ."
+      },
+      devDependencies: {
+        "sirv-cli": "^2.0.2"
+      }
+    },
+    null,
+    2
+  );
+
+  const readmeMd = `# ${websiteName || "Captured Website"}
+
+Captured and packaged with StylePeek.
+
+## Quick Start (with pnpm):
+\`\`\`bash
+pnpm install
+pnpm dev
+\`\`\`
+Your browser will automatically open \`http://localhost:3000\` with all styles, fonts, and assets running cleanly under a local HTTP server!
+
+## Alternative (npm / yarn):
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+## Instant Run (No install needed):
+\`\`\`bash
+npx serve .
+\`\`\`
+`;
+
+  // Place package.json & README.md in both folder and root so however the user unzips, it works out of the box
+  websiteFolder.file("package.json", packageJson);
+  websiteFolder.file("README.md", readmeMd);
+  zip.file("package.json", packageJson);
+  zip.file("README.md", readmeMd);
+  zip.file("index.html", updatedPageContent);
+
   return { zip, websiteName, baseUrl, branchCount: recordedBranches.length };
 }
 
