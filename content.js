@@ -116,7 +116,15 @@
         </button>
         <button type="button" class="sp-ctx-item" data-action="step-behind">
           <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.stepDown}</span><span class="sp-ctx-label">Step Behind</span></span>
-          <span class="sp-ctx-kbd">↓</span>
+          <span class="sp-ctx-kbd">Step</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="move-to-back">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.layers}</span><span class="sp-ctx-label">Move to Back</span></span>
+          <span class="sp-ctx-kbd">[</span>
+        </button>
+        <button type="button" class="sp-ctx-item" data-action="bring-to-front">
+          <span class="sp-ctx-item-left"><span class="sp-ctx-icon">${SP_ICONS.stepUp}</span><span class="sp-ctx-label">Bring to Front</span></span>
+          <span class="sp-ctx-kbd">]</span>
         </button>
       </div>
 
@@ -571,7 +579,7 @@
     }
 
     const menuW = 220;
-    const menuH = 320;
+    const menuH = 370;
     let x = clientX;
     let y = clientY;
 
@@ -698,6 +706,18 @@
         }
       } else if (action === "step-behind") {
         stepLayerDeeper();
+      } else if (action === "move-to-back") {
+        if (selectedEl) {
+          moveElementToBackArray(selectedEl);
+        } else {
+          showToast("Select an element first");
+        }
+      } else if (action === "bring-to-front") {
+        if (selectedEl) {
+          bringElementToFrontArray(selectedEl);
+        } else {
+          showToast("Select an element first");
+        }
       } else if (action === "duplicate") {
         if (selectedEl) {
           copySelectedElement();
@@ -2394,54 +2414,126 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     Layers Tab: Non-Destructive Send to Back & Bring to Front
+     Bounded 5-Layer Array Reordering (Move to Back / Bring to Front)
      ══════════════════════════════════════════════════════════ */
-  function sendElementToBack(el) {
-    if (!el || !el.parentElement) return;
-    spPlayKeyClick(150);
+  function getLocalLayerStack(el) {
+    if (!el || !el.parentElement || isOwn(el)) return { parent: null, stack: [] };
     const parent = el.parentElement;
-    undoStack.push({
-      type: "order",
-      node: el,
-      parent,
-      next: el.nextElementSibling,
-      oldZ: el.style.zIndex
+
+    // Collect direct visual siblings inside the same container
+    const siblings = Array.from(parent.children).filter(c => {
+      if (!c || isOwn(c)) return false;
+      if (["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"].includes(c.tagName)) return false;
+      const cs = window.getComputedStyle(c);
+      if (cs.display === "none") return false;
+      return true;
     });
 
-    ensurePositioned(el);
-    // Keep z-index at 0 and elevate sibling layers to z-index >= 1 so the element sits behind siblings without vanishing behind an opaque <body>!
-    el.style.setProperty("z-index", "0", "important");
-    Array.from(parent.children).forEach(sib => {
-      if (sib !== el && !isOwn(sib)) {
-        ensurePositioned(sib);
-        const sibZ = parseInt(window.getComputedStyle(sib).zIndex) || 0;
-        if (sibZ <= 0) sib.style.setProperty("z-index", "1", "important");
-      }
+    if (siblings.length <= 5) {
+      return { parent, stack: siblings };
+    }
+
+    // Limit to maximum 5 layers surrounding the selected element
+    const idx = siblings.indexOf(el);
+    let start = Math.max(0, idx - 2);
+    let end = Math.min(siblings.length, start + 5);
+    if (end - start < 5) start = Math.max(0, end - 5);
+    return { parent, stack: siblings.slice(start, end) };
+  }
+
+  function moveElementToBackArray(el) {
+    if (!el || isOwn(el)) return;
+    const { parent, stack } = getLocalLayerStack(el);
+    if (!parent || !stack.length) {
+      showToast("Cannot reorder element");
+      return;
+    }
+
+    spPlayKeyClick(150);
+
+    const undoItems = stack.map(node => ({
+      node,
+      oldZ: node.style.zIndex,
+      nextSibling: node.nextElementSibling,
+      parent: node.parentElement
+    }));
+    undoStack.push({
+      type: "layer-reorder",
+      items: undoItems
     });
-    parent.insertBefore(el, parent.firstChild);
-    if (zInput) zInput.value = 0;
+
+    // Reorder in array: move el to index 0 (Back of array, max 5 layers)
+    const newStack = stack.filter(node => node !== el);
+    newStack.unshift(el);
+
+    // Assign clean bounded z-indices from 1 to N (1 is back, N is front, max 5)
+    newStack.forEach((node, i) => {
+      ensurePositioned(node);
+      const layerNum = i + 1; // 1 (back) to 5 (front)
+      node.style.setProperty("z-index", String(layerNum), "important");
+    });
+
+    // Reorder in DOM so visual layering and DOM sequence match the array
+    const nextInStack = newStack[1];
+    if (nextInStack && nextInStack.parentElement === parent) {
+      parent.insertBefore(el, nextInStack);
+    } else {
+      parent.insertBefore(el, parent.firstChild);
+    }
+
     updateSelectBox(el);
-    showToast("Sent layer behind all sibling elements in this section");
+    showToast(`Moved to back (Layer 1 of ${newStack.length} in layer array)`);
+  }
+
+  function bringElementToFrontArray(el) {
+    if (!el || isOwn(el)) return;
+    const { parent, stack } = getLocalLayerStack(el);
+    if (!parent || !stack.length) {
+      showToast("Cannot reorder element");
+      return;
+    }
+
+    spPlayKeyClick(185);
+
+    const undoItems = stack.map(node => ({
+      node,
+      oldZ: node.style.zIndex,
+      nextSibling: node.nextElementSibling,
+      parent: node.parentElement
+    }));
+    undoStack.push({
+      type: "layer-reorder",
+      items: undoItems
+    });
+
+    // Reorder in array: move el to end (Front of array, max 5 layers)
+    const newStack = stack.filter(node => node !== el);
+    newStack.push(el);
+
+    // Assign clean bounded z-indices from 1 to N (1 is back, N is front, max 5)
+    newStack.forEach((node, i) => {
+      ensurePositioned(node);
+      const layerNum = i + 1; // 1 to 5
+      node.style.setProperty("z-index", String(layerNum), "important");
+    });
+
+    const prevInStack = newStack[newStack.length - 2];
+    if (prevInStack && prevInStack.nextElementSibling) {
+      parent.insertBefore(el, prevInStack.nextElementSibling);
+    } else {
+      parent.appendChild(el);
+    }
+
+    updateSelectBox(el);
+    showToast(`Brought to front (Layer ${newStack.length} of ${newStack.length} in layer array)`);
+  }
+
+  function sendElementToBack(el) {
+    moveElementToBackArray(el);
   }
 
   function bringElementToFront(el) {
-    if (!el || !el.parentElement) return;
-    spPlayKeyClick(185);
-    const parent = el.parentElement;
-    undoStack.push({
-      type: "order",
-      node: el,
-      parent,
-      next: el.nextElementSibling,
-      oldZ: el.style.zIndex
-    });
-
-    ensurePositioned(el);
-    el.style.setProperty("z-index", "50", "important");
-    parent.appendChild(el);
-    if (zInput) zInput.value = 50;
-    updateSelectBox(el);
-    showToast("Brought layer to the front");
+    bringElementToFrontArray(el);
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -3460,8 +3552,8 @@
         let snapLineY = 0;
         let snapLineX = 0;
 
-        // Holding Alt key completely bypasses snapping for 100% free dragging
-        const snappingEnabled = !e.altKey;
+        // Free placement by default without magnetic snapping resistance (can be put anywhere). Hold Shift to snap.
+        const snappingEnabled = !!e.shiftKey;
         const SNAP_THRESHOLD = 5;
 
         if (snappingEnabled) {

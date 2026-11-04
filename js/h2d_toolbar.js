@@ -754,11 +754,11 @@ function spMineElementAndRelatives(targetEl, includeSiblings = false) {
 *, *::before, *::after { box-sizing: border-box; }
 html, body {
   margin: 0;
-  padding: 20px;
+  padding: 24px;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  box-sizing: border-box;
+  overflow: auto;
   font-family: system-ui, -apple-system, sans-serif;
 }
 [data-sp-selected-target="true"] {
@@ -1031,23 +1031,26 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       }
       .close-btn:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 
-      /* Relative & Ancestor Navigation Bar (Parent / Sibling / Child / With Siblings) */
+      /* Ancestor Breadcrumb Bar */
       .relatives-bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding: 8px 16px;
         background: var(--color-paper-2, #EAE8E0);
         border-bottom: 1px solid var(--color-rule, #DCD9CE);
         gap: 10px;
-        flex-wrap: wrap;
+        width: 100%;
+        box-sizing: border-box;
       }
       .breadcrumbs {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         overflow-x: auto;
-        max-width: 54%;
+        width: 100%;
+        max-width: 100%;
+        flex: 1;
         scrollbar-width: thin;
         padding: 2px 0;
       }
@@ -1359,26 +1362,17 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
 
       <div class="relatives-bar">
         <div class="breadcrumbs" id="sp-breadcrumbs" title="Click any parent or ancestor to inspect & preview it live (✦ = has animation/hover rules)"></div>
-        <div class="nav-btns">
-          <button class="nav-btn" id="sp-btn-parent" title="Step up to Parent Element (Alt+Up)">↑ Go to Parent</button>
-          <button class="nav-btn" id="sp-btn-prev-sib" title="Previous Sibling Element">← Prev Sibling</button>
-          <button class="nav-btn" id="sp-btn-next-sib" title="Next Sibling Element">→ Next Sibling</button>
-          <button class="nav-btn" id="sp-btn-child" title="Step into First Child Element">↓ Child</button>
-          <button class="nav-btn" id="sp-btn-siblings" title="Include parent container and all sibling elements so neighbor layouts & hover animations work together">⊞ With Siblings</button>
-        </div>
       </div>
 
       <div class="subbar">
         <div class="tabs">
           <button class="tab-btn active" data-tab="preview">Interactive Design</button>
-          <button class="tab-btn" data-tab="html">HTML + CSS</button>
           <button class="tab-btn" data-tab="tsx">React / TSX</button>
           <button class="tab-btn" data-tab="anim" id="sp-tab-anim">Animations & Colors</button>
           <button class="tab-btn" data-tab="assets" id="sp-tab-assets">Connected Assets</button>
         </div>
         <div class="stage-tools" id="sp-stage-tools">
           <button class="nav-btn" id="sp-btn-replay" title="Replay CSS @keyframes & transitions inside the live preview">Replay Anim</button>
-          <button class="nav-btn" id="sp-btn-hover" title="Toggle ancestor/parent :hover states on the previewed element">Simulate :hover</button>
           <button class="nav-btn" id="sp-btn-theme" title="Switch preview stage backdrop (Auto / Dark / Light / Grid)">Backdrop</button>
         </div>
       </div>
@@ -1386,14 +1380,12 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
       <div class="body-area" id="sp-body-area"></div>
 
       <div class="footer">
-        <div class="status-msg" id="sp-status-msg">Interact with the design above or step to Parent / Sibling before copying</div>
+        <div class="status-msg" id="sp-status-msg">Click any ancestor in the breadcrumbs above to preview or copy</div>
         <div class="action-btns">
-          <button class="act-btn primary" id="sp-copy-code">Copy Code (HTML+CSS)</button>
+          <button class="act-btn primary" id="sp-copy-code">Copy Code</button>
           <button class="act-btn" id="sp-copy-tsx">Copy TSX</button>
-          <button class="act-btn" id="sp-copy-png">Copy as PNG</button>
-          <button class="act-btn" id="sp-copy-svg">Copy as SVG</button>
-          <button class="act-btn" id="sp-copy-figma">Copy Design Layers</button>
-          <button class="act-btn" id="sp-download-html" title="Optional: Download as standalone .html file">Save .HTML</button>
+          <button class="act-btn" id="sp-copy-png">Copy PNG</button>
+          <button class="act-btn" id="sp-copy-svg">Copy SVG</button>
         </div>
       </div>
     </div>
@@ -1466,14 +1458,20 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     });
     bcEl.scrollLeft = bcEl.scrollWidth;
 
-    // Relative nav button states
-    $("#sp-btn-parent").disabled = !currentEl.parentElement || currentEl.parentElement === document.documentElement;
-    $("#sp-btn-prev-sib").disabled = !currentEl.previousElementSibling;
-    $("#sp-btn-next-sib").disabled = !currentEl.nextElementSibling;
-    $("#sp-btn-child").disabled = !currentEl.firstElementChild;
+    // Relative nav button states (if present)
+    const pBtn = $("#sp-btn-parent");
+    if (pBtn) pBtn.disabled = !currentEl.parentElement || currentEl.parentElement === document.documentElement;
+    const prevBtn = $("#sp-btn-prev-sib");
+    if (prevBtn) prevBtn.disabled = !currentEl.previousElementSibling;
+    const nextBtn = $("#sp-btn-next-sib");
+    if (nextBtn) nextBtn.disabled = !currentEl.nextElementSibling;
+    const childBtn = $("#sp-btn-child");
+    if (childBtn) childBtn.disabled = !currentEl.firstElementChild;
     const sibBtn = $("#sp-btn-siblings");
-    sibBtn.classList.toggle("toggle-active", includeSiblings);
-    sibBtn.textContent = includeSiblings ? "⊞ Siblings Included ✓" : "⊞ With Siblings";
+    if (sibBtn) {
+      sibBtn.classList.toggle("toggle-active", includeSiblings);
+      sibBtn.textContent = includeSiblings ? "⊞ Siblings Included ✓" : "⊞ With Siblings";
+    }
 
     // Active tab buttons
     shadow.querySelectorAll(".tab-btn").forEach(b => {
@@ -1603,31 +1601,31 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     if (e.target === host) host.remove();
   });
 
-  $("#sp-btn-parent").addEventListener("click", () => {
+  $("#sp-btn-parent")?.addEventListener("click", () => {
     if (currentEl.parentElement && currentEl.parentElement !== document.documentElement) {
       navigateToElement(currentEl.parentElement);
       setStatusMsg("Stepped up to Parent element — live preview, animations & assets updated!");
     }
   });
-  $("#sp-btn-prev-sib").addEventListener("click", () => {
+  $("#sp-btn-prev-sib")?.addEventListener("click", () => {
     if (currentEl.previousElementSibling) {
       navigateToElement(currentEl.previousElementSibling);
       setStatusMsg("Stepped to Previous Sibling element!");
     }
   });
-  $("#sp-btn-next-sib").addEventListener("click", () => {
+  $("#sp-btn-next-sib")?.addEventListener("click", () => {
     if (currentEl.nextElementSibling) {
       navigateToElement(currentEl.nextElementSibling);
       setStatusMsg("Stepped to Next Sibling element!");
     }
   });
-  $("#sp-btn-child").addEventListener("click", () => {
+  $("#sp-btn-child")?.addEventListener("click", () => {
     if (currentEl.firstElementChild) {
       navigateToElement(currentEl.firstElementChild);
       setStatusMsg("Stepped into Child element!");
     }
   });
-  $("#sp-btn-siblings").addEventListener("click", () => {
+  $("#sp-btn-siblings")?.addEventListener("click", () => {
     navigateToElement(currentEl, !includeSiblings);
     setStatusMsg(includeSiblings ? "Included parent & sibling elements in live preview!" : "Showing selected element only.");
   });
@@ -1644,11 +1642,11 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     setStatusMsg("↻ Replayed animations & transitions in live stage!");
   });
 
-  $("#sp-btn-hover").addEventListener("click", () => {
+  $("#sp-btn-hover")?.addEventListener("click", () => {
     forceHover = !forceHover;
-    $("#sp-btn-hover").classList.toggle("toggle-active", forceHover);
+    $("#sp-btn-hover")?.classList.toggle("toggle-active", forceHover);
     renderBodyPane();
-    setStatusMsg(forceHover ? "🖱️ Simulating parent & element :hover states!" : "Restored normal state.");
+    setStatusMsg(forceHover ? "Simulating parent & element :hover states!" : "Restored normal state.");
   });
 
   $("#sp-btn-theme").addEventListener("click", () => {
@@ -1692,7 +1690,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     callbacks.showToast?.("Copied as SVG to clipboard");
   });
 
-  $("#sp-copy-figma").addEventListener("click", async () => {
+  $("#sp-copy-figma")?.addEventListener("click", async () => {
     setStatusMsg("Serializing design layers + code for current selection...");
     try {
       if (callbacks.reCapture && (mined.rootEl !== initialEl || !currentH2DCapture)) {
@@ -1711,7 +1709,7 @@ function spOpenInteractivePreviewModal(initialEl, initialH2DCapture, callbacks =
     }
   });
 
-  $("#sp-download-html").addEventListener("click", () => {
+  $("#sp-download-html")?.addEventListener("click", () => {
     spDownloadHtmlCode(mined.standaloneHtml);
     setStatusMsg("✓ Downloaded standalone .html file!");
   });
