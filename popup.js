@@ -1229,7 +1229,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           statusPill.textContent = "Studio Active";
           statusPill.classList.add("active");
         } else if (state.h2dOpen) {
-          statusPill.textContent = "Figma Active";
+          statusPill.textContent = "Capture Active";
           statusPill.classList.add("active");
         } else {
           statusPill.textContent = "Ready";
@@ -1324,7 +1324,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
       const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "toggle" }).catch(() => null);
-      setStatus(res?.active ? "Figma Bar ON" : "Figma Bar OFF", res?.active ? "ok" : "");
+      setStatus(res?.active ? "Capture Bar ON" : "Capture Bar OFF", res?.active ? "ok" : "");
     } catch (e) {
       setStatus(`Error: ${e.message || e}`, "err");
     }

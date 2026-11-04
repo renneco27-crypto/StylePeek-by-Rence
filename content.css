@@ -347,6 +347,288 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   Dedicated Sleek Code Transform Modal (CTRL+SPC UI Kit Style)
+   ══════════════════════════════════════════════════════════ */
+.sp-code-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: rgba(10, 10, 12, 0.72) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.sp-code-modal-card {
+  background: #1C1C1E !important;
+  color: #FAF9F6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.8) !important;
+  max-width: 640px !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  padding: 20px 22px !important;
+  box-sizing: border-box !important;
+  animation: spCodeModalPop 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+@keyframes spCodeModalPop {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.sp-code-modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-bottom: 12px !important;
+}
+
+.sp-code-modal-title-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.sp-code-modal-badge {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  background: rgba(200, 75, 68, 0.2) !important;
+  color: #FF7A70 !important;
+  border: 1px solid rgba(200, 75, 68, 0.35) !important;
+  border-radius: 6px !important;
+  padding: 3px 8px !important;
+}
+
+.sp-code-modal-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #FAF9F6 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.sp-code-modal-close {
+  all: unset !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #FAF9F6 !important;
+  font-size: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+
+.sp-code-modal-close:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  transform: scale(1.05) !important;
+}
+
+.sp-code-modal-img-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+}
+
+.sp-code-modal-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #A8A29E !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.sp-code-modal-img-inputs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.sp-code-modal-input {
+  all: unset !important;
+  flex: 1 !important;
+  background: #0D0D0E !important;
+  border: 1px solid #3A3A3C !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 12px !important;
+  color: #FAF9F6 !important;
+  box-sizing: border-box !important;
+}
+
+.sp-code-modal-input:focus {
+  border-color: #C84B44 !important;
+  box-shadow: 0 0 0 2px rgba(200, 75, 68, 0.25) !important;
+}
+
+.sp-code-modal-btn-sub {
+  all: unset !important;
+  background: #EAE8E0 !important;
+  color: #1C1C1E !important;
+  border: 1px solid #DCD9CE !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 0 #C5C1B3 !important;
+  transition: all 0.12s ease !important;
+}
+
+.sp-code-modal-btn-sub:hover {
+  background: #FAF9F6 !important;
+  transform: translateY(-1px) !important;
+}
+
+.sp-code-modal-btn-sub:active {
+  transform: translateY(1px) !important;
+  box-shadow: none !important;
+}
+
+.sp-code-modal-editor-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.sp-code-modal-editor-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.sp-code-modal-editor-lang {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #7CE0D3 !important;
+}
+
+.sp-code-modal-editor-hint {
+  font-size: 11px !important;
+  color: #78716C !important;
+}
+
+.sp-code-modal-textarea {
+  all: unset !important;
+  background: #0D0D0E !important;
+  color: #FAF9F6 !important;
+  border: 1px solid #3A3A3C !important;
+  border-radius: 12px !important;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  padding: 12px !important;
+  width: 100% !important;
+  min-height: 190px !important;
+  max-height: 380px !important;
+  resize: vertical !important;
+  box-sizing: border-box !important;
+  white-space: pre !important;
+  tab-size: 2 !important;
+}
+
+.sp-code-modal-textarea:focus {
+  border-color: #C84B44 !important;
+  box-shadow: 0 0 0 2px rgba(200, 75, 68, 0.25) !important;
+}
+
+.sp-code-modal-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-top: 12px !important;
+}
+
+.sp-code-modal-shortcut-hint {
+  font-size: 11px !important;
+  color: #A8A29E !important;
+}
+
+.sp-code-modal-shortcut-hint kbd {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  color: #FAF9F6 !important;
+}
+
+.sp-code-modal-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.sp-code-modal-btn-cancel {
+  all: unset !important;
+  background: #2C2C2E !important;
+  color: #FAF9F6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 9px !important;
+  padding: 8px 16px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+
+.sp-code-modal-btn-cancel:hover {
+  background: #3A3A3C !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.sp-code-modal-btn-apply {
+  all: unset !important;
+  background: #C84B44 !important;
+  color: #FAF9F6 !important;
+  border: 1px solid #A83832 !important;
+  border-radius: 9px !important;
+  box-shadow: 0 3px 0 #8F2D28 !important;
+  padding: 8px 18px !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+
+.sp-code-modal-btn-apply:hover {
+  background: #B53F38 !important;
+  transform: translateY(-1px) !important;
+}
+
+.sp-code-modal-btn-apply:active {
+  background: #8F2E29 !important;
+  transform: translateY(1px) !important;
+  box-shadow: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════
    Toast Notification (CTRL+SPC Pill)
    ══════════════════════════════════════════════════════════ */
 #sp-toast {

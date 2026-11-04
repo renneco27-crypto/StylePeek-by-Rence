@@ -150,6 +150,46 @@
       </div>
     </div>
 
+    <!-- Dedicated Sleek Code Transform Modal (CTRL+SPC UI Kit Style) -->
+    <div id="sp-code-modal" class="sp-code-modal-overlay">
+      <div class="sp-code-modal-card">
+        <div class="sp-code-modal-header">
+          <div class="sp-code-modal-title-row">
+            <span class="sp-code-modal-badge" id="sp-code-modal-badge">&lt;div&gt;</span>
+            <span class="sp-code-modal-title" id="sp-code-modal-title">Transform Element Code</span>
+          </div>
+          <button type="button" class="sp-code-modal-close" id="sp-code-modal-close" title="Close (Esc)">✕</button>
+        </div>
+
+        <!-- Image URL Quick Swapper (shown only when target is <img>) -->
+        <div class="sp-code-modal-img-row" id="sp-code-modal-img-row" style="display:none;">
+          <label class="sp-code-modal-label">Image Source URL:</label>
+          <div class="sp-code-modal-img-inputs">
+            <input type="text" class="sp-code-modal-input" id="sp-code-modal-img-url" placeholder="https://... or data:image/..." />
+            <button type="button" class="sp-code-modal-btn-sub" id="sp-code-modal-img-apply">Update Image</button>
+          </div>
+        </div>
+
+        <div class="sp-code-modal-editor-wrap">
+          <div class="sp-code-modal-editor-bar">
+            <span class="sp-code-modal-editor-lang">HTML &middot; Live Code</span>
+            <span class="sp-code-modal-editor-hint">Edit tag, attributes, classes or inner content</span>
+          </div>
+          <textarea class="sp-code-modal-textarea" id="sp-code-modal-textarea" spellcheck="false" placeholder="<element>...</element>"></textarea>
+        </div>
+
+        <div class="sp-code-modal-footer">
+          <div class="sp-code-modal-shortcut-hint">
+            <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to Apply live &middot; <kbd>Esc</kbd> to Cancel
+          </div>
+          <div class="sp-code-modal-actions">
+            <button type="button" class="sp-code-modal-btn-cancel" id="sp-code-modal-cancel">Cancel</button>
+            <button type="button" class="sp-code-modal-btn-apply" id="sp-code-modal-apply">Apply Code Changes &rarr;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating Tactile Sidebar Dock (CTRL+SPC UI Kit) -->
     <div id="sp-sidebar-dock">
       <div id="sp-dock-handle" title="Drag dock">${SP_ICONS.grip}</div>
@@ -315,6 +355,17 @@
   const ctxName           = root.querySelector("#sp-ctx-name");
   const ctxCoords         = root.querySelector("#sp-ctx-coords");
 
+  const codeModal         = root.querySelector("#sp-code-modal");
+  const codeModalBadge    = root.querySelector("#sp-code-modal-badge");
+  const codeModalTitle    = root.querySelector("#sp-code-modal-title");
+  const codeModalClose    = root.querySelector("#sp-code-modal-close");
+  const codeModalImgRow   = root.querySelector("#sp-code-modal-img-row");
+  const codeModalImgUrl   = root.querySelector("#sp-code-modal-img-url");
+  const codeModalImgApply = root.querySelector("#sp-code-modal-img-apply");
+  const codeModalTextarea = root.querySelector("#sp-code-modal-textarea");
+  const codeModalCancel   = root.querySelector("#sp-code-modal-cancel");
+  const codeModalApply    = root.querySelector("#sp-code-modal-apply");
+
   const previewPanel         = root.querySelector("#sp-inspect-preview-panel");
   const previewCloseBtn      = root.querySelector("#sp-preview-close");
   const sandboxViewport      = root.querySelector("#sp-sandbox-viewport");
@@ -433,6 +484,9 @@
     if (except !== "contextMenu" && contextMenu) {
       contextMenu.style.display = "none";
     }
+    if (except !== "codeModal" && codeModal && codeModal.style.display !== "none") {
+      closeCodeModal();
+    }
     if (except !== "preview") {
       const liveModal = document.getElementById("sp-h2d-interactive-modal");
       if (liveModal) liveModal.remove();
@@ -443,6 +497,53 @@
     if (except !== "error" && errorModal && errorModal.classList.contains("sp-modal-show")) {
       closeErrorModal();
     }
+  }
+
+  function openCodeModal(target) {
+    const el = target || selectedEl;
+    if (!el || isOwn(el) || isPageRootOrFullWrapper(el)) {
+      showToast("Select an element to transform code");
+      return;
+    }
+    closeAllPopups("codeModal");
+
+    const tag = el.tagName.toLowerCase();
+    if (codeModalBadge) codeModalBadge.textContent = `<${tag}>`;
+
+    if (codeModalTitle) {
+      if (tag === "img") {
+        codeModalTitle.textContent = "Transform Image Code & URL";
+      } else if (tag === "button") {
+        codeModalTitle.textContent = "Transform Button Code";
+      } else {
+        codeModalTitle.textContent = "Transform Element Code";
+      }
+    }
+
+    if (tag === "img") {
+      if (codeModalImgRow) codeModalImgRow.style.display = "flex";
+      if (codeModalImgUrl) codeModalImgUrl.value = el.currentSrc || el.src || el.getAttribute("src") || "";
+    } else {
+      if (codeModalImgRow) codeModalImgRow.style.display = "none";
+    }
+
+    if (codeModalTextarea) {
+      codeModalTextarea.value = el.outerHTML || el.textContent || "";
+    }
+
+    if (codeModal) {
+      codeModal.style.display = "flex";
+      spPlayKeyClick(200);
+      setTimeout(() => {
+        if (codeModalTextarea) {
+          codeModalTextarea.focus();
+        }
+      }, 50);
+    }
+  }
+
+  function closeCodeModal() {
+    if (codeModal) codeModal.style.display = "none";
   }
 
   function openContextMenu(clientX, clientY, targetEl) {
@@ -456,6 +557,17 @@
     if (ctxTag) ctxTag.textContent = tag;
     if (ctxName) ctxName.textContent = name;
     if (ctxCoords) ctxCoords.textContent = `${Math.round(r.width)}×${Math.round(r.height)} · X: ${pageX} Y: ${pageY}`;
+
+    const transformLabel = contextMenu.querySelector("[data-action='transform-code'] .sp-ctx-label");
+    if (transformLabel) {
+      if (tag === "img") {
+        transformLabel.textContent = "Transform Image / URL";
+      } else if (tag === "button") {
+        transformLabel.textContent = "Transform Button Code";
+      } else {
+        transformLabel.textContent = "Transform Code (HTML)";
+      }
+    }
 
     const menuW = 220;
     const menuH = 320;
@@ -576,16 +688,7 @@
           showToast("Select a text element to edit words");
         }
       } else if (action === "transform-code") {
-        closeAllPopups("drawer");
-        if (drawer) {
-          drawer.classList.add("sp-open");
-          root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
-          if (transformCodeArea) {
-            transformCodeArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            transformCodeArea.focus();
-            transformCodeArea.select();
-          }
-        }
+        openCodeModal(selectedEl);
       } else if (action === "open-style") {
         closeAllPopups("drawer");
         if (drawer) {
@@ -1741,6 +1844,129 @@
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         applyElementTransform();
+      }
+    });
+  }
+
+  /* ── Dedicated Code Transform Modal Controller ── */
+  function applyCodeModalTransform() {
+    if (!selectedEl) return;
+    const newCode = (codeModalTextarea?.value || "").trim();
+    if (!newCode) return;
+
+    const parent = selectedEl.parentElement;
+    if (!parent || isOwn(parent)) {
+      showToast("Cannot transform root container");
+      return;
+    }
+
+    const temp = document.createElement("div");
+    temp.innerHTML = newCode;
+    const newEl = temp.firstElementChild;
+
+    if (!newEl) {
+      // User entered plain text without tags — overwrite the text inside it!
+      const oldText = selectedEl.innerText || selectedEl.textContent;
+      undoStack.push({
+        type: "text",
+        node: selectedEl,
+        oldText: oldText,
+        newText: newCode
+      });
+      selectedEl.textContent = newCode;
+      updateSelectBox(selectedEl);
+      spPlayKeyClick(210);
+      closeCodeModal();
+      showToast("Element text updated live");
+      return;
+    }
+
+    // Preserve translate offset if already moved
+    const trans = getElementTranslate(selectedEl);
+    if (trans.x !== 0 || trans.y !== 0) {
+      setElementTranslate(newEl, trans.x, trans.y);
+    }
+    ensurePositioned(newEl);
+    newEl.classList.add("sp-custom-element");
+
+    const oldEl = selectedEl;
+    undoStack.push({
+      type: "transform",
+      oldEl: oldEl,
+      newEl: newEl,
+      parent: parent
+    });
+
+    parent.replaceChild(newEl, oldEl);
+    selectElement(newEl);
+    spPlayKeyClick(240);
+    closeCodeModal();
+    showToast("Element code transformed live!");
+  }
+
+  if (codeModalImgApply) {
+    codeModalImgApply.addEventListener("click", () => {
+      spPlayKeyClick(170);
+      if (!selectedEl) return;
+      const url = (codeModalImgUrl?.value || "").trim();
+      if (!url) return;
+      if (selectedEl.tagName === "IMG") {
+        selectedEl.src = url;
+        if (codeModalTextarea) {
+          codeModalTextarea.value = selectedEl.outerHTML;
+        }
+        updateSelectBox(selectedEl);
+        showToast("Image source updated live");
+      }
+    });
+  }
+
+  if (codeModalImgUrl) {
+    codeModalImgUrl.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        codeModalImgApply?.click();
+      }
+    });
+  }
+
+  if (codeModalApply) {
+    codeModalApply.addEventListener("click", () => {
+      spPlayKeyClick(180);
+      applyCodeModalTransform();
+    });
+  }
+
+  if (codeModalCancel) {
+    codeModalCancel.addEventListener("click", () => {
+      spPlayKeyClick(150);
+      closeCodeModal();
+    });
+  }
+
+  if (codeModalClose) {
+    codeModalClose.addEventListener("click", () => {
+      spPlayKeyClick(150);
+      closeCodeModal();
+    });
+  }
+
+  if (codeModal) {
+    codeModal.addEventListener("click", e => {
+      if (e.target === codeModal) {
+        closeCodeModal();
+      }
+    });
+  }
+
+  if (codeModalTextarea) {
+    codeModalTextarea.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        applyCodeModalTransform();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeCodeModal();
       }
     });
   }
@@ -3461,6 +3687,10 @@
     if (e.key === "Escape") {
       if (contextMenu && contextMenu.style.display === "block") {
         closeContextMenu();
+        return;
+      }
+      if (codeModal && codeModal.style.display !== "none") {
+        closeCodeModal();
         return;
       }
       const liveModal = document.getElementById("sp-h2d-interactive-modal");
