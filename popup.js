@@ -320,159 +320,6 @@ function resolveResourceLinks(doc, baseUrl) {
 }
 
 // ──────────────────────────────────────────────────────────
-// Fast Standalone HTML Extraction (Just scrolls down that panel & saves HTML)
-// ──────────────────────────────────────────────────────────
-async function extractStandaloneHtmlFromTab(keepScripts = false) {
-  const origScrollX = window.scrollX || window.pageXOffset || 0;
-  const origScrollY = window.scrollY || window.pageYOffset || 0;
-
-  const LAZY_ATTRS = [
-    "data-src", "data-lazy-src", "data-original", "data-lazy", "data-bg",
-    "data-bg-url", "data-srcset", "data-lazy-url", "data-image", "data-lazy-srcset",
-    "data-original-src", "data-ll-status", "data-source", "data-src-small",
-    "data-src-medium", "data-src-large", "loading-src"
-  ];
-
-  const promoteLazyNodes = () => {
-    document.querySelectorAll("img, source, video, [data-bg], [data-bg-url]").forEach(el => {
-      if (el.tagName === "IMG" && el.loading === "lazy") el.loading = "eager";
-      for (const attr of LAZY_ATTRS) {
-        const val = el.getAttribute(attr);
-        if (!val || val.startsWith("data:image/gif") || val.startsWith("data:image/svg")) continue;
-        if (attr.includes("srcset")) {
-          if (!el.getAttribute("srcset")) el.setAttribute("srcset", val);
-        } else if (attr.includes("bg")) {
-          if (!el.style.backgroundImage) el.style.backgroundImage = `url("${val}")`;
-        } else if (el.tagName === "IMG" || el.tagName === "SOURCE") {
-          const curSrc = el.getAttribute("src") || "";
-          if (!curSrc || curSrc.startsWith("data:image/gif") || curSrc.startsWith("data:image/svg")) {
-            el.setAttribute("src", val);
-          }
-        }
-      }
-    });
-  };
-
-  promoteLazyNodes();
-
-  // 1. Identify and scroll down the main scrollable panel of the website
-  const findScrollablePanel = () => {
-    const candidates = Array.from(document.querySelectorAll("main, [role='main'], [class*='deck'], [class*='slide'], [class*='panel'], [class*='content'], article, section, div"));
-    for (const el of candidates) {
-      if (el.clientHeight > 180 && el.scrollHeight > el.clientHeight + 60) {
-        const cs = window.getComputedStyle(el);
-        const oy = cs.overflowY || cs.overflow;
-        if (oy === "auto" || oy === "scroll") {
-          return el;
-        }
-      }
-    }
-    return null;
-  };
-
-  try {
-    const panel = findScrollablePanel();
-    if (panel) {
-      const pOrigY = panel.scrollTop;
-      const pTotal = panel.scrollHeight;
-      const step = Math.max(300, Math.floor(panel.clientHeight * 0.75));
-      for (let pos = 0; pos < pTotal; pos += step) {
-        panel.scrollTop = pos;
-        promoteLazyNodes();
-        await new Promise(r => setTimeout(r, 35));
-      }
-      panel.scrollTop = pTotal;
-      promoteLazyNodes();
-      await new Promise(r => setTimeout(r, 80));
-      panel.scrollTop = pOrigY;
-      await new Promise(r => setTimeout(r, 35));
-    }
-
-    const windowMaxScroll = Math.max(
-      document.body ? document.body.scrollHeight : 0,
-      document.documentElement ? document.documentElement.scrollHeight : 0,
-      window.innerHeight
-    );
-    if (windowMaxScroll > window.innerHeight + 80) {
-      const step = Math.max(350, Math.floor(window.innerHeight * 0.75));
-      for (let pos = 0; pos < windowMaxScroll; pos += step) {
-        window.scrollTo(0, pos);
-        promoteLazyNodes();
-        await new Promise(r => setTimeout(r, 35));
-      }
-      window.scrollTo(0, windowMaxScroll);
-      promoteLazyNodes();
-      await new Promise(r => setTimeout(r, 80));
-      window.scrollTo(origScrollX, origScrollY);
-      await new Promise(r => setTimeout(r, 40));
-    }
-  } catch {}
-
-  // 2. Clone DOM cleanly
-  const docClone = document.documentElement.cloneNode(true);
-
-  // 3. Purge extension overlays & Google ads
-  docClone.querySelectorAll(
-    "#sp-root, [id^='sp-'], #__figma_h2d_chrome_extension_toolbar__, #__figma_html_to_design_toolbar_host__, #sp-h2d-interactive-modal, figma-html-to-design-toolbar, vis-bug, vis-bug-handles, vis-bug-hover, vis-bug-label, vis-bug-offscreen-label, vis-bug-distance, vis-bug-grip, vis-bug-boxmodel, vis-bug-metatip, vis-bug-ally, vis-bug-corners, vis-bug-hotkeys, ins.adsbygoogle, [id^='google_ads'], iframe#google_esf, [data-ad-client], [data-ad-slot], [data-google-query-id], amp-ad"
-  ).forEach(el => el.remove());
-
-  if (!keepScripts) {
-    docClone.querySelectorAll("script, noscript").forEach(s => s.remove());
-  }
-
-  // 4. Inlining Images (canvas to data URI or absolute URL)
-  const origImgs = Array.from(document.querySelectorAll("img"));
-  const cloneImgs = Array.from(docClone.querySelectorAll("img"));
-  for (let i = 0; i < cloneImgs.length; i++) {
-    const cImg = cloneImgs[i];
-    const srcAttr = cImg.getAttribute("src") || "";
-    const oImg = origImgs.find(img => img.getAttribute("src") === srcAttr || img.src === cImg.src) || origImgs[i];
-    if (oImg) {
-      try {
-        if (oImg.naturalWidth && oImg.complete) {
-          const canvas = document.createElement("canvas");
-          canvas.width = oImg.naturalWidth;
-          canvas.height = oImg.naturalHeight;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(oImg, 0, 0);
-          cImg.src = canvas.toDataURL("image/png");
-        } else if (srcAttr) {
-          cImg.src = new URL(srcAttr, window.location.href).href;
-        }
-      } catch {
-        try { if (srcAttr) cImg.src = new URL(srcAttr, window.location.href).href; } catch {}
-      }
-    }
-  }
-
-  // 5. Inlining Stylesheets
-  let fullCSS = "";
-  try {
-    for (const sheet of Array.from(document.styleSheets)) {
-      try {
-        if (sheet.href && (sheet.href.includes("chrome-extension://") || sheet.href.includes("stylepeek"))) continue;
-        for (const rule of Array.from(sheet.cssRules || [])) {
-          fullCSS += rule.cssText + "\n";
-        }
-      } catch {
-        if (sheet.href) {
-          fullCSS += `@import url("${sheet.href}");\n`;
-        }
-      }
-    }
-  } catch {}
-
-  if (fullCSS) {
-    const styleTag = document.createElement("style");
-    styleTag.textContent = fullCSS;
-    const head = docClone.querySelector("head") || docClone;
-    head.appendChild(styleTag);
-  }
-
-  return "<!DOCTYPE html>\n" + docClone.outerHTML;
-}
-
-// ──────────────────────────────────────────────────────────
 // Full Site Bundler (.ZIP packaged with dev server)
 // ──────────────────────────────────────────────────────────
 async function buildWebsiteZipFromTab(tab, options = {}) {
@@ -1483,27 +1330,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Mode 3: Export HTML (Fast, single-file panel export - just scrolls down that panel and saves)
+  // Mode 3: Export HTML (Shares the EXACT same captureVisibleViewport function as on-canvas capture)
   btnExportHtml?.addEventListener("click", async () => {
     btnExportHtml.disabled = true;
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab || !tab.id) throw new Error("No active tab");
-      setStatus("Scrolling down panel & saving HTML...");
+      setStatus("Capturing visible page as HTML...");
 
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: extractStandaloneHtmlFromTab,
-        args: [keepScriptsToggle?.checked ?? false]
-      });
+      // Send captureViewport to execute captureVisibleViewport() on the tab
+      let res = await chrome.tabs.sendMessage(tab.id, { action: "captureViewport" }).catch(() => null);
+      if (!res?.success) {
+        // If content script wasn't active on tab, inject content.js and run
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }).catch(() => {});
+        res = await chrome.tabs.sendMessage(tab.id, { action: "captureViewport" }).catch(() => null);
+      }
 
-      const finalHtml = results?.[0]?.result;
-      if (!finalHtml) throw new Error("Could not extract HTML from this tab");
-
-      const websiteName = toFolderName(tab.url) || "website";
-      const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
-      await downloadBlobOrDataUrl(blob, `${websiteName}.html`);
-      setStatus(`Saved ${websiteName}.html`, "ok");
+      if (res?.success) {
+        setStatus(`Saved ${res.filename || "page.html"}`, "ok");
+        setTimeout(() => window.close(), 600);
+      } else {
+        throw new Error(res?.error || "Capture failed. Make sure page is loaded.");
+      }
     } catch (err) {
       setStatus(`Export failed: ${err.message || err}`, "err");
     } finally {

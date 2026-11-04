@@ -3917,8 +3917,12 @@
       } else if (msg.action === "getStatus") {
         res({ active: isEnabled, mode: activeToolMode, hasSelection: !!selectedEl });
       } else if (msg.action === "captureViewport") {
-        captureVisibleViewport();
-        res({ success: true });
+        captureVisibleViewport().then(filename => {
+          res({ success: true, filename });
+        }).catch(err => {
+          res({ success: false, error: err?.message || String(err) });
+        });
+        return true;
       } else if (msg.action === "detectTechStack" || msg.type === "DETECT_TECH") {
         const result = detectTechnologiesOnPage(msg.headers || {});
         res(result);
@@ -4186,9 +4190,8 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
 
       // 9. Download full page file cleanly (Local HTML + Web)
       const finalHtml = "<!DOCTYPE html>\n" + docClone.outerHTML;
-      const rawTitle = (document.title || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30) || "slide";
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `slide-${rawTitle}-${timestamp}.html`;
+      const rawTitle = (document.title || window.location.hostname || "website").trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 35) || "page";
+      const filename = `${rawTitle}.html`;
 
       const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
       const blobUrl = URL.createObjectURL(blob);
@@ -4264,9 +4267,11 @@ body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
       }
 
       if (downloaded) {
-        showToast(`✓ Downloaded slide cleanly (${filename})!`);
+        showToast(`Saved ${filename}`);
+        return filename;
       } else {
-        showToast("⚠️ Could not trigger download. Check browser download permissions.");
+        showToast("Could not trigger download. Check browser download permissions.");
+        return null;
       }
     } catch (err) {
       console.error("[StylePeek] captureVisibleViewport fatal error:", err);
