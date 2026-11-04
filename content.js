@@ -97,9 +97,7 @@
       <button class="sp-dock-btn" data-tool="move" title="Move & Drag Any Layer (M)">${SP_ICONS.move}</button>
       <button class="sp-dock-btn" data-tool="resize" title="Stretch / Resize Element (S)">${SP_ICONS.resize}</button>
       <button class="sp-dock-btn add-btn" data-tool="add" id="sp-dock-add" title="Add Element or Picture (A)">${SP_ICONS.plus}</button>
-      <button class="sp-dock-btn" data-tool="style" title="Colors & Border Styling (C)">${SP_ICONS.palette}</button>
-      <button class="sp-dock-btn" data-tool="layers" title="Layers, Step Behind & Backgrounds (L)">${SP_ICONS.layers}</button>
-      <button class="sp-dock-btn" data-tool="code" title="Code Studio & Live Morph (K)">${SP_ICONS.code}</button>
+      <button class="sp-dock-btn" data-tool="style" title="Colors & Style Inspector (C)">${SP_ICONS.palette}</button>
       <button class="sp-dock-btn" data-tool="delete" title="Delete Element (D)">${SP_ICONS.trash}</button>
       <button class="sp-dock-btn undo-btn" id="sp-dock-undo" title="Undo Last Action (Ctrl+Z)">${SP_ICONS.undo}</button>
       <div class="sp-dock-sep"></div>
@@ -175,57 +173,6 @@
       </div>
     </div>
 
-    <!-- Dedicated Floating Live Inspect Preview Panel -->
-    <div id="sp-inspect-preview-panel">
-      <div class="sp-preview-panel-header">
-        <div id="sp-preview-drag-handle" title="Drag preview window">${SP_ICONS.grip}</div>
-        <span class="sp-preview-panel-title">LIVE COMPONENT PREVIEW</span>
-        <div class="sp-preview-panel-actions">
-          <button class="sp-sandbox-btn sp-preview-code-toggle" id="sp-btn-preview-code" title="See code & surrounding parent / neighbors">See Code</button>
-          <button class="sp-sandbox-btn" id="sp-btn-context-toggle" title="Toggle Parent & Context">View: Component</button>
-          <button class="sp-sandbox-btn" id="sp-btn-refresh-preview" title="Refresh">Refresh</button>
-          <button class="sp-preview-close-btn" id="sp-preview-close" title="Close Preview">${SP_ICONS.close}</button>
-        </div>
-      </div>
-      <div class="sp-sandbox-viewport" id="sp-sandbox-viewport"></div>
-
-      <!-- Live Component Preview Code Drawer (Element, Parent & Neighbor Context) -->
-      <div class="sp-preview-code-drawer" id="sp-preview-code-drawer">
-        <div class="sp-preview-drawer-header">
-          <div class="sp-preview-drawer-tabs">
-            <button class="sp-pdrawer-tab sp-active" data-pview="element">Element</button>
-            <button class="sp-pdrawer-tab" data-pview="parent">Parent Container</button>
-            <button class="sp-pdrawer-tab" data-pview="neighbors">Neighbors</button>
-          </div>
-          <div class="sp-preview-drawer-actions">
-            <button class="sp-pdrawer-btn" id="sp-btn-pdrawer-copy" title="Copy code">Copy</button>
-            <button class="sp-pdrawer-btn apply" id="sp-btn-pdrawer-apply" title="Apply edited code live">Apply</button>
-            <button class="sp-pdrawer-btn close" id="sp-btn-pdrawer-close" title="Collapse code drawer">${SP_ICONS.close}</button>
-          </div>
-        </div>
-        <textarea class="sp-preview-code-editor" id="sp-preview-code-editor" spellcheck="false" placeholder="Component & Surrounding Code..."></textarea>
-        <div class="sp-preview-info-bar" id="sp-preview-info-bar">Inspected element code & styles</div>
-      </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="sp-toast"><span class="sp-dot"></span><span id="sp-toast-text"></span></div>
-
-    <!-- Modal Error Inspection Alert -->
-    <div id="sp-error-modal">
-      <div class="sp-error-title-row">
-        <span>Code Syntax Issue Detected</span>
-        <button class="sp-error-close-x" id="sp-modal-x" title="Close (Esc)">${SP_ICONS.close}</button>
-      </div>
-      <div class="sp-error-msg-box" id="sp-error-msg">Syntax Error Details</div>
-      <div class="sp-error-fix-box" id="sp-error-fix">Suggested Fix: ...</div>
-      <div class="sp-modal-actions">
-        <button class="sp-modal-close-btn" id="sp-modal-dismiss">Cancel</button>
-        <button class="sp-modal-fix-btn" id="sp-modal-auto-fix">Apply Suggested Fix</button>
-      </div>
-    </div>
-
-    <!-- Studio Drawer (CTRL+SPC Tactile Workspace) -->
     <div id="sp-drawer">
       <div id="sp-drawer-header">
         <div id="sp-drawer-drag-handle" title="Drag to move panel anywhere on screen">${SP_ICONS.grip}</div>
@@ -239,9 +186,7 @@
         </div>
 
         <div id="sp-drawer-tabs">
-          <button class="sp-drawer-tab sp-active" data-tab="style">Colors & Borders</button>
-          <button class="sp-drawer-tab" data-tab="layers">Layers & Background</button>
-          <button class="sp-drawer-tab" data-tab="code">Code & Morph</button>
+          <button class="sp-drawer-tab sp-active" data-tab="style">Inspector & Style</button>
         </div>
 
         <button class="sp-drawer-close-btn" id="sp-drawer-close" title="Close drawer (Esc)">${SP_ICONS.close}</button>
@@ -324,196 +269,7 @@
         </div>
 
         <!-- Tab 2: No-Code Figma-Style Layer Depth & Background Studio -->
-        <div class="sp-tab-pane" id="pane-layers">
-          
-          <!-- 1. STEP BEHIND FRONT ELEMENTS (DEEP LAYER PICKER + STATIONARY FRONT) -->
-          <div class="sp-layer-card">
-            <div class="sp-layer-card-header">
-              <span>1. STEP BEHIND & MOVE WITHOUT MOVING FRONT</span>
-              <span class="sp-bg-badge" id="sp-cur-layer-badge">Front Layer</span>
-            </div>
-            
-            <div class="sp-layer-nav-grid">
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-down" title="Step 1 layer behind the front element so you can move or restyle the background layer without moving the front elements">
-                <span>↓ Step 1 Layer Behind</span>
-              </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-up" title="Step 1 layer forward toward the front elements">
-                <span>↑ Step 1 Layer In Front</span>
-              </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-prev" title="Select previous sibling element on the same level">
-                <span>← Previous Sibling</span>
-              </button>
-              <button class="sp-layer-nav-btn" id="sp-btn-layer-next" title="Select next sibling element on the same level">
-                <span>→ Next Sibling</span>
-              </button>
-            </div>
-
-            <div class="sp-layer-solo-bar" style="display:flex;gap:6px;margin-bottom:8px;">
-              <button class="sp-layer-solo-btn active" id="sp-btn-keep-front-still" style="flex:1;" title="When ON, dragging this container or background layer keeps the front text and buttons stationary">
-                <span id="sp-keep-front-label">Keep Front Elements Still: ON</span>
-              </button>
-              <button class="sp-layer-solo-btn" id="sp-btn-detach-bg" style="flex:1;" title="Create a separate movable background box right behind the front elements">
-                <span>Detach Background Box</span>
-              </button>
-            </div>
-
-            <div class="sp-layer-solo-bar">
-              <button class="sp-layer-solo-btn" id="sp-btn-solo-layer" title="Hide outside elements temporarily to view only this layer">
-                <span id="sp-solo-icon">${SP_ICONS.eye}</span>
-                <span id="sp-solo-label">Isolate This Layer Only (Off)</span>
-              </button>
-            </div>
-
-            <div class="sp-layer-breadcrumb-row" id="sp-layer-breadcrumb" title="Click any layer from Front to Page Background">
-              <!-- Dynamically populated clickable layer stack -->
-            </div>
-          </div>
-
-          <!-- 2. STACK ORDER (SEND BEHIND / BRING IN FRONT) -->
-          <div class="sp-layer-card">
-            <div class="sp-layer-card-header">
-              <span>2. LAYER ORDER (SEND BEHIND OR FRONT)</span>
-              <span class="sp-bg-badge">Stacking</span>
-            </div>
-            <div class="sp-layer-actions-grid">
-              <button class="sp-layer-act-btn" id="sp-btn-put-behind" title="Move this element 1 step behind its neighbor">
-                <span>↓ Move 1 Step Back</span>
-              </button>
-              <button class="sp-layer-act-btn" id="sp-btn-put-front" title="Move this element 1 step in front of its neighbor">
-                <span>↑ Move 1 Step Front</span>
-              </button>
-              <button class="sp-layer-act-btn" id="sp-btn-push-back" title="Send element behind all siblings in this section">
-                <span>↓↓ Send to Back</span>
-              </button>
-              <button class="sp-layer-act-btn" id="sp-btn-bring-front" title="Bring element to the very front">
-                <span>↑↑ Bring to Front</span>
-              </button>
-            </div>
-            <div class="sp-zindex-bar">
-              <span style="font-size:11px;color:#78716C;font-weight:700">Depth (Z):</span>
-              <button class="sp-step-btn" id="sp-z-down" title="Step Back (-1)">−</button>
-              <input type="number" class="sp-zindex-input" id="sp-zindex-val" value="0">
-              <button class="sp-step-btn" id="sp-z-up" title="Step Front (+1)">+</button>
-              <button class="sp-layer-act-btn mini" id="sp-btn-send-canvas" title="Place behind the entire page as a full-screen background">Full Page BG</button>
-            </div>
-          </div>
-
-          <!-- 3. CHANGE LAYER OR PAGE BACKGROUND (COLOR & IMAGE) -->
-          <div class="sp-layer-card">
-            <div class="sp-layer-card-header">
-              <span>3. BACKGROUND COLOR & PICTURE</span>
-              <span class="sp-bg-badge" id="sp-bg-img-target-label">Selected Layer</span>
-            </div>
-            
-            <div class="sp-bg-target-row">
-              <button class="sp-bg-target-chip active" id="sp-btn-target-selected" title="Change background of the selected layer">Selected Layer</button>
-              <button class="sp-bg-target-chip" id="sp-btn-target-body" title="Change background of the entire page body">Page Body</button>
-              <button class="sp-bg-target-chip" id="sp-btn-target-html" title="Change background of the root HTML canvas">Root Canvas</button>
-            </div>
-
-            <!-- Background Color Row -->
-            <div class="sp-theme-color-row" style="margin-bottom:8px;">
-              <span style="font-size:11px;color:#78716C;font-weight:700">Color:</span>
-              <input type="text" class="sp-hex-input" id="sp-layer-bg-color-hex" placeholder="#F4F3EE" style="flex:1;">
-              <input type="color" class="sp-color-btn" id="sp-layer-bg-color-picker" value="#F4F3EE">
-              <button class="sp-bg-action-btn" id="sp-btn-apply-layer-color">Apply Color</button>
-            </div>
-
-            <!-- Background Image -->
-            <div class="sp-bg-image-inputs">
-              <div style="display:flex;gap:6px;align-items:center;">
-                <input type="text" class="sp-input" id="sp-layer-bg-url" placeholder="Paste image URL (https://...)" style="flex:1;">
-                <button class="sp-layer-act-btn mini" id="sp-btn-apply-bg-img" title="Set URL as background image">Set Image</button>
-              </div>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
-                <label class="sp-file-label" style="flex:1;text-align:center;cursor:pointer;padding:6px 8px;font-size:11px;" title="Upload background image file from computer">
-                  <span>Upload Background Picture</span>
-                  <input type="file" id="sp-layer-bg-file" accept="image/*" style="display:none">
-                </label>
-                <button class="sp-bg-action-btn sp-btn-danger" id="sp-btn-clear-bg-img" title="Remove background image">Clear BG</button>
-              </div>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px;color:#78716C;font-weight:600;">
-                <span>Fit:</span>
-                <select id="sp-layer-bg-size" class="sp-select" style="flex:1;padding:2px 6px;height:26px;font-size:11px;">
-                  <option value="cover" selected>Cover (Fill Layer)</option>
-                  <option value="contain">Contain (Fit Whole Image)</option>
-                  <option value="repeat">Tile / Repeat</option>
-                  <option value="auto">Original Size</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Detected Background Layers List -->
-            <div id="sp-bg-layers-list" style="margin-top:6px;"></div>
-          </div>
-
-          <!-- 4. ADD ELEMENTS OR CONVERT LAYER -->
-          <div class="sp-layer-card">
-            <div class="sp-layer-card-header">
-              <span>4. ADD ELEMENTS TO THIS LAYER</span>
-              <span class="sp-bg-badge">Quick Insert</span>
-            </div>
-            
-            <div class="sp-put-element-box">
-              <span class="sp-put-label">Insert directly onto the selected layer:</span>
-              <div class="sp-put-btns-row">
-                <button class="sp-put-chip" id="sp-btn-put-text">+ Text Block</button>
-                <button class="sp-put-chip" id="sp-btn-put-card">+ Card Box</button>
-                <button class="sp-put-chip" id="sp-btn-put-image">+ Picture / Photo</button>
-              </div>
-            </div>
-
-            <div class="sp-layer-tools-grid">
-              <button class="sp-layer-tool-btn" id="sp-btn-layer-code" title="Edit HTML and CSS code of this layer">
-                <span class="sp-tool-icon">${SP_ICONS.code}</span>
-                <span class="sp-tool-text">Edit Layer Code</span>
-              </button>
-              <button class="sp-layer-tool-btn" id="sp-btn-layer-to-image" title="Convert this layer into a draggable image on the webpage">
-                <span class="sp-tool-icon">${SP_ICONS.image}</span>
-                <span class="sp-tool-text">Flatten to Image</span>
-              </button>
-            </div>
-          </div>
-
         </div>
-
-        <!-- Tab 3: Split Dual-Editor (Full Height, Unobstructed) -->
-        <div class="sp-tab-pane" id="pane-code">
-          <div class="sp-split-container">
-            <!-- Left Column: State A -->
-            <div class="sp-split-col">
-              <div class="sp-split-header">
-                <span>STATE A (CURRENT HTML · CSS · JS)</span>
-              </div>
-              <textarea class="sp-code-area" id="sp-code-a" spellcheck="false" placeholder="State A Code..."></textarea>
-            </div>
-
-            <!-- Center Actions -->
-            <div class="sp-split-center-actions">
-              <button class="sp-animate-btn" id="sp-btn-run-anim" title="Run animation morphing State A to State B (or apply State A if B is blank)">
-                <span>Animate</span>
-                <span style="font-size:9.5px;opacity:0.85">Morph A ⇄ B</span>
-              </button>
-
-              <button class="sp-apply-split-btn" id="sp-btn-apply-code" title="Apply current code to canvas element">
-                <span>Apply Code</span>
-              </button>
-
-              <button class="sp-copy-gsap-btn" id="sp-btn-copy-gsap" title="Copy production GSAP animation code">
-                <span>Copy GSAP</span>
-              </button>
-            </div>
-
-            <!-- Right Column: State B -->
-            <div class="sp-split-col">
-              <div class="sp-split-header target">
-                <span>STATE B (OPTIONAL MORPH TARGET)</span>
-              </div>
-              <textarea class="sp-code-area" id="sp-code-b" spellcheck="false" placeholder="Leave blank to just render State A..."></textarea>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   `;
 
@@ -3732,6 +3488,23 @@ gsap.to("${selector}", {
   /* ══════════════════════════════════════════════════════════
      Canvas Click Handler (Accidental Misclick Protected & Unlocked)
      ══════════════════════════════════════════════════════════ */
+  
+  // Right-click opens the clean Inspector & Style drawer for the target element
+  document.addEventListener("contextmenu", e => {
+    if (!isEnabled || isOwn(e.target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    selectedEl = e.target;
+    isTargetLocked = true;
+    updateSelectBox(selectedEl);
+    populateInspectorFields(selectedEl);
+    if (drawer) {
+      drawer.classList.add("sp-open");
+      root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
+    }
+    showToast("Opened Inspector for <" + selectedEl.tagName.toLowerCase() + ">");
+  }, true);
+
   document.addEventListener("click", e => {
     if (!isEnabled || isOwn(e.target)) return;
 
