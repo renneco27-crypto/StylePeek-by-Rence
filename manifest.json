@@ -1,16 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "Style Peek Studio — Visual Inspector, Live Editor & Viewport Extractor",
-  "version": "1.8.5",
-  "description": "Inspect, move elements, edit colors/gradients/fonts live, write new code directly on the canvas, and download exactly what is rendered in your phone/desktop viewport.",
-  "permissions": ["activeTab", "scripting", "downloads"],
+  "name": "Style Peek Studio — Code Extractor, Element Capture & Live VisBug Hybrid",
+  "version": "2.0.0",
+  "default_locale": "en",
+  "description": "Scroll & extract website code (.zip or single .html via zip2html), capture element/page HTML+CSS to clipboard, and live-drag/edit with VisBug & StylePeek.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "storage",
+    "clipboardWrite",
+    "pageCapture",
+    "unlimitedStorage",
+    "contextMenus"
+  ],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Style Peek",
+    "default_title": "Website Code Extractor & Hybrid Studio",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -28,6 +38,19 @@
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "tuts/*.gif",
+        "toolbar/*",
+        "img/*",
+        "font/*.woff2",
+        "dist/*",
+        "js/*"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 }

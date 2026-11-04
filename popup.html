@@ -1,86 +1,304 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Style Peek Studio</title>
-  <link rel="stylesheet" href="popup.css" />
+  <meta charset="UTF-8">
+  <title>Website Code Extractor &amp; Hybrid Studio</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@500;600;700;800&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 340px;
+      font-family: 'Raleway', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #1e1e24;
+      color: #e4e4e8;
+      padding: 18px 20px 18px;
+      position: relative;
+      user-select: none;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #3a3a44, #56566a, #3a3a44);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #d8d8e0;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: #2b2b34;
+      color: #a8a8b8;
+      border: 1px solid #3a3a44;
+    }
+
+    .section {
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #2c2c36;
+    }
+
+    .section:last-of-type {
+      margin-bottom: 10px;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #8c8c9c;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #e8e8ec 0%, #dcdce2 100%);
+      color: #1e1e24;
+      font-family: 'Raleway', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow:
+        0 3px 0 #9a9aa4,
+        0 4px 12px rgba(0, 0, 0, 0.35);
+      transition: all 0.12s ease;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    button:last-child {
+      margin-bottom: 0;
+    }
+
+    button:hover:not(:disabled) {
+      background: linear-gradient(180deg, #f2f2f6 0%, #e4e4ea 100%);
+      transform: translateY(-1px);
+      box-shadow:
+        0 4px 0 #9a9aa4,
+        0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow:
+        0 1px 0 #9a9aa4,
+        0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    button.btn-secondary {
+      background: linear-gradient(180deg, #32323c 0%, #282830 100%);
+      color: #e4e4e8;
+      border: 1px solid #444452;
+      box-shadow:
+        0 3px 0 #141418,
+        0 4px 10px rgba(0, 0, 0, 0.35);
+    }
+
+    button.btn-secondary:hover:not(:disabled) {
+      background: linear-gradient(180deg, #3c3c48 0%, #30303a 100%);
+      box-shadow:
+        0 4px 0 #141418,
+        0 6px 14px rgba(0, 0, 0, 0.4);
+    }
+
+    button.btn-secondary:active:not(:disabled) {
+      box-shadow:
+        0 1px 0 #141418,
+        0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-row button {
+      margin-bottom: 0;
+      padding: 9px 8px;
+      font-size: 11px;
+    }
+
+    .options-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a8a8b8;
+      margin-bottom: 8px;
+      padding: 2px 2px;
+    }
+
+    .options-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .options-row input[type="checkbox"] {
+      accent-color: #dcdce2;
+      cursor: pointer;
+    }
+
+    #statusText {
+      font-size: 11px;
+      font-weight: 600;
+      color: #b4b4c4;
+      background: #16161b;
+      border: 1px solid #2e2e38;
+      border-radius: 5px;
+      padding: 8px 10px;
+      text-align: center;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.35;
+    }
+
+    #statusText.status-ok {
+      color: #d8f3dc;
+      border-color: #3b6e4c;
+      background: #19271e;
+    }
+
+    #statusText.status-err {
+      color: #ffccd5;
+      border-color: #7a2e3b;
+      background: #2a181c;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+  <script src="dist/jszip.min.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <img src="icons/icon48.png" alt="" class="logo" />
-      <div>
-        <h1>Style Peek Studio</h1>
-        <p class="tag">Visual Inspector & Viewport Extractor</p>
-      </div>
-    </header>
+  <div class="header">
+    <h1>Website Code Extractor</h1>
+    <span class="badge">v2.0 Hybrid</span>
+  </div>
 
-    <!-- Master ON / OFF Toggle Switch -->
-    <div class="master-switch-card">
-      <div class="switch-info">
-        <div class="switch-title-row">
-          <span class="status-dot" id="statusDot"></span>
-          <span class="switch-title" id="switchTitle">StylePeek: OFF</span>
-        </div>
-        <span class="switch-desc" id="switchDesc">Normal browsing • Canvas untouched</span>
-      </div>
-      <label class="switch-label" title="Toggle StylePeek ON/OFF">
-        <input type="checkbox" id="masterToggle" />
-        <span class="slider"></span>
+  <!-- 1. Website Code Extractor + Auto-Scroll + zip2html -->
+  <div class="section">
+    <div class="section-title">
+      <span>1. Scroll &amp; Extract Website</span>
+      <span>ZIP / HTML</span>
+    </div>
+    <div class="options-row">
+      <label title="Automatically scroll down the page before extracting so lazy-loaded sections and images render">
+        <input type="checkbox" id="autoScrollToggle" checked>
+        Auto-Scroll Lazy Content
+      </label>
+      <label title="Keep <script> tags when converting to standalone HTML">
+        <input type="checkbox" id="keepScriptsToggle">
+        Keep Scripts
       </label>
     </div>
-
-    <button id="captureBtn" class="capture-btn" title="Capture & download what is rendered in screen (Alt+C)">
-      <span>📸 Capture Viewport</span>
-      <kbd>Alt+C</kbd>
+    <button id="extractHtmlButton" title="Scroll page, extract all assets, and inline into ONE self-contained offline .html file via zip2html">
+      Scroll &amp; Extract Single .HTML
     </button>
-
-    <div class="section-title">STUDIO TOOLS (ACTIVE WHEN ON)</div>
-
-    <div class="features-grid">
-      <button class="feat-btn" id="toolInspect" title="Click element to open floating editor popup">
-        <span class="feat-icon">🔍</span>
-        <div class="feat-text"><strong>Inspect</strong><span>editor popup</span></div>
+    <div class="btn-row">
+      <button id="extractButton" class="btn-secondary" title="Scroll page and download full folder structure as .ZIP">
+        Extract .ZIP
       </button>
-      <button class="feat-btn" id="toolMove" title="Free live drag anywhere on canvas">
-        <span class="feat-icon">✋</span>
-        <div class="feat-text"><strong>Move</strong><span>free live drag</span></div>
-      </button>
-      <button class="feat-btn" id="toolResize" title="Corner handles to stretch and grow div size">
-        <span class="feat-icon">↔️</span>
-        <div class="feat-text"><strong>Stretch</strong><span>corner resize</span></div>
-      </button>
-      <button class="feat-btn" id="toolColor" title="Hex color inputs & palette">
-        <span class="feat-icon">🎨</span>
-        <div class="feat-text"><strong>Colors</strong><span>hex & palette</span></div>
-      </button>
-      <button class="feat-btn" id="toolLayers" title="Push to back, bring to front, DOM hierarchy">
-        <span class="feat-icon">🥞</span>
-        <div class="feat-text"><strong>Layers</strong><span>z-index & tree</span></div>
-      </button>
-      <button class="feat-btn" id="toolCode" title="Live HTML & CSS hot-reload">
-        <span class="feat-icon">💻</span>
-        <div class="feat-text"><strong>Code</strong><span>live HTML/CSS</span></div>
-      </button>
-      <button class="feat-btn" id="toolDelete" title="Click element to delete (Ctrl+Z to undo)">
-        <span class="feat-icon">✂️</span>
-        <div class="feat-text"><strong>Delete</strong><span>Ctrl+Z undo</span></div>
+      <button id="zipToHtmlButton" class="btn-secondary" title="Convert any saved website .ZIP archive into a single self-contained .HTML file (zip2html.py)">
+        ZIP &#8594; .HTML
       </button>
     </div>
-
-    <p id="statusMsg" class="status"></p>
-
-    <ol class="steps">
-      <li>Turn <strong>ON</strong> or pick a tool above</li>
-      <li>Hover any element for outline; click for editor popup</li>
-      <li>Drag elements freely in <strong>Move</strong> mode</li>
-      <li>Push to back or bring to front in <strong>Layers</strong></li>
-      <li>Press <kbd>Alt+C</kbd> to capture fluid viewport</li>
-      <li>Press <kbd>Esc</kbd> or switch OFF to return to normal</li>
-    </ol>
-
-    <footer>StylePeek Studio · Free & Open Source · No telemetry</footer>
+    <input type="file" id="zipFileInput" accept=".zip,application/zip">
   </div>
+
+  <!-- 2. Element & Page Code Capture Toolbar (fkmaohpngenfoccdgceedjkfhkdcohmg) -->
+  <div class="section">
+    <div class="section-title">
+      <span>2. Element &amp; Code Capture</span>
+      <span>Clipboard + HTML</span>
+    </div>
+    <button id="h2dSelectElementBtn" title="Pick any element on the page to copy its standalone HTML + CSS code directly to the clipboard">
+      Select Element &#8594; Copy Code
+    </button>
+    <div class="btn-row">
+      <button id="h2dCaptureToolbarBtn" class="btn-secondary" title="Open the floating Capture Toolbar (Capture Code, Capture Design, Select Element)">
+        Capture Toolbar
+      </button>
+      <button id="copyLastCodeBtn" class="btn-secondary" title="Copy the last captured element/page HTML+CSS code to clipboard">
+        Copy Last Code
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. Live Website Dragging & Design Fixing (kdmdoinnkaeognnpegpkepdnggeaodkn VisBug + StylePeek) -->
+  <div class="section">
+    <div class="section-title">
+      <span>3. Live Drag &amp; Fix Elements</span>
+      <span>VisBug + Studio</span>
+    </div>
+    <button id="visbugToggleBtn" title="Toggle VisBug live element dragging, position/margin/padding guides, and live design fixing">
+      Toggle VisBug Drag &amp; Fix
+    </button>
+    <div class="btn-row">
+      <button id="stylepeekInspectBtn" class="btn-secondary" title="Open StylePeek Inspector &amp; Code Drawer">
+        Inspector Drawer
+      </button>
+      <button id="stylepeekDragBtn" class="btn-secondary" title="Toggle StylePeek Free-Drag &amp; Resize Mode">
+        Free-Drag Mode
+      </button>
+    </div>
+  </div>
+
+  <div id="statusText">Ready — Choose an extraction or live design tool</div>
+
   <script src="popup.js"></script>
 </body>
 </html>
