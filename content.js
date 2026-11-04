@@ -105,71 +105,30 @@
       <button class="sp-dock-btn power-btn" id="sp-dock-power" title="Close Studio">${SP_ICONS.power}</button>
     </div>
 
-    <!-- Add Element or Picture Modal (CTRL+SPC Tactile UX) -->
+    <!-- Add to Page Modal (Strict ui-laws.txt: Zero Nested Cards, 1 Primary Coral CTA, Text Arrow Links) -->
     <div id="sp-add-element-modal">
       <div class="sp-add-modal-header">
-        <span class="sp-add-modal-title">${SP_ICONS.plus} ADD ELEMENT OR PICTURE</span>
+        <span class="sp-add-modal-title">Add to Page</span>
         <button class="sp-modal-x" id="sp-add-modal-close" title="Close">${SP_ICONS.close}</button>
       </div>
       <div class="sp-add-modal-body">
-        <!-- Photo / Picture Card -->
-        <div class="sp-add-card">
-          <div class="sp-add-card-header">
-            <span class="sp-add-card-icon">${SP_ICONS.image}</span>
-            <div class="sp-add-card-info">
-              <strong>Add Photo or Replace Selected Image</strong>
-              <span>Upload an image from your computer or paste a URL to place on the page</span>
-            </div>
-          </div>
+        <label class="sp-primary-btn sp-add-primary-cta" title="Upload an image from your computer">
+          Choose Picture
+          <input type="file" id="sp-add-img-file" accept="image/*" style="display:none">
+        </label>
+
+        <div class="sp-add-links-row">
+          <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-heading">Add Text →</button>
+          <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-box">Add Box →</button>
+        </div>
+
+        <details class="sp-add-url-details">
+          <summary class="sp-add-url-summary">Paste image URL</summary>
           <div class="sp-add-input-row">
-            <input type="text" class="sp-input" id="sp-add-img-url" placeholder="Paste image URL (https://...) or data:image...">
-            <button class="sp-primary-btn" id="sp-btn-insert-img-url">Insert Picture</button>
+            <input type="text" class="sp-input" id="sp-add-img-url" placeholder="https://...">
+            <button type="button" class="sp-text-arrow-btn" id="sp-btn-insert-img-url">Insert →</button>
           </div>
-          <div class="sp-add-file-row">
-            <label class="sp-file-label" title="Upload image from computer">
-              ${SP_ICONS.upload} Choose Picture from Computer
-              <input type="file" id="sp-add-img-file" accept="image/*" style="display:none">
-            </label>
-          </div>
-        </div>
-
-        <!-- Quick Elements Grid -->
-        <div class="sp-add-card-grid">
-          <div class="sp-add-card mini">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="sp-add-card-icon">${SP_ICONS.box}</span>
-              <div class="sp-add-card-info">
-                <strong>Card Box</strong>
-                <span>Movable container layer</span>
-              </div>
-            </div>
-            <button class="sp-secondary-btn" id="sp-btn-insert-box">+ Add Card</button>
-          </div>
-
-          <div class="sp-add-card mini">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="sp-add-card-icon">${SP_ICONS.type}</span>
-              <div class="sp-add-card-info">
-                <strong>Heading Text</strong>
-                <span>Editable headline block</span>
-              </div>
-            </div>
-            <button class="sp-secondary-btn" id="sp-btn-insert-heading">+ Add Text</button>
-          </div>
-        </div>
-
-        <!-- Custom Code Card -->
-        <div class="sp-add-card">
-          <div class="sp-add-card-header">
-            <span class="sp-add-card-icon">${SP_ICONS.code}</span>
-            <div class="sp-add-card-info">
-              <strong>Custom HTML Block</strong>
-              <span>Paste HTML markup to insert directly onto the current layer</span>
-            </div>
-          </div>
-          <textarea class="sp-code-area-mini" id="sp-add-html-code" placeholder="<div class='custom-card'>Hello World</div>"></textarea>
-          <button class="sp-secondary-btn" id="sp-btn-insert-html" style="align-self:flex-end;">Insert HTML Block</button>
-        </div>
+        </details>
       </div>
     </div>
 
@@ -193,7 +152,7 @@
       </div>
 
       <div id="sp-drawer-body">
-        <!-- Tab 1: Simplified Colors, Div Fill & Explicit Border Controls -->
+        <!-- Tab 1: Simplified Colors, Div Fill, Border & VisBug Alignment -->
         <div class="sp-tab-pane sp-active" id="pane-style">
           <div class="sp-color-grid">
             <div class="sp-color-card" id="sp-card-text">
@@ -266,11 +225,21 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Tab 2: No-Code Figma-Style Layer Depth & Background Studio -->
+          <div class="sp-visbug-align-bar">
+            <span class="sp-color-label">Alignment</span>
+            <div class="sp-visbug-align-actions">
+              <button type="button" class="sp-text-arrow-btn" data-vb-align="left">Left →</button>
+              <button type="button" class="sp-text-arrow-btn" data-vb-align="center">Center →</button>
+              <button type="button" class="sp-text-arrow-btn" data-vb-align="right">Right →</button>
+              <button type="button" class="sp-text-arrow-btn" data-vb-align="between">Distribute →</button>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
+
+    <div id="sp-toast"><span id="sp-toast-text"></span></div>
   `;
 
   root.style.display = "none";
@@ -403,6 +372,7 @@
   let unlockPending       = false;
 
   function showToast(msg, duration = 2400) {
+    if (!toast || !toastText) return;
     toastText.textContent = msg;
     toast.classList.add("sp-show");
     if (toast._t) clearTimeout(toast._t);
@@ -475,23 +445,18 @@
         return;
       } else if (tool === "style") {
         drawer.classList.add("sp-open");
-        root.querySelector(".sp-drawer-tab[data-tab='style']").click();
-      } else if (tool === "layers") {
-        drawer.classList.add("sp-open");
-        root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
-      } else if (tool === "code") {
-        drawer.classList.add("sp-open");
-        root.querySelector(".sp-drawer-tab[data-tab='code']").click();
+        root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
       } else if (tool === "inspect") {
-        showToast("Inspect Mode: Click any element to inspect");
-        if (selectedEl) previewPanel.classList.add("sp-show");
+        drawer.classList.remove("sp-open");
+        showToast("Inspect Mode: Click to select, Right-click for Style & Alignment");
       } else if (tool === "move") {
         drawer.classList.remove("sp-open");
-        previewPanel.classList.remove("sp-show");
-        showToast("Move Mode: Drag any layer freely on canvas");
+        showToast("Move Mode: Drag any element freely on canvas");
       } else if (tool === "resize") {
-        showToast("Resize Mode: Drag corner handles to stretch");
+        drawer.classList.remove("sp-open");
+        showToast("Stretch Mode: Click element, then drag corner handles to stretch");
       } else if (tool === "delete") {
+        drawer.classList.remove("sp-open");
         showToast("Delete Mode: Click an element to remove (Ctrl+Z undo)");
       }
     });
@@ -537,46 +502,11 @@
     });
   })();
 
-  /* ── Draggable Floating Live Preview Panel (Full Topbar Draggable) ── */
-  (function initDraggablePreview() {
-    const topbar = root.querySelector(".sp-preview-panel-header");
-    let isDraggingP = false, ox = 0, oy = 0;
-
-    if (!topbar) return;
-
-    topbar.addEventListener("mousedown", e => {
-      if (e.target.closest("button") || e.target.closest(".sp-preview-panel-actions")) return;
-
-      isDraggingP = true;
-      const r = previewPanel.getBoundingClientRect();
-      ox = e.clientX - r.left;
-      oy = e.clientY - r.top;
-      previewPanel.style.left = r.left + "px";
-      previewPanel.style.top = r.top + "px";
-      previewPanel.style.right = "auto";
-      previewPanel.style.bottom = "auto";
-      e.preventDefault();
-      e.stopPropagation();
+  if (previewCloseBtn && previewPanel) {
+    previewCloseBtn.addEventListener("click", () => {
+      previewPanel.classList.remove("sp-show");
     });
-
-    window.addEventListener("mousemove", e => {
-      if (!isDraggingP) return;
-      const left = Math.max(8, Math.min(window.innerWidth - previewPanel.offsetWidth - 8, e.clientX - ox));
-      const top  = Math.max(8, Math.min(window.innerHeight - previewPanel.offsetHeight - 8, e.clientY - oy));
-      previewPanel.style.left = left + "px";
-      previewPanel.style.top = top + "px";
-      previewPanel.style.right = "auto";
-      previewPanel.style.bottom = "auto";
-    }, true);
-
-    window.addEventListener("mouseup", () => {
-      isDraggingP = false;
-    });
-  })();
-
-  previewCloseBtn.addEventListener("click", () => {
-    previewPanel.classList.remove("sp-show");
-  });
+  }
 
   /* ── Tab Switching with Dynamic Width Expansion ── */
   root.querySelectorAll(".sp-drawer-tab").forEach(btn => {
@@ -587,12 +517,59 @@
       btn.classList.add("sp-active");
       const targetPane = root.querySelector(`#pane-${btn.dataset.tab}`);
       if (targetPane) targetPane.classList.add("sp-active");
+      drawer.classList.remove("sp-expanded");
+    });
+  });
 
-      if (btn.dataset.tab === "code") {
-        drawer.classList.add("sp-expanded");
-      } else {
-        drawer.classList.remove("sp-expanded");
+  /* ── VisBug Alignment Engine Hooked into StylePeek Drawer ── */
+  root.querySelectorAll("[data-vb-align]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!selectedEl) {
+        showToast("Select an element first");
+        return;
       }
+      spPlayKeyClick(175);
+      const mode = btn.getAttribute("data-vb-align");
+      const cs = window.getComputedStyle(selectedEl);
+      const oldDisplay = selectedEl.style.display;
+      const oldJustify = selectedEl.style.justifyContent;
+      const oldAlign = selectedEl.style.alignItems;
+      const oldTextAlign = selectedEl.style.textAlign;
+
+      undoStack.push({
+        type: "align",
+        node: selectedEl,
+        oldDisplay,
+        oldJustify,
+        oldAlign,
+        oldTextAlign
+      });
+
+      const hasElementChildren = selectedEl.children && selectedEl.children.length > 0;
+      if (hasElementChildren || cs.display.includes("flex") || cs.display.includes("grid")) {
+        if (!cs.display.includes("flex") && !cs.display.includes("grid")) {
+          selectedEl.style.setProperty("display", "flex", "important");
+        }
+        selectedEl.style.setProperty("align-items", "center", "important");
+        if (mode === "left") {
+          selectedEl.style.setProperty("justify-content", "flex-start", "important");
+          selectedEl.style.setProperty("text-align", "left", "important");
+        } else if (mode === "center") {
+          selectedEl.style.setProperty("justify-content", "center", "important");
+          selectedEl.style.setProperty("text-align", "center", "important");
+        } else if (mode === "right") {
+          selectedEl.style.setProperty("justify-content", "flex-end", "important");
+          selectedEl.style.setProperty("text-align", "right", "important");
+        } else if (mode === "between") {
+          selectedEl.style.setProperty("justify-content", "space-between", "important");
+        }
+      } else {
+        if (mode === "left") selectedEl.style.setProperty("text-align", "left", "important");
+        else if (mode === "center") selectedEl.style.setProperty("text-align", "center", "important");
+        else if (mode === "right") selectedEl.style.setProperty("text-align", "right", "important");
+      }
+      updateSelectBox(selectedEl);
+      showToast(`Aligned ${mode}`);
     });
   });
 
@@ -622,7 +599,7 @@
       selectBox.style.display = "none";
       selectBox.classList.remove("sp-deep-mode");
       drawer.classList.remove("sp-open");
-      previewPanel.classList.remove("sp-show");
+      if (previewPanel) previewPanel.classList.remove("sp-show");
       isTargetLocked = false;
       unlockPending = false;
       showToast("Selection cleared");
@@ -693,84 +670,55 @@
     const idStr = (el.id && typeof el.id === "string") ? "#" + el.id : "";
     const clsStr = getPrimaryClass(el);
 
-    drawerTag.textContent = tagStr;
-    drawerName.textContent = idStr || clsStr || "";
+    if (drawerTag) drawerTag.textContent = tagStr;
+    if (drawerName) drawerName.textContent = idStr || clsStr || "";
 
     // Read Computed Styles
     const cs = window.getComputedStyle(el);
     const txtHex = rgbToHex(cs.color);
-    textHex.value = txtHex; textColor.value = txtHex;
+    if (textHex) textHex.value = txtHex;
+    if (textColor) textColor.value = txtHex;
 
     const bgH = rgbToHex(cs.backgroundColor);
-    bgHex.value = bgH; bgColor.value = bgH;
+    if (bgHex) bgHex.value = bgH;
+    if (bgColor) bgColor.value = bgH;
 
     const bdrH = rgbToHex(cs.borderColor);
-    borderHex.value = bdrH; borderColor.value = bdrH;
+    if (borderHex) borderHex.value = bdrH;
+    if (borderColor) borderColor.value = bdrH;
 
     // Read Border Width & Style
     const bw = cs.borderWidth || "0px";
-    if (["0px", "1px", "2px", "3px", "4px", "6px", "8px"].includes(bw)) {
-      borderWidthSelect.value = bw;
-    } else {
-      borderWidthSelect.value = "1px";
+    if (borderWidthSelect) {
+      if (["0px", "1px", "2px", "3px", "4px", "6px", "8px"].includes(bw)) {
+        borderWidthSelect.value = bw;
+      } else {
+        borderWidthSelect.value = "1px";
+      }
     }
     const bs = cs.borderStyle || "none";
-    if (["solid", "dashed", "dotted", "double"].includes(bs)) {
-      borderStyleSelect.value = bs;
-    } else {
-      borderStyleSelect.value = "solid";
+    if (borderStyleSelect) {
+      if (["solid", "dashed", "dotted", "double"].includes(bs)) {
+        borderStyleSelect.value = bs;
+      } else {
+        borderStyleSelect.value = "solid";
+      }
     }
 
     // Read Z-Index & Build Hierarchy
     try {
       const currentZ = parseInt(cs.zIndex);
-      zInput.value = isNaN(currentZ) ? 0 : currentZ;
+      if (zInput) zInput.value = isNaN(currentZ) ? 0 : currentZ;
       if (!preserveDeepStack) {
         deepLayerStack = computeVisualLayerStack(el);
         deepLayerIndex = Math.max(0, deepLayerStack.indexOf(el));
       }
       buildBreadcrumbs(el);
-    } catch (err) {
-      console.warn("[StylePeek] Hierarchy build warning:", err);
-    }
-
-    // Sync simplified layer background color inputs
-    try {
-      if (layerBgColorHex && layerBgColorPicker) {
-        const currentBg = rgbToHex(cs.backgroundColor);
-        if (currentBg && currentBg.startsWith("#")) {
-          layerBgColorHex.value = currentBg;
-          layerBgColorPicker.value = currentBg;
-        }
-      }
     } catch (err) {}
 
-    // Scan & Pinpoint Background Layers
-    try {
-      scanBackgroundLayers(el);
-    } catch (err) {
-      console.warn("[StylePeek] Background scan warning:", err);
-    }
-
-    // Build Combined All-in-One Code Blocks (State A & State B)
-    try {
-      populateDualCodePanes(el);
-    } catch (err) {
-      console.warn("[StylePeek] Code pane generation warning:", err);
-    }
-
-    // Live component preview and Drawer popup ONLY AND ONLY when inspecting!
-    if (activeToolMode === "inspect" && !isDragging && !justFinishedDrag) {
-      try {
-        updateSandboxPreview(el);
-        previewPanel.classList.add("sp-show");
-      } catch (err) {}
+    // Drawer opens automatically ONLY when user is explicitly in "style" tool mode (or when right-clicked via contextmenu)
+    if (activeToolMode === "style" && !isDragging && !justFinishedDrag) {
       drawer.classList.add("sp-open");
-    } else if (["style", "layers", "code"].includes(activeToolMode) && !isDragging && !justFinishedDrag) {
-      drawer.classList.add("sp-open");
-    } else {
-      drawer.classList.remove("sp-open");
-      previewPanel.classList.remove("sp-show");
     }
   }
 
@@ -789,7 +737,7 @@
     const clsStr = getPrimaryClass(el);
     const depthLabel = isDeepLayerMode ? ` · Deep Layer (${deepLayerIndex + 1}/${Math.max(1, deepLayerStack.length)})` : "";
 
-    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-code" title="View & Edit Code for this element">Code</button>`;
+    selectBadge.innerHTML = `<span>${tagStr}${idStr}${clsStr} (${Math.round(r.width)}×${Math.round(r.height)})${depthLabel}</span><button class="sp-badge-action-btn" id="sp-badge-btn-layer-behind" title="Step 1 layer behind front element">↓ Step Behind</button><button class="sp-badge-action-btn" id="sp-badge-btn-style" title="Open Style & Alignment (or Right-Click element)">Style</button>`;
 
     const badgeBehindBtn = selectBadge.querySelector("#sp-badge-btn-layer-behind");
     if (badgeBehindBtn) {
@@ -800,14 +748,14 @@
       });
     }
 
-    const badgeCodeBtn = selectBadge.querySelector("#sp-badge-btn-code");
-    if (badgeCodeBtn) {
-      badgeCodeBtn.addEventListener("click", e => {
+    const badgeStyleBtn = selectBadge.querySelector("#sp-badge-btn-style");
+    if (badgeStyleBtn) {
+      badgeStyleBtn.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
         drawer.classList.add("sp-open");
-        const codeTab = root.querySelector(".sp-drawer-tab[data-tab='code']");
-        if (codeTab) codeTab.click();
+        const styleTab = root.querySelector(".sp-drawer-tab[data-tab='style']");
+        if (styleTab) styleTab.click();
       });
     }
   }
@@ -1438,17 +1386,19 @@
     insertElementIntoLiveSite(h, "Added headline text — double-click to edit words");
   });
 
-  btnInsertHtml.addEventListener("click", () => {
-    spPlayKeyClick(165);
-    const raw = addHtmlCodeArea.value.trim();
-    if (!raw) return;
-    const wrap = document.createElement("div");
-    wrap.innerHTML = raw;
-    const newEl = wrap.firstElementChild || wrap;
-    newEl.style.position = "relative";
+  if (btnInsertHtml && addHtmlCodeArea) {
+    btnInsertHtml.addEventListener("click", () => {
+      spPlayKeyClick(165);
+      const raw = addHtmlCodeArea.value.trim();
+      if (!raw) return;
+      const wrap = document.createElement("div");
+      wrap.innerHTML = raw;
+      const newEl = wrap.firstElementChild || wrap;
+      newEl.style.position = "relative";
 
-    insertElementIntoLiveSite(newEl, "Added custom HTML element");
-  });
+      insertElementIntoLiveSite(newEl, "Added custom HTML element");
+    });
+  }
 
   if (btnAddImage) btnAddImage.addEventListener("click", openAddModal);
   if (btnAddDiv) btnAddDiv.addEventListener("click", openAddModal);
@@ -2167,709 +2117,102 @@
     }
   }
 
-  btnContextToggle.addEventListener("click", () => {
-    spPlayKeyClick(170);
-    sandboxMode = (sandboxMode === "component") ? "context" : "component";
-    btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component" : "View: Parent & Context";
-    btnContextToggle.classList.toggle("active", sandboxMode === "context");
-    updateSandboxPreview(selectedEl);
-    showToast(`Preview mode: ${sandboxMode}`);
-  });
-
-  btnRefreshPreview.addEventListener("click", () => {
-    spPlayKeyClick(170);
-    updateSandboxPreview(selectedEl);
-    showToast("Refreshed preview");
-  });
-
-  /* ══════════════════════════════════════════════════════════
-     Combined All-in-One Format & Dual Code Panes (State A & B)
-     ══════════════════════════════════════════════════════════ */
-  function formatHtmlCode(rawHtml) {
-    if (!rawHtml) return "";
-    let html = rawHtml.replace(/\s+/g, " ").replace(/> </g, "><").trim();
-    let formatted = "";
-    let indent = 0;
-    const tab = "  ";
-
-    const tagRegex = /(<\/[a-zA-Z0-9\-]+>)|(<[a-zA-Z0-9\-]+[^>]*\/>)|(<([a-zA-Z0-9\-]+)[^>]*>[^<]*<\/\4>)|(<[a-zA-Z0-9\-]+[^>]*>)|([^<]+)/g;
-    const tokens = html.match(tagRegex) || [html];
-
-    for (let token of tokens) {
-      token = token.trim();
-      if (!token) continue;
-
-      if (token.startsWith("</")) {
-        indent = Math.max(0, indent - 1);
-        formatted += tab.repeat(indent) + token + "\n";
-      } else if (token.startsWith("<") && token.endsWith("/>")) {
-        formatted += tab.repeat(indent) + token + "\n";
-      } else if (/^<([a-zA-Z0-9\-]+)[^>]*>[^<]*<\/\1>$/.test(token)) {
-        formatted += tab.repeat(indent) + token + "\n";
-      } else if (token.startsWith("<")) {
-        const tagNameMatch = token.match(/<([a-zA-Z0-9\-]+)/);
-        const isVoid = tagNameMatch && /^(img|input|br|hr|meta|link|col|embed|source|track|wbr)$/i.test(tagNameMatch[1]);
-        formatted += tab.repeat(indent) + token + "\n";
-        if (!isVoid) {
-          indent++;
-        }
-      } else {
-        formatted += tab.repeat(indent) + token + "\n";
-      }
-    }
-    return formatted.trim();
-  }
-
-  function getCleanOuterHtml(el) {
-    try {
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll("#sp-root, [id^='sp-'], .sp-layer-isolated").forEach(n => {
-        n.classList.remove("sp-layer-isolated");
-        if (n.id && n.id.startsWith("sp-")) n.remove();
-      });
-      return formatHtmlCode(clone.outerHTML);
-    } catch (e) {
-      return formatHtmlCode(el.outerHTML || "");
-    }
-  }
-
-  function getMatchedCSSRulesForElement(el) {
-    const matchedRules = [];
-    const seen = new Set();
-    const targets = [el];
-    if (el.children) {
-      const kids = Array.from(el.children).slice(0, 30);
-      targets.push(...kids);
-    }
-
-    try {
-      const sheets = Array.from(document.styleSheets || []);
-      for (const sheet of sheets) {
-        let rules;
-        try {
-          rules = sheet.cssRules || sheet.rules;
-        } catch (e) {
-          continue;
-        }
-        if (!rules) continue;
-
-        for (const rule of Array.from(rules)) {
-          try {
-            if (rule.type === 1 && rule.selectorText) {
-              for (const target of targets) {
-                if (typeof target.matches === "function" && target.matches(rule.selectorText)) {
-                  if (!seen.has(rule.cssText)) {
-                    seen.add(rule.cssText);
-                    matchedRules.push(rule.cssText);
-                  }
-                  break;
-                }
-              }
-            } else if (rule.type === 4 && rule.cssRules) {
-              for (const innerRule of Array.from(rule.cssRules)) {
-                if (innerRule.selectorText) {
-                  for (const target of targets) {
-                    if (typeof target.matches === "function" && target.matches(innerRule.selectorText)) {
-                      if (!seen.has(innerRule.cssText)) {
-                        seen.add(innerRule.cssText);
-                        matchedRules.push(`@media ${rule.conditionText || "screen"} {\n  ${innerRule.cssText}\n}`);
-                      }
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (e) {}
-
-    return matchedRules;
-  }
-
-  function getComputedVisualCSS(el, selector) {
-    const cs = window.getComputedStyle(el);
-    const props = [
-      "display", "position", "top", "right", "bottom", "left", "z-index", "box-sizing",
-      "width", "height", "min-width", "max-width", "min-height", "max-height",
-      "flex-direction", "justify-content", "align-items", "gap", "flex-wrap", "flex-grow", "flex-shrink",
-      "grid-template-columns", "grid-template-rows",
-      "padding", "margin", "overflow",
-      "background", "background-color", "background-image", "background-size", "background-position", "background-repeat",
-      "backdrop-filter", "-webkit-backdrop-filter", "clip-path",
-      "border", "border-radius", "box-shadow", "outline",
-      "color", "font-family", "font-size", "font-weight", "line-height", "letter-spacing", "text-align",
-      "transform", "opacity", "cursor", "transition"
-    ];
-
-    const defaultIgnore = {
-      "position": ["static"],
-      "top": ["auto"], "right": ["auto"], "bottom": ["auto"], "left": ["auto"],
-      "z-index": ["auto"],
-      "box-sizing": ["content-box"],
-      "min-width": ["0px", "auto"], "min-height": ["0px", "auto"],
-      "max-width": ["none"], "max-height": ["none"],
-      "flex-grow": ["0"], "flex-shrink": ["1"],
-      "margin": ["0px"],
-      "padding": ["0px"],
-      "border": ["0px none rgb(0, 0, 0)", "none"],
-      "border-radius": ["0px"],
-      "box-shadow": ["none"],
-      "outline": ["rgb(0, 0, 0) none 0px", "none"],
-      "clip-path": ["none"],
-      "backdrop-filter": ["none"],
-      "-webkit-backdrop-filter": ["none"],
-      "background-image": ["none"],
-      "transform": ["none"],
-      "opacity": ["1"],
-      "cursor": ["auto"],
-      "transition": ["all 0s ease 0s", "none"]
-    };
-
-    const lines = [];
-    for (const p of props) {
-      let val = "";
-      try {
-        val = cs.getPropertyValue(p) || cs[p] || "";
-      } catch (e) {}
-      if (!val) continue;
-      if (defaultIgnore[p] && defaultIgnore[p].includes(val)) continue;
-      lines.push(`  ${p}: ${val};`);
-    }
-
-    if (!lines.length) {
-      lines.push(`  background: ${cs.backgroundColor || "transparent"};`);
-      lines.push(`  color: ${cs.color || "inherit"};`);
-    }
-
-    return `${selector} {\n${lines.join("\n")}\n}`;
-  }
-
-  function getConnectedJsForElement(el) {
-    const onclick = (typeof el.getAttribute === "function" ? el.getAttribute("onclick") : "") || "";
-    const cs = window.getComputedStyle(el);
-    const animName = cs.animationName;
-    const selector = getElementSelector(el);
-
-    if (onclick) {
-      return `// Inline Click Event:\n${onclick}`;
-    }
-    if (animName && animName !== "none") {
-      return `// Active CSS Animation: ${animName}\n// GSAP Equivalent:\ngsap.to("${selector}", {\n  duration: ${parseFloat(cs.animationDuration) || 0.4},\n  ease: "power2.out"\n});`;
-    }
-    return `// GSAP Morph Animation:\ngsap.to("${selector}", {\n  scale: 1.05,\n  duration: 0.4,\n  ease: "power2.out"\n});`;
-  }
-
-  function generateSnippet(el, isTargetState = false) {
-    const selector = getElementSelector(el);
-    const html = getCleanOuterHtml(el);
-    const matchedRules = getMatchedCSSRulesForElement(el);
-    const computedCss = getComputedVisualCSS(el, selector);
-    const inlineStyle = el.getAttribute("style");
-
-    let cssBlock = "";
-    if (matchedRules.length > 0) {
-      cssBlock += `/* === Document Stylesheet Rules === */\n` + matchedRules.join("\n\n") + "\n\n";
-    }
-    if (inlineStyle) {
-      cssBlock += `/* === Element Inline Style === */\n${selector} {\n  ${inlineStyle}\n}\n\n`;
-    }
-    cssBlock += `/* === Active Visual & Layout CSS === */\n` + computedCss;
-
-    if (!isTargetState) {
-      return `<!-- State A (Inspected Component Code) -->\n${html}\n\n<style>\n${cssBlock}\n</style>\n\n<script>\n${getConnectedJsForElement(el)}\n</script>`;
-    } else {
-      return `<!-- State B (Optional Morph Target) -->\n${html}\n\n<style>\n/* State B Morphed Styles */\n${selector} {\n  transform: scale(1.05) translateY(-4px);\n  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);\n}\n</style>\n\n<script>\n// GSAP Target Morph Action:\ngsap.to("${selector}", {\n  scale: 1.05,\n  y: -4,\n  duration: 0.4,\n  ease: "back.out(1.5)"\n});\n</script>`;
-    }
-  }
-
-  function populateDualCodePanes(el) {
-    codeAreaA.value = generateSnippet(el, false);
-    codeAreaB.value = generateSnippet(el, true);
-    if (previewCodeDrawer && previewCodeDrawer.classList.contains("sp-pdrawer-open")) {
-      updatePreviewCodeDrawer(el);
-    }
-  }
-
-  /* ══════════════════════════════════════════════════════════
-     Live Component Preview Drawer (Element Code, Parent & Neighbors)
-     ══════════════════════════════════════════════════════════ */
-  function updatePreviewCodeDrawer(el, targetTab = previewDrawerTab) {
-    if (!previewCodeEditor) return;
-    previewDrawerTab = targetTab;
-
-    root.querySelectorAll(".sp-pdrawer-tab").forEach(tab => {
-      tab.classList.toggle("sp-active", tab.dataset.pview === previewDrawerTab);
-    });
-
-    if (!el) {
-      previewCodeEditor.value = "<!-- No element selected -->";
-      if (previewInfoBar) previewInfoBar.textContent = "Select an element to view code & surroundings";
-      return;
-    }
-
-    const tagStr = el.tagName.toLowerCase();
-    const idStr = el.id ? "#" + el.id : "";
-    const clsStr = getPrimaryClass(el);
-
-    if (previewDrawerTab === "element") {
-      previewCodeEditor.value = generateSnippet(el, false);
-      if (previewInfoBar) previewInfoBar.textContent = `🎯 Element Code: <${tagStr}${idStr}${clsStr}> + Matching Stylesheet Rules`;
-    } else if (previewDrawerTab === "parent") {
-      const parent = el.parentElement;
-      if (!parent || parent === document.documentElement || isOwn(parent)) {
-        previewCodeEditor.value = `<!-- Element is attached directly to root document body -->\n${getCleanOuterHtml(el)}`;
-        if (previewInfoBar) previewInfoBar.textContent = "Root element (No higher parent container)";
-      } else {
-        const parentTag = parent.tagName.toLowerCase();
-        const parentCls = getPrimaryClass(parent);
-        let parentMarkup = "";
-        try {
-          const parentClone = parent.cloneNode(true);
-          parentClone.querySelectorAll("#sp-root, [id^='sp-'], .sp-layer-isolated").forEach(n => n.remove());
-          parentMarkup = formatHtmlCode(parentClone.outerHTML);
-        } catch (e) {
-          parentMarkup = formatHtmlCode(parent.outerHTML || "");
-        }
-
-        const parentRules = getMatchedCSSRulesForElement(parent);
-        const parentCss = getComputedVisualCSS(parent, getElementSelector(parent));
-
-        let cssOut = "";
-        if (parentRules.length) {
-          cssOut += `/* Parent Matched CSS Rules */\n${parentRules.join('\n\n')}\n\n`;
-        }
-        cssOut += `/* Parent Computed Layout */\n${parentCss}`;
-
-        previewCodeEditor.value = `<!-- ═══════════════════════════════════════════ -->\n<!-- PARENT CONTAINER: <${parentTag}${parentCls}>               -->\n<!-- Target element is nested inside this container -->\n<!-- ═══════════════════════════════════════════ -->\n${parentMarkup}\n\n<style>\n${cssOut}\n</style>`;
-        if (previewInfoBar) previewInfoBar.textContent = `👨‍👧 Parent Container: <${parentTag}${parentCls}> with full surroundings`;
-      }
-    } else if (previewDrawerTab === "neighbors") {
-      const prev = el.previousElementSibling;
-      const next = el.nextElementSibling;
-
-      let code = `<!-- ═══════════════════════════════════════════ -->\n<!-- SURROUNDING NEIGHBORS & TARGET ELEMENT       -->\n<!-- ═══════════════════════════════════════════ -->\n\n`;
-
-      if (prev && !isOwn(prev)) {
-        code += `<!-- ◂ PREVIOUS SIBLING: <${prev.tagName.toLowerCase()}${getPrimaryClass(prev)}> -->\n${getCleanOuterHtml(prev)}\n\n`;
-      } else {
-        code += `<!-- ◂ (No previous neighbor in this layer) -->\n\n`;
-      }
-
-      code += `<!-- 🎯 TARGET INSPECTED ELEMENT: <${tagStr}${idStr}${clsStr}> -->\n${getCleanOuterHtml(el)}\n\n`;
-
-      if (next && !isOwn(next)) {
-        code += `<!-- ▸ NEXT SIBLING: <${next.tagName.toLowerCase()}${getPrimaryClass(next)}> -->\n${getCleanOuterHtml(next)}\n\n`;
-      } else {
-        code += `<!-- ▸ (No next neighbor in this layer) -->\n\n`;
-      }
-
-      const elRules = getMatchedCSSRulesForElement(el);
-      const elCss = getComputedVisualCSS(el, getElementSelector(el));
-      code += `<style>\n${elRules.length ? '/* Matched Styles */\n' + elRules.join('\n\n') + '\n\n' : ''}/* Target Element Layout */\n${elCss}\n</style>`;
-
-      previewCodeEditor.value = code;
-      if (previewInfoBar) previewInfoBar.textContent = `🥞 Surrounding Siblings: Prev ◂ [${tagStr}] ▸ Next`;
-    }
-  }
-
-  if (btnPreviewCode) {
-    btnPreviewCode.addEventListener("click", () => {
-      const isOpen = previewCodeDrawer.classList.toggle("sp-pdrawer-open");
-      btnPreviewCode.classList.toggle("active", isOpen);
-      previewPanel.classList.toggle("sp-has-code-drawer", isOpen);
-      if (isOpen) {
-        updatePreviewCodeDrawer(selectedEl);
-        showToast("💻 Opened preview code & surrounding drawer");
-      }
-    });
-  }
-
-  if (btnPdrawerClose) {
-    btnPdrawerClose.addEventListener("click", () => {
-      previewCodeDrawer.classList.remove("sp-pdrawer-open");
-      btnPreviewCode.classList.remove("active");
-      previewPanel.classList.remove("sp-has-code-drawer");
-    });
-  }
-
-  root.querySelectorAll(".sp-pdrawer-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      updatePreviewCodeDrawer(selectedEl, tab.dataset.pview);
-    });
-  });
-
-  if (btnPdrawerCopy) {
-    btnPdrawerCopy.addEventListener("click", () => {
-      if (!previewCodeEditor.value) return;
-      navigator.clipboard.writeText(previewCodeEditor.value).then(() => {
-        showToast("📋 Copied code & surroundings to clipboard!");
-      }).catch(() => {
-        previewCodeEditor.select();
-        document.execCommand("copy");
-        showToast("📋 Copied code to clipboard!");
-      });
-    });
-  }
-
-  if (btnPdrawerApply) {
-    btnPdrawerApply.addEventListener("click", () => {
-      if (!selectedEl) return;
-      const rawCode = previewCodeEditor.value;
-      const check = validateSnippet(rawCode);
-      if (!check.valid) {
-        showErrorModal(check, () => {
-          previewCodeEditor.value = rawCode + (check.type === "CSS" ? "\n}" : "");
-          btnPdrawerApply.click();
-        });
-        return;
-      }
-
-      if (previewDrawerTab === "parent" && selectedEl.parentElement) {
-        const parts = check.parts;
-        if (parts.html) {
-          try {
-            const wrapper = document.createElement("div");
-            wrapper.innerHTML = parts.html;
-            const newParent = wrapper.firstElementChild;
-            if (newParent && selectedEl.parentElement.parentNode) {
-              const oldParent = selectedEl.parentElement;
-              undoStack.push({ type: "html", oldEl: oldParent, newEl: newParent, parent: oldParent.parentNode });
-              oldParent.parentNode.replaceChild(newParent, oldParent);
-              const tag = selectedEl.tagName.toLowerCase();
-              selectedEl = newParent.querySelector(tag) || newParent.firstElementChild || newParent;
-              selectElement(selectedEl);
-            }
-          } catch (e) {}
-        }
-      } else {
-        codeAreaA.value = rawCode;
-        btnApplyCode.click();
-      }
-
+  if (btnContextToggle) {
+    btnContextToggle.addEventListener("click", () => {
+      spPlayKeyClick(170);
+      sandboxMode = (sandboxMode === "component") ? "context" : "component";
+      btnContextToggle.textContent = (sandboxMode === "component") ? "View: Component" : "View: Parent & Context";
+      btnContextToggle.classList.toggle("active", sandboxMode === "context");
       updateSandboxPreview(selectedEl);
-      updatePreviewCodeDrawer(selectedEl);
-      showToast("✓ Applied preview code edits to canvas!");
+      showToast(`Preview mode: ${sandboxMode}`);
     });
   }
 
-  /* ══════════════════════════════════════════════════════════
-     Safe Static Syntax Validator (NO new Function / NO eval!)
-     ══════════════════════════════════════════════════════════ */
-  function parseSnippetParts(codeText) {
-    let html = codeText || "";
-    let css = "";
-    let js = "";
-
-    const styleMatch = codeText.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    if (styleMatch) {
-      css = styleMatch[1].trim();
-      html = html.replace(styleMatch[0], "");
-    }
-
-    const scriptMatch = codeText.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
-    if (scriptMatch) {
-      js = scriptMatch[1].trim();
-      html = html.replace(scriptMatch[0], "");
-    }
-
-    html = html.replace(/<!--[\s\S]*?-->/g, "").trim();
-
-    return { html, css, js };
+  if (btnRefreshPreview) {
+    btnRefreshPreview.addEventListener("click", () => {
+      spPlayKeyClick(170);
+      updateSandboxPreview(selectedEl);
+      showToast("Refreshed preview");
+    });
   }
 
-  function validateJsSyntaxSafely(jsCode) {
-    const stack = [];
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-    let inBacktick = false;
-    let inLineComment = false;
-    let inBlockComment = false;
-
-    for (let i = 0; i < jsCode.length; i++) {
-      const char = jsCode[i];
-      const next = jsCode[i + 1] || "";
-      const prev = jsCode[i - 1] || "";
-
-      if (inLineComment) {
-        if (char === "\n") inLineComment = false;
-        continue;
-      }
-      if (inBlockComment) {
-        if (char === "*" && next === "/") { inBlockComment = false; i++; }
-        continue;
-      }
-
-      if (!inSingleQuote && !inDoubleQuote && !inBacktick) {
-        if (char === "/" && next === "/") { inLineComment = true; i++; continue; }
-        if (char === "/" && next === "*") { inBlockComment = true; i++; continue; }
-      }
-
-      if (char === "'" && !inDoubleQuote && !inBacktick && prev !== "\\") {
-        inSingleQuote = !inSingleQuote;
-        continue;
-      }
-      if (char === '"' && !inSingleQuote && !inBacktick && prev !== "\\") {
-        inDoubleQuote = !inDoubleQuote;
-        continue;
-      }
-      if (char === '`' && !inSingleQuote && !inDoubleQuote && prev !== "\\") {
-        inBacktick = !inBacktick;
-        continue;
-      }
-
-      if (inSingleQuote || inDoubleQuote || inBacktick) continue;
-
-      if (char === "(" || char === "{" || char === "[") {
-        stack.push({ char, index: i });
-      } else if (char === ")" || char === "}" || char === "]") {
-        if (stack.length === 0) {
-          return {
-            valid: false,
-            error: `Unexpected closing '${char}' without matching opening bracket.`,
-            fix: `Remove the stray '${char}' or add the opening counterpart.`
-          };
-        }
-        const last = stack.pop();
-        const expected = last.char === "(" ? ")" : (last.char === "{" ? "}" : "]");
-        if (char !== expected) {
-          return {
-            valid: false,
-            error: `Mismatched bracket: expected '${expected}' to close '${last.char}', but found '${char}'.`,
-            fix: `Replace '${char}' with '${expected}'.`
-          };
-        }
-      }
-    }
-
-    if (inSingleQuote || inDoubleQuote || inBacktick) {
-      const q = inSingleQuote ? "'" : (inDoubleQuote ? '"' : "`");
-      return {
-        valid: false,
-        error: `Unterminated string literal (missing closing ${q}).`,
-        fix: `Close the string with a matching ${q}.`
-      };
-    }
-
-    if (stack.length > 0) {
-      const unclosed = stack[stack.length - 1];
-      const match = unclosed.char === "(" ? ")" : (unclosed.char === "{" ? "}" : "]");
-      return {
-        valid: false,
-        error: `Unclosed bracket '${unclosed.char}'.`,
-        fix: `Add missing closing '${match}' at the end of the script.`
-      };
-    }
-
-    return { valid: true };
-  }
-
-  function validateSnippet(codeText) {
-    const parts = parseSnippetParts(codeText);
-
-    // 1. HTML Validation
-    if (parts.html) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(parts.html, "text/html");
-      const errNode = doc.querySelector("parsererror");
-      if (errNode) {
-        return {
-          valid: false,
-          type: "HTML",
-          error: "Malformed HTML tags or unclosed element.",
-          fix: "Ensure all opening tags like <div> have matching closing tags </div>.",
-          repaired: parts.html.replace(/<([^/>]+)>$/g, "<$1></$1>")
-        };
-      }
-    }
-
-    // 2. CSS Validation
-    if (parts.css) {
-      const openCount = (parts.css.match(/\{/g) || []).length;
-      const closeCount = (parts.css.match(/\}/g) || []).length;
-      if (openCount !== closeCount) {
-        return {
-          valid: false,
-          type: "CSS",
-          error: `Unbalanced CSS braces: ${openCount} '{' vs ${closeCount} '}'.`,
-          fix: "Add missing '}' at the end of the CSS rule block.",
-          repaired: parts.css + "\n}".repeat(Math.max(0, openCount - closeCount))
-        };
-      }
-    }
-
-    // 3. JavaScript Syntax Validation (Safe Static Analysis, No CSP Violation)
-    if (parts.js) {
-      const jsRes = validateJsSyntaxSafely(parts.js);
-      if (!jsRes.valid) {
-        return {
-          valid: false,
-          type: "JS",
-          error: jsRes.error,
-          fix: jsRes.fix,
-          repaired: parts.js + ";"
-        };
-      }
-    }
-
-    return { valid: true, parts };
-  }
-
-  function showErrorModal(res, onFixCallback) {
-    errorMsgEl.innerHTML = `<strong>[${res.type} Error]:</strong> ${res.error}`;
-    errorFixEl.innerHTML = `<strong>Suggested Correction:</strong> ${res.fix}`;
-    pendingAutoFixFn = onFixCallback;
-    errorModal.classList.add("sp-modal-show");
-  }
-
+  function populateDualCodePanes() {}
+  function updatePreviewCodeDrawer() {}
   function closeErrorModal() {
-    errorModal.classList.remove("sp-modal-show");
+    if (errorModal) errorModal.classList.remove("sp-modal-show");
     pendingAutoFixFn = null;
   }
 
-  errorModalX.addEventListener("click", closeErrorModal);
-  modalDismiss.addEventListener("click", closeErrorModal);
-
-  modalAutoFix.addEventListener("click", () => {
-    if (pendingAutoFixFn) {
-      pendingAutoFixFn();
-    }
-    closeErrorModal();
-    closeAddModal();
-    showToast("✓ Applied suggested code fix!");
-  });
-
-  /* ── Applying Code Live ── */
-  btnApplyCode.addEventListener("click", () => {
-    if (!selectedEl) return;
-    const rawCode = codeAreaA.value;
-    const check = validateSnippet(rawCode);
-
-    if (!check.valid) {
-      showErrorModal(check, () => {
-        codeAreaA.value = rawCode + (check.type === "CSS" ? "\n}" : "");
-        btnApplyCode.click();
-      });
-      return;
-    }
-
-    // Apply HTML
-    const parts = check.parts;
-    if (parts.html) {
-      try {
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = parts.html;
-        const newEl = wrapper.firstElementChild;
-        if (newEl && selectedEl.parentNode) {
-          undoStack.push({ type: "html", oldEl: selectedEl, newEl, parent: selectedEl.parentNode });
-          selectedEl.parentNode.replaceChild(newEl, selectedEl);
-          selectedEl = newEl;
-          selectElement(selectedEl);
-        }
-      } catch (e) {}
-    }
-
-    // Apply CSS styles
-    if (parts.css) {
-      let liveStyle = document.getElementById("sp-live-override");
-      if (!liveStyle) {
-        liveStyle = document.createElement("style");
-        liveStyle.id = "sp-live-override";
-        document.head.appendChild(liveStyle);
-      }
-      liveStyle.textContent += "\n" + parts.css;
-    }
-
-    updateSandboxPreview(selectedEl);
-    showToast("✓ Applied live code to element & canvas!");
-  });
-
-  /* ── Live Animation Morphing (State A ⇄ State B, CSP-Safe) ── */
-  btnRunAnim.addEventListener("click", () => {
-    if (!selectedEl) return;
-
-    const rawB = codeAreaB.value.trim();
-    const partsB = parseSnippetParts(rawB);
-
-    // If State B is left blank, directly apply State A
-    if (!partsB.html && !partsB.css && !partsB.js) {
-      btnApplyCode.click();
-      showToast("✓ Rendered State A to canvas & preview!");
-      return;
-    }
-
-    // Validate State B code safely
-    const checkB = validateSnippet(rawB);
-    if (!checkB.valid) {
-      showErrorModal(checkB, () => {
-        codeAreaB.value = rawB + (checkB.type === "CSS" ? "\n}" : "");
-        btnRunAnim.click();
-      });
-      return;
-    }
-
-    selectedEl.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
-
-    if (currentMorphState === "A") {
-      currentMorphState = "B";
-
-      if (partsB.css) {
-        let liveMorphStyle = document.getElementById("sp-morph-override");
-        if (!liveMorphStyle) {
-          liveMorphStyle = document.createElement("style");
-          liveMorphStyle.id = "sp-morph-override";
-          document.head.appendChild(liveMorphStyle);
-        }
-        liveMorphStyle.textContent = partsB.css;
-      }
-
-      selectedEl.style.transform = "scale(1.08) translateY(-6px)";
-      selectedEl.style.boxShadow = "0 12px 30px rgba(139, 92, 246, 0.45)";
-      btnRunAnim.style.background = "linear-gradient(135deg, #06B6D4, #10B981)";
-      showToast("✨ Morphed to State B (Active)!");
-    } else {
-      currentMorphState = "A";
-      const liveMorphStyle = document.getElementById("sp-morph-override");
-      if (liveMorphStyle) liveMorphStyle.textContent = "";
-
-      selectedEl.style.transform = "none";
-      selectedEl.style.boxShadow = "";
-      btnRunAnim.style.background = "linear-gradient(135deg, #8B5CF6, #06B6D4)";
-      showToast("✨ Morphed back to State A (Initial)!");
-    }
-
-    updateSelectBox(selectedEl);
-    updateSandboxPreview(selectedEl);
-  });
-
-  btnCopyGsap.addEventListener("click", () => {
-    if (!selectedEl) return;
-    const selector = getElementSelector(selectedEl);
-    const code = `// ⚡ GSAP Production Animation (Morph A → B)
-gsap.to("${selector}", {
-  scale: 1.08,
-  y: -6,
-  duration: 0.4,
-  ease: "back.out(1.5)"
-});`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(code);
-      showToast("📋 Copied GSAP code to clipboard!");
-    }
-  });
-
   /* ══════════════════════════════════════════════════════════
-     Free Live Dragging (No Snapping Back!)
+     VisBug Smart Element Picker & Independent CSS `translate` Engine
+     (Prevents Dragging Full Page & Prevents Animated Buttons From Resetting!)
      ══════════════════════════════════════════════════════════ */
+  function isPageRootOrFullWrapper(el) {
+    if (!el || el.nodeType !== 1 || isOwn(el)) return true;
+    const tag = el.tagName.toLowerCase();
+    if (tag === "html" || tag === "body" || tag === "main") return true;
+    const id = (el.id && typeof el.id === "string") ? el.id.toLowerCase() : "";
+    if (["root", "app", "__next", "__nuxt", "page", "wrapper", "smooth-wrapper", "smooth-content"].includes(id)) {
+      return true;
+    }
+    const r = el.getBoundingClientRect();
+    if (r.width >= window.innerWidth * 0.90 && r.height >= window.innerHeight * 0.85) {
+      return true;
+    }
+    return false;
+  }
+
+  function visbugPickElement(clientX, clientY) {
+    const hits = document.elementsFromPoint(clientX, clientY);
+    let fallback = null;
+    for (const node of hits) {
+      if (!node || node.nodeType !== 1 || isOwn(node)) continue;
+      const tag = node.tagName.toLowerCase();
+      if (tag === "html" || tag === "body" || tag === "script" || tag === "style") continue;
+      const cs = window.getComputedStyle(node);
+      if (cs.pointerEvents === "none" || cs.visibility === "hidden" || parseFloat(cs.opacity) === 0) continue;
+      if (!isPageRootOrFullWrapper(node)) {
+        return node;
+      }
+      if (!fallback) fallback = node;
+    }
+    return fallback || document.elementFromPoint(clientX, clientY);
+  }
+
   function getElementTranslate(el) {
+    if (!el) return { x: 0, y: 0 };
     if (el._spTranslate) return el._spTranslate;
-    const tr = el.style.transform || "";
+    const cssTrans = el.style ? el.style.getPropertyValue("translate") : "";
+    if (cssTrans && cssTrans !== "none") {
+      const parts = cssTrans.trim().split(/\s+/);
+      const x = parseFloat(parts[0]) || 0;
+      const y = parseFloat(parts[1]) || 0;
+      return { x, y };
+    }
+    const tr = (el.style && el.style.transform) ? el.style.transform : "";
     const match = tr.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
     if (match) {
       return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
     }
     return { x: 0, y: 0 };
+  }
+
+  function setElementTranslate(el, x, y) {
+    if (!el || !el.style) return;
+    const rx = Math.round(x * 10) / 10;
+    const ry = Math.round(y * 10) / 10;
+    el._spTranslate = { x: rx, y: ry };
+    // Use independent CSS `translate` property with !important so any `:active` / `:hover` / keyframe
+    // `transform` animations on stubborn buttons compose ON TOP of our new position and never snap back!
+    if (rx !== 0 || ry !== 0) {
+      el.style.setProperty("translate", `${rx}px ${ry}px`, "important");
+    } else {
+      el.style.removeProperty("translate");
+    }
+    // Clean any legacy inline translate() we might have written to style.transform
+    if (el.style.transform && /^translate\([-\d.]+px,\s*[-\d.]+px\)$/.test(el.style.transform.trim())) {
+      el.style.removeProperty("transform");
+    }
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -3101,8 +2444,7 @@ gsap.to("${selector}", {
     for (const item of dragStationaryChildren) {
       const cx = item.origX - deltaMoveX;
       const cy = item.origY - deltaMoveY;
-      item.el._spTranslate = { x: cx, y: cy };
-      item.el.style.transform = `translate(${cx}px, ${cy}px)`;
+      setElementTranslate(item.el, cx, cy);
     }
   }
 
@@ -3137,8 +2479,7 @@ gsap.to("${selector}", {
 
       const dx = dragOrigin.elemX + (e.clientX - dragOrigin.mouseX) + dScrollX;
       const dy = dragOrigin.elemY + (e.clientY - dragOrigin.mouseY) + dScrollY;
-      dragTarget._spTranslate = { x: dx, y: dy };
-      dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+      setElementTranslate(dragTarget, dx, dy);
       applyStationaryChildrenCounterMove(dx, dy);
       updateSelectBox(dragTarget);
 
@@ -3148,30 +2489,66 @@ gsap.to("${selector}", {
     }
   }
 
+  // Intercept pointerdown in capture phase so stubborn buttons with JS pointerdown/press animations
+  // do not snap back or trigger page press handlers while StylePeek Studio is active
+  document.addEventListener("pointerdown", e => {
+    if (!isEnabled || isOwn(e.target) || activeEditingNode) return;
+    if (e.button === 0) {
+      e.stopPropagation();
+    }
+  }, true);
+
   document.addEventListener("mousedown", e => {
     if (!isEnabled || isOwn(e.target)) return;
+    if (e.button !== 0) return; // Only left-click initiates selection/drag
 
     if (activeEditingNode) {
       if (activeEditingNode !== e.target && !activeEditingNode.contains(e.target)) {
         finishInlineTextEdit(activeEditingNode);
       }
+      return;
     }
 
-    const isTargetOrChild = selectedEl && (selectedEl === e.target || selectedEl.contains(e.target));
-    const shouldAllowDrag = (activeToolMode === "move") || isDeepLayerMode || isTargetOrChild || !selectedEl;
+    // Stop page mousedown handlers so animated buttons don't think they are being clicked by the site
+    e.stopPropagation();
+
+    // NEVER start element dragging when in Stretch (resize) or Delete mode, or while resizing handles!
+    if (isResizing || activeToolMode === "resize" || activeToolMode === "delete") {
+      isDragCandidate = false;
+      isDragging = false;
+      dragTarget = null;
+      return;
+    }
+
+    const picked = visbugPickElement(e.clientX, e.clientY) || e.target;
+    const isTargetOrChild = selectedEl && (selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target));
+    const shouldAllowDrag = (activeToolMode === "move") || isDeepLayerMode || isTargetOrChild;
 
     if (shouldAllowDrag) {
-      const parentInteractive = e.target.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6, div, article, section");
-      // When in Deep Layer Mode (or when dragging inside the selected element), lock dragTarget to selectedEl so dragging moves the deeper layer instead of front elements!
-      dragTarget = (selectedEl && (isDeepLayerMode || selectedEl === e.target || selectedEl.contains(e.target)))
+      const parentInteractive = picked.closest("a, button, [role='button'], .sp-custom-element, img, svg, picture, figure, p, span, h1, h2, h3, h4, h5, h6");
+      let candidate = (selectedEl && (isDeepLayerMode || selectedEl === picked || selectedEl === e.target || selectedEl.contains(e.target)))
         ? selectedEl
-        : (parentInteractive || e.target);
+        : (parentInteractive || picked);
 
+      // NEVER allow dragging the entire page or full-viewport wrapper!
+      if (!isDeepLayerMode && isPageRootOrFullWrapper(candidate)) {
+        if (parentInteractive && !isPageRootOrFullWrapper(parentInteractive)) {
+          candidate = parentInteractive;
+        } else if (!isPageRootOrFullWrapper(picked)) {
+          candidate = picked;
+        } else {
+          isDragCandidate = false;
+          dragTarget = null;
+          return;
+        }
+      }
+
+      dragTarget = candidate;
       ensurePositioned(dragTarget);
 
       // Prepare Stationary Front Children if keepFrontStationary is enabled and we are dragging a deeper container layer
       dragStationaryChildren = [];
-      if (keepFrontStationary && (isDeepLayerMode || activeToolMode === "layers") && dragTarget !== document.body && dragTarget !== document.documentElement) {
+      if (keepFrontStationary && isDeepLayerMode && dragTarget !== document.body && dragTarget !== document.documentElement) {
         const directKids = Array.from(dragTarget.children || []).filter(
           c => !isOwn(c) && !c.classList.contains("sp-detached-bg-layer") && c.tagName !== "SCRIPT" && c.tagName !== "STYLE"
         );
@@ -3215,7 +2592,7 @@ gsap.to("${selector}", {
   document.addEventListener("mousemove", e => {
     if (!isEnabled) return;
 
-    if (isDragCandidate && dragTarget) {
+    if (isDragCandidate && dragTarget && !isResizing && activeToolMode !== "resize" && activeToolMode !== "delete") {
       lastDragMouseEvent = e;
       const dist = Math.hypot(e.clientX - dragOrigin.mouseX, e.clientY - dragOrigin.mouseY);
       // Once mouse moves more than 3px, treat as intentional drag
@@ -3225,7 +2602,7 @@ gsap.to("${selector}", {
 
         if (!isDragging) {
           isDragging = true;
-          // While dragging: keep drawer & live component preview completely hidden!
+          // While dragging: keep drawer hidden!
           if (drawer) drawer.classList.remove("sp-open");
           if (previewPanel) previewPanel.classList.remove("sp-show");
         }
@@ -3250,11 +2627,9 @@ gsap.to("${selector}", {
 
         // Holding Alt key completely bypasses snapping for 100% free dragging
         const snappingEnabled = !e.altKey;
-        const SNAP_THRESHOLD = 5; // Subtle, gentle threshold (prevents aggressive magnetic pulling)
+        const SNAP_THRESHOLD = 5;
 
         if (snappingEnabled) {
-          // 1. Initial micro-nudge protection: ONLY if user has NEVER moved > 12px yet!
-          // Once user moves beyond 12px, origin snap is permanently disabled so it never snaps back.
           if (maxDragDist <= 12) {
             if (Math.abs(rawDx - dragOrigin.elemX) <= SNAP_THRESHOLD) {
               dx = dragOrigin.elemX;
@@ -3268,19 +2643,16 @@ gsap.to("${selector}", {
             }
           }
 
-          // 2. Parent margin and alignment snap with Break-Free release
           const parent = dragTarget.parentElement;
           if (parent && !isOwn(parent)) {
             const pRect = parent.getBoundingClientRect();
             const tRect = dragTarget.getBoundingClientRect();
-            const curTransX = (dragTarget._spTranslate ? dragTarget._spTranslate.x : 0);
-            const curTransY = (dragTarget._spTranslate ? dragTarget._spTranslate.y : 0);
+            const curTrans = getElementTranslate(dragTarget);
 
-            const proposedLeft = tRect.left + (dx - curTransX);
+            const proposedLeft = tRect.left + (dx - curTrans.x);
             const proposedRight = proposedLeft + tRect.width;
             const proposedCenterX = proposedLeft + tRect.width / 2;
 
-            // Check horizontal snap candidates
             let targetCandidateX = null;
             let targetOffsetDeltaX = 0;
             let lineCandidateX = 0;
@@ -3299,7 +2671,6 @@ gsap.to("${selector}", {
               lineCandidateX = pRect.right;
             }
 
-            // Break-Free Release: if user is moving around this area (dwelling > 2 mousemove frames), break free!
             if (targetCandidateX !== null) {
               if (lastSnapTargetX === targetCandidateX) {
                 snapDwellCountX++;
@@ -3323,8 +2694,7 @@ gsap.to("${selector}", {
               snapReleasedX = false;
             }
 
-            // Check vertical snap candidates
-            const proposedTop = tRect.top + (dy - curTransY);
+            const proposedTop = tRect.top + (dy - curTrans.y);
             const proposedBottom = proposedTop + tRect.height;
             const proposedCenterY = proposedTop + tRect.height / 2;
 
@@ -3346,7 +2716,6 @@ gsap.to("${selector}", {
               lineCandidateY = pRect.bottom;
             }
 
-            // Break-Free Release: if user is moving around this area (dwelling > 2 mousemove frames), break free!
             if (targetCandidateY !== null) {
               if (lastSnapTargetY === targetCandidateY) {
                 snapDwellCountY++;
@@ -3372,7 +2741,6 @@ gsap.to("${selector}", {
           }
         }
 
-        // Show/hide visual snap guidelines
         if (snapGuideV) {
           if (snappedV) {
             snapGuideV.style.display = "block";
@@ -3390,8 +2758,7 @@ gsap.to("${selector}", {
           }
         }
 
-        dragTarget._spTranslate = { x: dx, y: dy };
-        dragTarget.style.transform = `translate(${dx}px, ${dy}px)`;
+        setElementTranslate(dragTarget, dx, dy);
         applyStationaryChildrenCounterMove(dx, dy);
         updateSelectBox(dragTarget);
 
@@ -3409,7 +2776,7 @@ gsap.to("${selector}", {
         return;
       }
 
-      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const el = visbugPickElement(e.clientX, e.clientY);
       if (!el || isOwn(el)) {
         hoverBox.style.display = "none";
         hoverLbl.style.display = "none";
@@ -3457,7 +2824,7 @@ gsap.to("${selector}", {
           type: "move",
           node: dragTarget,
           oldTranslate: { x: dragOrigin.elemX, y: dragOrigin.elemY },
-          translate: { ...dragTarget._spTranslate },
+          translate: { ...(dragTarget._spTranslate || { x: 0, y: 0 }) },
           stationaryChildren: stationarySnap
         });
         showToast(stationarySnap.length > 0
@@ -3486,23 +2853,21 @@ gsap.to("${selector}", {
   }, true);
 
   /* ══════════════════════════════════════════════════════════
-     Canvas Click Handler (Accidental Misclick Protected & Unlocked)
+     Canvas Click & Right-Click Handler (VisBug Smart Picker)
      ══════════════════════════════════════════════════════════ */
   
-  // Right-click opens the clean Inspector & Style drawer for the target element
+  // Right-click opens our clean StylePeek Inspector & Alignment drawer for the target element
   document.addEventListener("contextmenu", e => {
     if (!isEnabled || isOwn(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
-    selectedEl = e.target;
-    isTargetLocked = true;
-    updateSelectBox(selectedEl);
-    populateInspectorFields(selectedEl);
+    const target = visbugPickElement(e.clientX, e.clientY) || e.target;
+    selectElement(target);
     if (drawer) {
       drawer.classList.add("sp-open");
       root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
     }
-    showToast("Opened Inspector for <" + selectedEl.tagName.toLowerCase() + ">");
+    showToast("Inspector opened for <" + target.tagName.toLowerCase() + ">");
   }, true);
 
   document.addEventListener("click", e => {
@@ -3516,16 +2881,20 @@ gsap.to("${selector}", {
       return;
     }
 
+    const target = visbugPickElement(e.clientX, e.clientY) || e.target;
+
     if (activeToolMode === "move") {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      selectedEl = e.target;
-      isTargetLocked = false;
-      unlockPending = false;
-      updateSelectBox(selectedEl);
+      if (!isPageRootOrFullWrapper(target)) {
+        selectedEl = target;
+        isTargetLocked = false;
+        unlockPending = false;
+        updateSelectBox(selectedEl);
+      }
       drawer.classList.remove("sp-open");
-      previewPanel.classList.remove("sp-show");
+      if (previewPanel) previewPanel.classList.remove("sp-show");
       return;
     }
 
@@ -3533,9 +2902,11 @@ gsap.to("${selector}", {
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    const target = e.target;
-
     if (activeToolMode === "delete") {
+      if (isPageRootOrFullWrapper(target)) {
+        showToast("Cannot delete page root container");
+        return;
+      }
       undoStack.push({
         type: "delete",
         node: target,
@@ -3545,7 +2916,7 @@ gsap.to("${selector}", {
       target.remove();
       if (target === selectedEl) {
         drawer.classList.remove("sp-open");
-        previewPanel.classList.remove("sp-show");
+        if (previewPanel) previewPanel.classList.remove("sp-show");
         selectBox.style.display = "none";
         selectedEl = null;
       }
@@ -3568,11 +2939,8 @@ gsap.to("${selector}", {
     selectElement(target);
 
     if (activeToolMode === "style") {
-      root.querySelector(".sp-drawer-tab[data-tab='style']").click();
-    } else if (activeToolMode === "layers") {
-      root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
-    } else if (activeToolMode === "code") {
-      root.querySelector(".sp-drawer-tab[data-tab='code']").click();
+      drawer.classList.add("sp-open");
+      root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
     }
   }, true);
 
@@ -3600,32 +2968,27 @@ gsap.to("${selector}", {
       } else if (action.oldText !== undefined) {
         action.node.innerText = action.oldText;
       }
-      updateSandboxPreview(action.node);
-      populateDualCodePanes(action.node);
       updateSelectBox(action.node);
       showToast("Restored original text");
     } else if (action.type === "move" && action.node) {
       const prev = action.oldTranslate || { x: 0, y: 0 };
-      action.node._spTranslate = { ...prev };
-      if (prev.x !== 0 || prev.y !== 0) {
-        action.node.style.transform = `translate(${prev.x}px, ${prev.y}px)`;
-      } else {
-        action.node.style.transform = "";
-      }
+      setElementTranslate(action.node, prev.x, prev.y);
       if (Array.isArray(action.stationaryChildren)) {
         for (const sc of action.stationaryChildren) {
           if (sc.el) {
-            sc.el._spTranslate = { x: sc.origX || 0, y: sc.origY || 0 };
-            if (sc.origX || sc.origY) {
-              sc.el.style.transform = `translate(${sc.origX}px, ${sc.origY}px)`;
-            } else {
-              sc.el.style.transform = "";
-            }
+            setElementTranslate(sc.el, sc.origX || 0, sc.origY || 0);
           }
         }
       }
       updateSelectBox(action.node);
       showToast("Restored original position");
+    } else if (action.type === "align" && action.node) {
+      action.node.style.display = action.oldDisplay || "";
+      action.node.style.justifyContent = action.oldJustify || "";
+      action.node.style.alignItems = action.oldAlign || "";
+      action.node.style.textAlign = action.oldTextAlign || "";
+      updateSelectBox(action.node);
+      showToast("Restored alignment");
     } else if (action.type === "order" && action.node && action.parent) {
       action.parent.insertBefore(action.node, action.next || null);
       if (action.oldZ !== undefined) {
@@ -3643,18 +3006,14 @@ gsap.to("${selector}", {
       action.node.style.width = action.oldW;
       action.node.style.height = action.oldH;
       updateSelectBox(action.node);
-      updateSandboxPreview(action.node);
       showToast("Restored original dimensions");
     } else if (action.type === "img-replace" && action.node) {
       action.node.src = action.oldSrc;
       updateSelectBox(action.node);
-      updateSandboxPreview(action.node);
-      populateDualCodePanes(action.node);
       showToast("Restored original image");
     } else if (action.type === "style" && action.node) {
       if (action.oldVal !== undefined) action.node.style[action.prop] = action.oldVal;
       updateSelectBox(action.node);
-      updateSandboxPreview(action.node);
       showToast(`Restored original ${action.prop}`);
     } else if (action.type === "bg-image" && action.node) {
       if (action.oldBgImage !== undefined) action.node.style.backgroundImage = action.oldBgImage;
@@ -3662,7 +3021,6 @@ gsap.to("${selector}", {
       if (action.oldBgPosition !== undefined) action.node.style.backgroundPosition = action.oldBgPosition;
       if (action.oldBgRepeat !== undefined) action.node.style.backgroundRepeat = action.oldBgRepeat;
       updateSelectBox(action.node);
-      updateSandboxPreview(action.node);
       showToast("Restored previous background");
     }
   }
@@ -3688,14 +3046,14 @@ gsap.to("${selector}", {
     }
 
     if (e.key === "Escape") {
-      if (errorModal.classList.contains("sp-modal-show")) {
+      if (errorModal && errorModal.classList.contains("sp-modal-show")) {
         closeErrorModal();
         closeAddModal();
-      } else if (addModal.classList.contains("sp-show")) {
+      } else if (addModal && addModal.classList.contains("sp-show")) {
         closeAddModal();
-      } else if (drawer.classList.contains("sp-open") || previewPanel.classList.contains("sp-show")) {
-        drawer.classList.remove("sp-open");
-        previewPanel.classList.remove("sp-show");
+      } else if ((drawer && drawer.classList.contains("sp-open")) || (previewPanel && previewPanel.classList.contains("sp-show"))) {
+        if (drawer) drawer.classList.remove("sp-open");
+        if (previewPanel) previewPanel.classList.remove("sp-show");
         selectBox.style.display = "none";
         clearPassthroughFrontNodes();
         isDeepLayerMode = false;
@@ -3716,15 +3074,11 @@ gsap.to("${selector}", {
       } else if (k === "m") {
         activeToolMode = "move"; syncDockUI("move"); document.body.classList.add("sp-mode-move"); showToast("Move Mode");
       } else if (k === "s") {
-        activeToolMode = "resize"; syncDockUI("resize"); showToast("Resize Mode");
+        activeToolMode = "resize"; syncDockUI("resize"); document.body.classList.remove("sp-mode-move"); showToast("Stretch Mode");
       } else if (k === "a") {
         openAddModal();
       } else if (k === "c") {
-        activeToolMode = "style"; syncDockUI("style"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']").click();
-      } else if (k === "l") {
-        activeToolMode = "layers"; syncDockUI("layers"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='layers']").click();
-      } else if (k === "k") {
-        activeToolMode = "code"; syncDockUI("code"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='code']").click();
+        activeToolMode = "style"; syncDockUI("style"); drawer.classList.add("sp-open"); root.querySelector(".sp-drawer-tab[data-tab='style']")?.click();
       } else if (k === "d") {
         activeToolMode = "delete"; syncDockUI("delete"); showToast("Delete Mode");
       } else if (e.key === "[" && selectedEl) {
@@ -3743,14 +3097,16 @@ gsap.to("${selector}", {
   function turnOnStylePeek(mode = "inspect") {
     isEnabled = true;
     root.style.display = "block";
-    const mappedMode = (mode === "color") ? "style" : mode;
+    const mappedMode = (mode === "color" || mode === "layers" || mode === "code") ? "inspect" : mode;
     activeToolMode = mappedMode;
     syncDockUI(mappedMode);
     document.body.classList.toggle("sp-mode-move", mappedMode === "move");
-    if (mappedMode === "style" || mappedMode === "layers" || mappedMode === "code") {
+    if (mappedMode === "style") {
       drawer.classList.add("sp-open");
-      const tabBtn = root.querySelector(`.sp-drawer-tab[data-tab='${mappedMode}']`);
+      const tabBtn = root.querySelector(".sp-drawer-tab[data-tab='style']");
       if (tabBtn) tabBtn.click();
+    } else {
+      drawer.classList.remove("sp-open");
     }
     showToast(`Live Studio Active (${mappedMode.toUpperCase()})`);
   }
@@ -3765,8 +3121,8 @@ gsap.to("${selector}", {
     hoverLbl.style.display = "none";
     selectBox.style.display = "none";
     selectBox.classList.remove("sp-deep-mode");
-    drawer.classList.remove("sp-open");
-    previewPanel.classList.remove("sp-show");
+    if (drawer) drawer.classList.remove("sp-open");
+    if (previewPanel) previewPanel.classList.remove("sp-show");
     selectedEl = null;
     isTargetLocked = false;
     unlockPending = false;

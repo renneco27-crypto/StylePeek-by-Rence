@@ -556,42 +556,52 @@ async function injectH2DToolbar(tabId, command) {
 
 async function toggleVisBug(tabId) {
   if (!tabId) return false;
-  if (visbugState.loaded[tabId] && visbugState.injected[tabId]) {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["toolbar/eject.js"]
-    });
-    visbugState.injected[tabId] = false;
+
+  // Ensure any legacy <vis-bug> UI elements are removed so only our StylePeek Studio frontend opens
+  await disableVisBug(tabId);
+
+  // Check if our StylePeek Studio is currently active in the tab
+  let status = null;
+  try {
+    status = await chrome.tabs.sendMessage(tabId, { action: "getStatus" });
+  } catch {
+    status = null;
+  }
+
+  if (status && status.active) {
     try {
       await chrome.tabs.sendMessage(tabId, { action: "turnOff" });
     } catch {}
+    visbugState.injected[tabId] = false;
     return false;
-  } else {
-    // Mutual Exclusion: Turning ON VisBug automatically turns OFF Figma H2D Toolbar
-    await disableH2DToolbar(tabId);
+  }
 
-    if (visbugState.loaded[tabId] && !visbugState.injected[tabId]) {
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        files: ["toolbar/restore.js"]
-      });
-      visbugState.injected[tabId] = true;
-    } else {
+  // Mutual Exclusion: Turning ON StylePeek Studio automatically turns OFF Figma H2D Toolbar
+  await disableH2DToolbar(tabId);
+
+  // If content.js wasn't injected yet (e.g. tab was opened before extension reload), inject our Studio CSS + JS
+  if (!status) {
+    try {
       await chrome.scripting.insertCSS({
         target: { tabId },
-        files: ["toolbar/bundle.css"]
+        files: ["tokens.css", "content.css"]
       });
+    } catch {}
+    try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ["toolbar/inject.js"]
+        files: ["content.js"]
       });
-      visbugState.loaded[tabId] = true;
-      visbugState.injected[tabId] = true;
-    }
-    try {
-      await chrome.tabs.sendMessage(tabId, { action: "turnOn", mode: "layers" });
     } catch {}
+  }
+
+  try {
+    await chrome.tabs.sendMessage(tabId, { action: "turnOn", mode: "inspect" });
+    visbugState.loaded[tabId] = true;
+    visbugState.injected[tabId] = true;
     return true;
+  } catch {
+    return false;
   }
 }
 
