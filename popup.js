@@ -1192,68 +1192,140 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Mode 1: Edit Page & Layers
   btnLaunchStudio?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    const res = await chrome.runtime.sendMessage({ action: "toggleVisBug", tabId: tab.id }).catch(() => null);
-    if (res?.ok && res.active) {
-      setStatus("Layer Studio Launched", "ok");
-      setTimeout(() => window.close(), 300);
-    } else {
-      setStatus("Studio Closed");
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) {
+        setStatus("No active webpage tab found", "err");
+        return;
+      }
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot edit browser system pages", "err");
+        return;
+      }
+      setStatus("Launching Studio...");
+      const res = await chrome.runtime.sendMessage({ action: "toggleVisBug", tabId: tab.id }).catch(() => null);
+      if (res?.ok && res.active) {
+        setStatus("Layer Studio Launched", "ok");
+        setTimeout(() => window.close(), 300);
+      } else {
+        setStatus("Studio Closed");
+      }
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
     }
   });
 
   btnInspectStyle?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
-    chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => {
-      if (chrome.runtime.lastError) {}
-      window.close();
-    });
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot inspect browser system pages", "err");
+        return;
+      }
+      await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
+      chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" }, () => {
+        if (chrome.runtime.lastError) {
+          // Content script not ready yet, inject and retry
+          chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
+            chrome.tabs.sendMessage(tab.id, { action: "toggleInspect" });
+            window.close();
+          });
+        } else {
+          window.close();
+        }
+      });
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
+    }
   });
 
   btnFreeDrag?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) return;
-    await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
-    chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => {
-      if (chrome.runtime.lastError) {}
-      window.close();
-    });
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot drag on browser system pages", "err");
+        return;
+      }
+      await chrome.runtime.sendMessage({ action: "closeH2DToolbar", tabId: tab.id }).catch(() => null);
+      chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" }, () => {
+        if (chrome.runtime.lastError) {
+          chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
+            chrome.tabs.sendMessage(tab.id, { action: "toggleDrag" });
+            window.close();
+          });
+        } else {
+          window.close();
+        }
+      });
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
+    }
   });
 
   // Mode 2: Capture
   btnCaptureElement?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "select_element" });
-    if (res?.ok) window.close();
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot capture browser system pages", "err");
+        return;
+      }
+      setStatus("Activating selection mode...");
+      const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "select_element" }).catch(() => null);
+      if (res?.ok) window.close();
+      else setStatus("Could not launch selection on this page", "err");
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
+    }
   });
 
   btnOpenPreview?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "open_preview" });
-    if (res?.ok) window.close();
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot open preview on browser system pages", "err");
+        return;
+      }
+      const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "open_preview" }).catch(() => null);
+      if (res?.ok) window.close();
+      else setStatus("No preview available yet", "err");
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
+    }
   });
 
   btnCopyLastCode?.addEventListener("click", async () => {
-    const data = await chrome.storage.local.get(["sp_last_captured_code"]);
-    const code = data?.sp_last_captured_code;
-    if (!code) {
-      setStatus("No captured code yet", "err");
-      return;
+    try {
+      const data = await chrome.storage.local.get(["sp_last_captured_code"]);
+      const code = data?.sp_last_captured_code;
+      if (!code) {
+        setStatus("No captured code yet — select an element first", "err");
+        return;
+      }
+      await navigator.clipboard.writeText(code);
+      setStatus(`Copied ${Math.round(code.length / 1024)} KB code!`, "ok");
+    } catch (e) {
+      setStatus(`Copy failed: ${e.message || e}`, "err");
     }
-    await navigator.clipboard.writeText(code);
-    setStatus(`Copied ${Math.round(code.length / 1024)} KB code`, "ok");
   });
 
   btnToggleFigmaBar?.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-    const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "toggle" });
-    setStatus(res?.active ? "Figma Bar ON" : "Figma Bar OFF");
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        setStatus("Cannot toggle on browser system pages", "err");
+        return;
+      }
+      const res = await chrome.runtime.sendMessage({ action: "launchH2DToolbar", tabId: tab.id, command: "toggle" }).catch(() => null);
+      setStatus(res?.active ? "Figma Bar ON" : "Figma Bar OFF", res?.active ? "ok" : "");
+    } catch (e) {
+      setStatus(`Error: ${e.message || e}`, "err");
+    }
   });
 
   // Mode 3: Export
