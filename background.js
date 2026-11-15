@@ -590,7 +590,19 @@ async function toggleVisBug(tabId) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ["content.js"]
+        files: [
+          "technologies.js",
+          "js/sp_utils.js",
+          "js/sp_palette.js",
+          "js/sp_panel.js",
+          "js/sp_deep_layers.js",
+          "js/sp_style.js",
+          "js/sp_move.js",
+          "js/sp_transform.js",
+          "js/sp_inspect.js",
+          "js/sp_tech_capture.js",
+          "content.js"
+        ]
       });
     } catch {}
   }

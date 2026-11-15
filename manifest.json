@@ -36,7 +36,20 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["technologies.js", "content.js"],
+      "js": [
+        "technologies.js",
+        "js/sp_utils.js",
+        "js/sp_palette.js",
+        "js/sp_panel.js",
+        "js/sp_deep_layers.js",
+        "js/sp_style.js",
+        "js/sp_move.js",
+        "js/sp_transform.js",
+        "js/sp_inspect.js",
+        "js/sp_tech_capture.js",
+        "js/sp_crawler.js",
+        "content.js"
+      ],
       "css": ["tokens.css", "content.css"],
       "run_at": "document_idle"
     }

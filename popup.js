@@ -104,20 +104,19 @@ async function extractPageContentInTab(doAutoScroll = true, recordedBranches = [
         );
 
       let totalHeight = getMaxScroll();
-      if (totalHeight > window.innerHeight + 80) {
-        const step = Math.max(350, Math.floor(window.innerHeight * 0.75));
-        let maxSteps = 80;
-        for (let pos = 0; pos < totalHeight && maxSteps > 0; pos += step, maxSteps--) {
-          window.scrollTo(0, pos);
+      if (totalHeight > window.innerHeight + 60) {
+        const step = Math.max(300, Math.floor(window.innerHeight * 0.7));
+        for (let pos = 0; pos <= totalHeight; pos += step) {
+          window.scrollTo({ top: pos, behavior: "smooth" });
           promoteLazyNodes();
-          await new Promise(r => setTimeout(r, 45));
+          await new Promise(r => setTimeout(r, 300 + Math.floor(Math.random() * 200)));
           totalHeight = getMaxScroll();
         }
-        window.scrollTo(0, totalHeight);
+        window.scrollTo({ top: totalHeight, behavior: "smooth" });
         promoteLazyNodes();
-        await new Promise(r => setTimeout(r, 120));
-        window.scrollTo(origScrollX, origScrollY);
-        await new Promise(r => setTimeout(r, 60));
+        await new Promise(r => setTimeout(r, 400));
+        window.scrollTo({ left: origScrollX, top: origScrollY, behavior: "smooth" });
+        await new Promise(r => setTimeout(r, 300));
       }
     } catch {}
   }
@@ -222,18 +221,43 @@ function toFolderName(url) {
   }
 }
 
-function toAssetRelPath(urlObject) {
-  const hostFolder = urlObject.hostname
-    ? urlObject.hostname.replace(/^www\./, "").replace(/[^a-z0-9]/gi, "-").toLowerCase()
-    : "local-assets";
+const AD_URL_REGEX = /(googlesyndication\.com|doubleclick\.net|googleadservices\.com|adservice\.google|taboola\.com|outbrain\.com|pagead|adsbygoogle|google-analytics\.com)/i;
+
+function toAssetRelPath(urlObject, baseOrigin) {
+  if (AD_URL_REGEX.test(urlObject.href)) return null;
+
+  const isSameOrigin = baseOrigin && urlObject.origin === baseOrigin;
   let pathname = decodeURIComponent(urlObject.pathname || "/");
-  if (pathname.endsWith("/")) pathname += "index.html";
   pathname = pathname.replace(/^\/+([A-Za-z]:\/)/, ""); // strip Windows drive prefix on file:///
+
+  // Strip trailing slashes or map root to index.html
+  if (isSameOrigin) {
+    if (pathname === "" || pathname === "/") pathname = "index.html";
+    else if (pathname.endsWith("/")) pathname += "index.html";
+    return pathname.replace(/^\/+/, "");
+  }
+
+  // Cross-origin external asset (e.g. Google Fonts or CDN)
+  const hostFolder = urlObject.hostname
+    ? urlObject.hostname.replace(/^www\./, "").replace(/[^a-z0-9.-]/gi, "-").toLowerCase()
+    : "external-assets";
+  if (pathname === "" || pathname === "/") pathname = "/index.html";
+  else if (pathname.endsWith("/")) pathname += "index.html";
   if (!pathname.startsWith("/")) pathname = "/" + pathname;
-  return (hostFolder + pathname).replace(/^\/+/, "");
+  return ("_external/" + hostFolder + pathname).replace(/^\/+/, "");
 }
 
 function resolveResourceLinks(doc, baseUrl) {
+  let baseOrigin = "";
+  try {
+    baseOrigin = new URL(baseUrl).origin;
+  } catch {}
+
+  // Strip Google AdSense & tracking containers from DOM
+  doc.querySelectorAll(
+    "ins.adsbygoogle, [id^='google_ads'], iframe#google_esf, [data-ad-client], [data-ad-slot], [data-google-query-id], amp-ad, script[src*='pagead'], script[src*='adsbygoogle'], script[src*='googlesyndication']"
+  ).forEach(el => el.remove());
+
   const resourceElements = doc.querySelectorAll(
     "link[href], script[src], img[src], source[src], video[poster], image[href], object[data]"
   );
@@ -241,7 +265,7 @@ function resolveResourceLinks(doc, baseUrl) {
   const seen = new Set();
 
   const addResource = (absUrl, newRelPath) => {
-    if (!seen.has(absUrl)) {
+    if (newRelPath && !seen.has(absUrl)) {
       seen.add(absUrl);
       resourceUrls.push({ absUrl, relPath: newRelPath });
     }
@@ -268,10 +292,16 @@ function resolveResourceLinks(doc, baseUrl) {
     ) {
       try {
         const urlObject = new URL(resourcePath, baseUrl);
+        if (AD_URL_REGEX.test(urlObject.href)) {
+          element.remove();
+          return;
+        }
         if (urlObject.protocol === "http:" || urlObject.protocol === "https:" || urlObject.protocol === "file:") {
-          const newPath = toAssetRelPath(urlObject);
-          element.setAttribute(attrName, newPath);
-          addResource(urlObject.href, newPath);
+          const newPath = toAssetRelPath(urlObject, baseOrigin);
+          if (newPath) {
+            element.setAttribute(attrName, newPath);
+            addResource(urlObject.href, newPath);
+          }
         }
       } catch {}
     }
@@ -286,15 +316,22 @@ function resolveResourceLinks(doc, baseUrl) {
       if (!tokens[0] || tokens[0].startsWith("data:")) return part;
       try {
         const urlObject = new URL(tokens[0], baseUrl);
+        if (AD_URL_REGEX.test(urlObject.href)) return "";
         if (urlObject.protocol === "http:" || urlObject.protocol === "https:" || urlObject.protocol === "file:") {
-          const newPath = toAssetRelPath(urlObject);
-          addResource(urlObject.href, newPath);
-          tokens[0] = newPath;
+          const newPath = toAssetRelPath(urlObject, baseOrigin);
+          if (newPath) {
+            addResource(urlObject.href, newPath);
+            tokens[0] = newPath;
+          }
         }
       } catch {}
       return tokens.join(" ");
-    });
-    element.setAttribute("srcset", newParts.join(", "));
+    }).filter(Boolean);
+    if (newParts.length > 0) {
+      element.setAttribute("srcset", newParts.join(", "));
+    } else {
+      element.removeAttribute("srcset");
+    }
   });
 
   // Resolve inline style="...background-image: url(...)..."
@@ -305,10 +342,13 @@ function resolveResourceLinks(doc, baseUrl) {
       if (!cleanRef || cleanRef.startsWith("data:") || cleanRef.startsWith("#")) return m;
       try {
         const u = new URL(cleanRef, baseUrl);
+        if (AD_URL_REGEX.test(u.href)) return "none";
         if (u.protocol === "http:" || u.protocol === "https:" || u.protocol === "file:") {
-          const newPath = toAssetRelPath(u);
-          addResource(u.href, newPath);
-          return `url("${newPath}")`;
+          const newPath = toAssetRelPath(u, baseOrigin);
+          if (newPath) {
+            addResource(u.href, newPath);
+            return `url("${newPath}")`;
+          }
         }
       } catch {}
       return m;
@@ -326,43 +366,95 @@ async function buildWebsiteZipFromTab(tab, options = {}) {
   const doAutoScroll = options.autoScroll !== false;
   const doTreeCrawl = Boolean(options.treeCrawl);
   const doScrapeLinks = Boolean(options.scrapeLinks);
+  const keepScripts = Boolean(options.keepScripts);
 
   let recordedBranches = [];
+  let minedStyles = [];
+  let pageContent = "";
+  let linkedPages = [];
+
+  // 1. Ensure crawler engine is injected into the active tab
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["js/sp_crawler.js"]
+    });
+  } catch {}
+
+  // 2. Automated DOM tree climbing & smooth button clicking (1-3s random delay)
   if (doTreeCrawl) {
-    setStatus("Tree-clicking home screen buttons & recording panels (Ads skipped)...");
+    setStatus("Tree navigation: climbing DOM tree & smooth clicking (1-3s delay)...");
     try {
-      const crawlRes = await chrome.tabs.sendMessage(tab.id, { action: "crawlTreeStates" });
+      const crawlRes = await chrome.tabs.sendMessage(tab.id, { action: "crawlTreeStates", maxInteractions: 12 });
       if (crawlRes?.ok && Array.isArray(crawlRes.states)) {
         recordedBranches = crawlRes.states;
       }
     } catch {}
   }
 
-  setStatus("Scrolling & extracting DOM + lazy resources...");
-  const results = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: extractPageContentInTab,
-    args: [doAutoScroll, recordedBranches]
-  });
+  // 3. Smooth scrolling & full DOM + in-memory CSS extraction
+  setStatus("Smooth scrolling & extracting DOM + in-memory stylesheets...");
+  try {
+    const extractRes = await chrome.tabs.sendMessage(tab.id, {
+      action: "extractFullPage",
+      options: { autoScroll: doAutoScroll, treeCrawl: false }
+    });
+    if (extractRes?.ok && extractRes.result) {
+      pageContent = extractRes.result.html;
+      minedStyles = extractRes.result.minedStyles || [];
+      linkedPages = extractRes.result.linkedPages || [];
+    }
+  } catch {}
 
-  const payload = results?.[0]?.result;
-  const pageContent = typeof payload === "string" ? payload : payload?.html;
-  const linkedPages = payload?.linkedPages || [];
+  // Fallback if content script message was unavailable
+  if (!pageContent) {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: extractPageContentInTab,
+      args: [doAutoScroll, recordedBranches]
+    });
+    const payload = results?.[0]?.result;
+    pageContent = typeof payload === "string" ? payload : payload?.html;
+    linkedPages = payload?.linkedPages || [];
+  }
+
   if (!pageContent) {
     throw new Error("Could not read page HTML on this tab.");
   }
 
   const baseUrl = tab.url;
+  let baseOrigin = "";
+  try {
+    baseOrigin = new URL(baseUrl).origin;
+  } catch {}
   const websiteName = toFolderName(baseUrl);
   const zip = new JSZip();
-  const websiteFolder = zip.folder(websiteName);
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(pageContent, "text/html");
+
+  // If user did not check 'Keep Scripts', remove dynamic hydration scripts that crash offline
+  if (!keepScripts) {
+    doc.querySelectorAll("script").forEach(s => {
+      const type = (s.getAttribute("type") || "").toLowerCase();
+      // Keep JSON data scripts and offline runtime
+      if (type === "application/json" || type === "application/ld+json" || s.id === "sp-state-data" || s.id === "sp-offline-runtime") {
+        return;
+      }
+      s.remove();
+    });
+  }
+
   const resourceUrls = resolveResourceLinks(doc, baseUrl);
 
+  // Inlined stylesheets fallback map (indexed by sheet href)
+  const minedStyleMap = new Map();
+  for (const ms of minedStyles) {
+    if (ms.href) minedStyleMap.set(ms.href, ms.cssText);
+  }
+
   const updatedPageContent = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
-  websiteFolder.file("index.html", updatedPageContent);
+  zip.file("index.html", updatedPageContent);
 
   const fetchedSet = new Set();
   const cssAssetsToFetch = [];
@@ -372,29 +464,46 @@ async function buildWebsiteZipFromTab(tab, options = {}) {
       if (fetchedSet.has(absUrl)) return;
       fetchedSet.add(absUrl);
       try {
-        const response = await fetch(absUrl);
-        if (!response.ok && !absUrl.startsWith("file:")) return;
-        const contentType = (response.headers.get("content-type") || "").toLowerCase();
-        const isCss = contentType.includes("text/css") || relPath.toLowerCase().endsWith(".css");
-        if (isCss) {
-          let cssText = await response.text();
+        let response = null;
+        let isCss = relPath.toLowerCase().endsWith(".css");
+        let cssText = "";
+
+        try {
+          response = await fetch(absUrl);
+        } catch {}
+
+        if (response && response.ok) {
+          const contentType = (response.headers.get("content-type") || "").toLowerCase();
+          if (contentType.includes("text/css")) isCss = true;
+          if (isCss) {
+            cssText = await response.text();
+          }
+        } else if (isCss && minedStyleMap.has(absUrl)) {
+          // Zero-missing-styles guarantee: Use in-memory sheet rules from active tab!
+          cssText = minedStyleMap.get(absUrl);
+        }
+
+        if (isCss && cssText) {
           cssText = cssText.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (m, q, rawRef) => {
             const ref = rawRef.trim();
             if (!ref || ref.startsWith("data:") || ref.startsWith("#")) return m;
             try {
               const u = new URL(ref, absUrl);
+              if (AD_URL_REGEX.test(u.href)) return "none";
               if (u.protocol === "http:" || u.protocol === "https:" || u.protocol === "file:") {
-                const subRel = toAssetRelPath(u);
-                cssAssetsToFetch.push({ absUrl: u.href, relPath: subRel });
-                return `url("/${subRel}")`;
+                const subRel = toAssetRelPath(u, baseOrigin);
+                if (subRel) {
+                  cssAssetsToFetch.push({ absUrl: u.href, relPath: subRel });
+                  return `url("/${subRel}")`;
+                }
               }
             } catch {}
             return m;
           });
-          websiteFolder.file(relPath, cssText);
-        } else {
+          zip.file(relPath, cssText);
+        } else if (response && response.ok) {
           const buf = await response.arrayBuffer();
-          websiteFolder.file(relPath, buf);
+          zip.file(relPath, buf);
         }
       } catch {}
     })
@@ -409,13 +518,13 @@ async function buildWebsiteZipFromTab(tab, options = {}) {
         const response = await fetch(absUrl);
         if (response.ok || absUrl.startsWith("file:")) {
           const buf = await response.arrayBuffer();
-          websiteFolder.file(relPath, buf);
+          zip.file(relPath, buf);
         }
       } catch {}
     })
   );
 
-  // Optional: Scrape linked same-origin pages (Web Page Downloader aeojmgngnebhbjpncamiplkimkbnmpmk)
+  // Optional: Scrape linked same-origin pages
   if (doScrapeLinks && linkedPages.length > 0) {
     setStatus(`Downloading ${linkedPages.length} linked pages...`);
     await Promise.all(
@@ -428,7 +537,7 @@ async function buildWebsiteZipFromTab(tab, options = {}) {
           let slug = u.pathname.split("/").filter(Boolean).pop() || "page";
           if (!slug.toLowerCase().endsWith(".html")) slug += ".html";
           slug = slug.replace(/[^a-z0-9._-]/gi, "-");
-          websiteFolder.file(`pages/${slug}`, htmlText);
+          zip.file(`pages/${slug}`, htmlText);
         } catch {}
       })
     );
@@ -477,12 +586,8 @@ npx serve .
 \`\`\`
 `;
 
-  // Place package.json & README.md in both folder and root so however the user unzips, it works out of the box
-  websiteFolder.file("package.json", packageJson);
-  websiteFolder.file("README.md", readmeMd);
   zip.file("package.json", packageJson);
   zip.file("README.md", readmeMd);
-  zip.file("index.html", updatedPageContent);
 
   return { zip, websiteName, baseUrl, branchCount: recordedBranches.length };
 }
@@ -760,375 +865,9 @@ async function convertJSZipToStandaloneHtml(zip, sourceName = "website.zip", opt
 
 /* ──────────────────────────────────────────────────────────
    3. StitchCSV Offline Android App Generator
-      (Uses OfflineResourceInterceptor.java + Top/Bottom Safe Margins)
+      (Modularized into js/sp_android_export.js for Law 43)
    ────────────────────────────────────────────────────────── */
-const STITCHCSV_OFFLINE_INTERCEPTOR_JAVA = `package com.studyup.app;
-
-import android.content.Context;
-import android.content.res.AssetManager;
-import android.net.Uri;
-import android.util.Log;
-import android.webkit.MimeTypeMap;
-import android.webkit.ServiceWorkerClient;
-import android.webkit.ServiceWorkerController;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * OfflineResourceInterceptor (from StitchCSV-feature-caching-mechanism)
- *
- * Serves bundled static HTML/CSS/JS/Media assets in 0ms from:
- *   1. Internal hot-swap directory: context.getFilesDir() + "/webapp/"
- *   2. APK bundled assets: assets/public/
- * Blocks external ad networks (Google AdSense, DoubleClick) automatically.
- */
-public class OfflineResourceInterceptor {
-    private static final String TAG = "OfflineInterceptor";
-
-    public static void attachServiceWorkerInterceptor(Context context) {
-        try {
-            ServiceWorkerController swController = ServiceWorkerController.getInstance();
-            swController.setServiceWorkerClient(new ServiceWorkerClient() {
-                @Override
-                public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
-                    return intercept(context, request);
-                }
-            });
-        } catch (Throwable t) {
-            Log.w(TAG, "ServiceWorkerController not supported on this Android API", t);
-        }
-    }
-
-    public static WebResourceResponse intercept(Context context, WebResourceRequest request) {
-        if (request == null || request.getUrl() == null) return null;
-        Uri uri = request.getUrl();
-        String host = uri.getHost() != null ? uri.getHost().toLowerCase() : "";
-        String urlStr = uri.toString().toLowerCase();
-
-        // Block Google AdSense, DoubleClick & Ad tracking requests
-        if (host.contains("googlesyndication.com") ||
-            host.contains("doubleclick.net") ||
-            host.contains("googleadservices.com") ||
-            host.contains("taboola.com") ||
-            host.contains("outbrain.com") ||
-            urlStr.contains("adsbygoogle")) {
-            return new WebResourceResponse("text/plain", "UTF-8", 204, "No Content", getCorsHeaders(), null);
-        }
-
-        String path = uri.getPath();
-        if (path == null || path.isEmpty() || path.equals("/")) {
-            path = "/index.html";
-        }
-        String cleanPath = path.startsWith("/") ? path.substring(1) : path;
-
-        // 1. Check hot-swappable local directory: filesDir/webapp/<cleanPath>
-        try {
-            File localFile = new File(new File(context.getFilesDir(), "webapp"), cleanPath);
-            if (!localFile.exists() && !cleanPath.contains(".")) {
-                localFile = new File(new File(context.getFilesDir(), "webapp"), cleanPath + ".html");
-            }
-            if (localFile.exists() && localFile.isFile()) {
-                String mime = getMimeType(localFile.getName());
-                return new WebResourceResponse(mime, "UTF-8", 200, "OK", getCorsHeaders(), new FileInputStream(localFile));
-            }
-        } catch (Exception ignored) {}
-
-        // 2. Serve from APK bundled assets/public/<cleanPath>
-        AssetManager assets = context.getAssets();
-        String[] candidates = new String[] {
-            "public/" + cleanPath,
-            "public/" + cleanPath + ".html",
-            "public/" + cleanPath + "/index.html",
-            "public/index.html"
-        };
-
-        for (String candidate : candidates) {
-            try {
-                InputStream is = assets.open(candidate);
-                String mime = getMimeType(candidate);
-                return new WebResourceResponse(mime, "UTF-8", 200, "OK", getCorsHeaders(), is);
-            } catch (Exception ignored) {}
-        }
-
-        return null;
-    }
-
-    private static Map<String, String> getCorsHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Access-Control-Allow-Origin", "*");
-        headers.put("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-        headers.put("Cache-Control", "public, max-age=31536000, immutable");
-        return headers;
-    }
-
-    private static String getMimeType(String fileName) {
-        String lower = fileName.toLowerCase();
-        if (lower.endsWith(".html") || lower.endsWith(".htm")) return "text/html";
-        if (lower.endsWith(".css")) return "text/css";
-        if (lower.endsWith(".js") || lower.endsWith(".mjs")) return "application/javascript";
-        if (lower.endsWith(".json")) return "application/json";
-        if (lower.endsWith(".svg")) return "image/svg+xml";
-        if (lower.endsWith(".png")) return "image/png";
-        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-        if (lower.endsWith(".gif")) return "image/gif";
-        if (lower.endsWith(".webp")) return "image/webp";
-        if (lower.endsWith(".woff2")) return "font/woff2";
-        if (lower.endsWith(".woff")) return "font/woff";
-        if (lower.endsWith(".ttf")) return "font/ttf";
-        String ext = MimeTypeMap.getFileExtensionFromUrl(fileName);
-        if (ext != null) {
-            String guessed = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
-            if (guessed != null) return guessed;
-        }
-        return "application/octet-stream";
-    }
-}
-`;
-
-const STITCHCSV_MAIN_ACTIVITY_JAVA = `package com.studyup.app;
-
-import android.annotation.SuppressLint;
-import android.os.Bundle;
-import android.util.TypedValue;
-import android.view.ViewGroup;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
-
-/**
- * MainActivity (from StitchCSV-feature-caching-mechanism)
- *
- * Includes:
- * 1. OfflineResourceInterceptor for 100% offline zero-latency WebView rendering.
- * 2. Top & Bottom Native Android Safe-Area Margins so WebView content NEVER overlaps
- *    with the top Android Notification / Status Bar or the bottom Native Android Navigation Bar.
- */
-public class MainActivity extends AppCompatActivity {
-    private WebView webView;
-
-    private int dpToPx(int dp) {
-        return Math.round(TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()
-        ));
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        // Ensure system windows (Status Bar + Bottom Navigation Bar) are respected
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        setContentView(R.layout.activity_main);
-
-        webView = findViewById(R.id.webview);
-
-        // Enforce Top (Notification/Status Bar) and Bottom (Native Android Navbar) Safe Margins
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(
-                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
-            );
-            int safeTopPx = Math.max(bars.top, dpToPx(26));    // Clear top notification/status panel
-            int safeBottomPx = Math.max(bars.bottom, dpToPx(36)); // Clear bottom 3-button / gesture navbar
-
-            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
-            lp.topMargin = safeTopPx;
-            lp.bottomMargin = safeBottomPx;
-            lp.leftMargin = bars.left;
-            lp.rightMargin = bars.right;
-            view.setLayoutParams(lp);
-            return WindowInsetsCompat.CONSUMED;
-        });
-
-        OfflineResourceInterceptor.attachServiceWorkerInterceptor(this);
-
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                WebResourceResponse offline = OfflineResourceInterceptor.intercept(MainActivity.this, request);
-                if (offline != null) return offline;
-                return super.shouldInterceptRequest(view, request);
-            }
-        });
-
-        webView.loadUrl("https://appassets.androidplatform.net/index.html");
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-}
-`;
-
-const STITCHCSV_ACTIVITY_MAIN_XML = `<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/root_container"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#0F172A"
-    android:fitsSystemWindows="true">
-
-    <!-- Top (26dp min) and Bottom (36dp min) margins prevent overlap with Android Notification Panel & Native Navbar -->
-    <WebView
-        android:id="@+id/webview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="26dp"
-        android:layout_marginBottom="36dp" />
-</FrameLayout>
-`;
-
-const STITCHCSV_ANDROID_MANIFEST_XML = appTitle => `<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.studyup.app">
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <application
-        android:allowBackup="true"
-        android:label="${appTitle.replace(/["<>]/g, "")}"
-        android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
-`;
-
-const STITCHCSV_SAFE_AREA_CSS = `
-/* ── StitchCSV Android Top Notification Panel & Bottom Native Navbar Safe Clearance ── */
-:root {
-  --sp-android-top-safe: max(env(safe-area-inset-top, 0px), 26px);
-  --sp-android-bottom-safe: max(env(safe-area-inset-bottom, 0px), 36px);
-}
-html, body {
-  padding-top: var(--sp-android-top-safe) !important;
-  padding-bottom: var(--sp-android-bottom-safe) !important;
-  box-sizing: border-box !important;
-}
-`;
-
-async function generateOfflineAndroidAppZip(sourceWebZip, appName = "OfflineWebApp") {
-  const cleanAppName = (appName || "OfflineWebApp").replace(/[^a-zA-Z0-9_-]/g, "") || "OfflineWebApp";
-  const outZip = new JSZip();
-
-  // 1. Copy all website / parent folder files into android/app/src/main/assets/public/
-  const entries = [];
-  for (const [rawPath, zipObj] of Object.entries(sourceWebZip.files)) {
-    if (zipObj.dir) continue;
-    entries.push({ norm: normalizeZipPath(rawPath), zipObj });
-  }
-
-  // Strip common single top-level folder prefix if present
-  const firstSegs = new Set(entries.map(e => e.norm.split("/")[0]));
-  const stripPrefix = firstSegs.size === 1 && entries.some(e => e.norm.includes("/"))
-    ? Array.from(firstSegs)[0] + "/"
-    : "";
-
-  for (const { norm, zipObj } of entries) {
-    const rel = stripPrefix && norm.startsWith(stripPrefix) ? norm.slice(stripPrefix.length) : norm;
-    if (!rel) continue;
-    if (rel.toLowerCase().endsWith(".html") || rel.toLowerCase().endsWith(".htm")) {
-      let html = await zipObj.async("string");
-      if (/<\/head>/i.test(html)) {
-        html = html.replace(/<\/head>/i, `<style id="sp-android-safe-margins">${STITCHCSV_SAFE_AREA_CSS}</style>\n</head>`);
-      } else {
-        html = `<style id="sp-android-safe-margins">${STITCHCSV_SAFE_AREA_CSS}</style>\n` + html;
-      }
-      outZip.file(`android/app/src/main/assets/public/${rel}`, html);
-    } else {
-      const bytes = await zipObj.async("uint8array");
-      outZip.file(`android/app/src/main/assets/public/${rel}`, bytes);
-    }
-  }
-
-  // 2. Add StitchCSV OfflineResourceInterceptor.java, MainActivity.java, Layout & Manifest
-  outZip.file(
-    "android/app/src/main/java/com/studyup/app/OfflineResourceInterceptor.java",
-    STITCHCSV_OFFLINE_INTERCEPTOR_JAVA
-  );
-  outZip.file(
-    "android/app/src/main/java/com/studyup/app/MainActivity.java",
-    STITCHCSV_MAIN_ACTIVITY_JAVA
-  );
-  outZip.file(
-    "android/app/src/main/res/layout/activity_main.xml",
-    STITCHCSV_ACTIVITY_MAIN_XML
-  );
-  outZip.file(
-    "android/app/src/main/AndroidManifest.xml",
-    STITCHCSV_ANDROID_MANIFEST_XML(cleanAppName)
-  );
-  outZip.file(
-    "android/app/build.gradle",
-    `plugins {
-    id 'com.android.application'
-}
-android {
-    namespace "com.studyup.app"
-    compileSdk 34
-    defaultConfig {
-        applicationId "com.studyup.app.${cleanAppName.toLowerCase()}"
-        minSdk 24
-        targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
-    }
-}
-dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.core:core:1.12.0'
-}
-`
-  );
-  outZip.file(
-    "android/settings.gradle",
-    `rootProject.name = "${cleanAppName}"\ninclude ':app'\n`
-  );
-  outZip.file(
-    "run_build_apk.ps1",
-    `# Build Offline Android APK (${cleanAppName})\nSet-Location "$PSScriptRoot\\android"\n.\\gradlew assembleDebug\nWrite-Host "APK built at android/app/build/outputs/apk/debug/app-debug.apk"\n`
-  );
-
-  return { outZip, cleanAppName };
-}
+// generateOfflineAndroidAppZip is loaded from js/sp_android_export.js
 
 async function buildZipFromFileList(fileList, defaultFolderName = "parent-folder") {
   const zip = new JSZip();
@@ -1182,6 +921,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const viewPanels = {
     edit: document.getElementById("view-edit"),
     capture: document.getElementById("view-capture"),
+    palette: document.getElementById("view-palette"),
     export: document.getElementById("view-export")
   };
 
@@ -1193,6 +933,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const target = btn.getAttribute("data-tab");
       if (viewPanels[target]) {
         viewPanels[target].classList.add("active");
+        if (target === "palette") {
+          loadPopupPalette();
+        }
       }
     });
   });
@@ -1330,6 +1073,238 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Mode: Palette Picker
+  const btnCapturePalette = document.getElementById("btnCapturePalette");
+  const btnPopupEyedropper = document.getElementById("btnPopupEyedropper");
+  const btnPopupRescanPalette = document.getElementById("btnPopupRescanPalette");
+  const popupPaletteGrid = document.getElementById("popupPaletteGrid");
+  const popupPaletteSiteInfo = document.getElementById("popupPaletteSiteInfo");
+  const popupSelectedColorBar = document.getElementById("popupSelectedColorBar");
+  const popupSelectedColorPreview = document.getElementById("popupSelectedColorPreview");
+  const popupSelectedColorHex = document.getElementById("popupSelectedColorHex");
+  const popupSelectedColorRole = document.getElementById("popupSelectedColorRole");
+  const btnCopySelectedHex = document.getElementById("btnCopySelectedHex");
+  const btnOpenFullPaletteStudio = document.getElementById("btnOpenFullPaletteStudio");
+  const btnCopyPaletteCss = document.getElementById("btnCopyPaletteCss");
+  const btnCopyPaletteTailwind = document.getElementById("btnCopyPaletteTailwind");
+
+  let cachedPalette = null;
+  let activePopupFilter = "all";
+  let activeSelectedHex = null;
+
+  btnCapturePalette?.addEventListener("click", () => {
+    tabButtons.forEach(b => b.classList.remove("active"));
+    Object.values(viewPanels).forEach(p => p && p.classList.remove("active"));
+    const palTabBtn = document.querySelector('.segment-tab[data-tab="palette"]');
+    if (palTabBtn) palTabBtn.classList.add("active");
+    if (viewPanels.palette) viewPanels.palette.classList.add("active");
+    loadPopupPalette();
+  });
+
+  async function loadPopupPalette(force = false) {
+    if (cachedPalette && !force) {
+      renderPopupPalette(cachedPalette);
+      return;
+    }
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) {
+        if (popupPaletteSiteInfo) popupPaletteSiteInfo.textContent = "No active webpage tab found";
+        return;
+      }
+      if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("about:")) {
+        if (popupPaletteSiteInfo) popupPaletteSiteInfo.textContent = "Cannot extract colors from browser pages";
+        return;
+      }
+
+      if (popupPaletteSiteInfo) popupPaletteSiteInfo.textContent = "Scanning website colors...";
+
+      let res = await chrome.tabs.sendMessage(tab.id, { action: "extractWebsitePalette" }).catch(() => null);
+
+      if (!res || !res.palette) {
+        // Inject sp_utils.js and sp_palette.js dynamically if content script wasn't ready
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["js/sp_utils.js", "js/sp_palette.js"]
+          });
+          res = await chrome.tabs.sendMessage(tab.id, { action: "extractWebsitePalette" }).catch(() => null);
+        } catch (injErr) {}
+      }
+
+      if (res && res.palette) {
+        cachedPalette = res.palette;
+        renderPopupPalette(cachedPalette);
+        setStatus(`Detected ${cachedPalette.totalColors || 0} colors`, "ok");
+      } else {
+        if (popupPaletteSiteInfo) popupPaletteSiteInfo.textContent = "Could not extract palette on this page";
+        setStatus("Could not extract palette", "err");
+      }
+    } catch (err) {
+      if (popupPaletteSiteInfo) popupPaletteSiteInfo.textContent = "Extraction error";
+      setStatus(`Error: ${err.message || err}`, "err");
+    }
+  }
+
+  function renderPopupPalette(palette) {
+    if (!palette || !popupPaletteGrid) return;
+
+    if (popupPaletteSiteInfo) {
+      popupPaletteSiteInfo.textContent = `${palette.host || "Site"} · ${palette.totalColors || 0} colors`;
+    }
+
+    let list = palette.all || [];
+    if (activePopupFilter === "dominant") list = palette.dominant || [];
+    else if (activePopupFilter === "surfaces") list = palette.surfaces || [];
+    else if (activePopupFilter === "accents") list = palette.accents || [];
+    else if (activePopupFilter === "text") list = palette.text || [];
+
+    const sampled = (palette.sampled || []).map(hex => ({
+      hex,
+      roles: ["sampled"],
+      count: "Dropper"
+    }));
+
+    const displayList = activePopupFilter === "all" ? [...sampled, ...list] : list;
+
+    popupPaletteGrid.innerHTML = "";
+
+    if (displayList.length === 0) {
+      popupPaletteGrid.innerHTML = `<div style="grid-column:1/-1;padding:20px 4px;text-align:center;font-size:10.5px;color:#78716C;">No colors in this category.</div>`;
+      return;
+    }
+
+    if (!activeSelectedHex || !displayList.some(c => c.hex === activeSelectedHex)) {
+      activeSelectedHex = displayList[0].hex;
+    }
+    updateSelectedColorBar(displayList.find(c => c.hex === activeSelectedHex) || displayList[0]);
+
+    displayList.forEach(item => {
+      const swatch = document.createElement("div");
+      swatch.className = "popup-swatch-item" + (item.hex === activeSelectedHex ? " active" : "");
+      swatch.style.backgroundColor = item.hex;
+      swatch.title = `${item.hex} · Click to copy`;
+
+      const hexLabel = document.createElement("span");
+      hexLabel.className = "popup-swatch-hex";
+      hexLabel.textContent = item.hex;
+      swatch.appendChild(hexLabel);
+
+      swatch.addEventListener("click", () => {
+        activeSelectedHex = item.hex;
+        popupPaletteGrid.querySelectorAll(".popup-swatch-item").forEach(s => s.classList.remove("active"));
+        swatch.classList.add("active");
+        updateSelectedColorBar(item);
+
+        navigator.clipboard.writeText(item.hex);
+        setStatus(`Copied ${item.hex}!`, "ok");
+      });
+
+      popupPaletteGrid.appendChild(swatch);
+    });
+  }
+
+  function updateSelectedColorBar(item) {
+    if (!popupSelectedColorBar || !item) return;
+    popupSelectedColorBar.style.display = "flex";
+    if (popupSelectedColorPreview) popupSelectedColorPreview.style.backgroundColor = item.hex;
+    if (popupSelectedColorHex) popupSelectedColorHex.textContent = item.hex;
+    if (popupSelectedColorRole) {
+      const roleText = item.roles && item.roles[0] ? item.roles[0] : (item.count ? `${item.count}× on page` : "Detected");
+      popupSelectedColorRole.textContent = roleText;
+    }
+  }
+
+  btnCopySelectedHex?.addEventListener("click", () => {
+    if (!activeSelectedHex) return;
+    navigator.clipboard.writeText(activeSelectedHex);
+    setStatus(`Copied ${activeSelectedHex}!`, "ok");
+  });
+
+  btnPopupEyedropper?.addEventListener("click", async () => {
+    try {
+      if (typeof window.EyeDropper !== "undefined") {
+        const dropper = new window.EyeDropper();
+        const res = await dropper.open();
+        if (res && res.sRGBHex) {
+          const hex = res.sRGBHex.toUpperCase();
+          navigator.clipboard.writeText(hex);
+          setStatus(`Sampled ${hex} (Copied!)`, "ok");
+          if (cachedPalette) {
+            cachedPalette.sampled = cachedPalette.sampled || [];
+            if (!cachedPalette.sampled.includes(hex)) cachedPalette.sampled.unshift(hex);
+            renderPopupPalette(cachedPalette);
+          }
+          return;
+        }
+      }
+
+      // Fallback: send message to tab to run eyedropper
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "pickEyedropper" }).catch(() => {});
+        window.close();
+      }
+    } catch (e) {
+      if (e.name !== "AbortError") {
+        setStatus(`Eyedropper: ${e.message || e}`, "err");
+      }
+    }
+  });
+
+  btnPopupRescanPalette?.addEventListener("click", () => {
+    loadPopupPalette(true);
+  });
+
+  // Filter Pills
+  document.querySelectorAll("#popupPaletteFilter .filter-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll("#popupPaletteFilter .filter-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      activePopupFilter = pill.dataset.filter || "all";
+      if (cachedPalette) renderPopupPalette(cachedPalette);
+    });
+  });
+
+  btnOpenFullPaletteStudio?.addEventListener("click", async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) return;
+      await chrome.tabs.sendMessage(tab.id, { action: "openPaletteModal" }).catch(() => null);
+      window.close();
+    } catch (e) {}
+  });
+
+  btnCopyPaletteCss?.addEventListener("click", () => {
+    if (!cachedPalette || !cachedPalette.all) {
+      setStatus("No palette loaded yet", "err");
+      return;
+    }
+    const vars = cachedPalette.all.slice(0, 16).map((c, i) => {
+      const name = c.cssVarNames && c.cssVarNames.length > 0 ? c.cssVarNames[0] : `--site-color-${i + 1}`;
+      return `  ${name}: ${c.hex};`;
+    });
+    const code = `:root {\n  /* Extracted from ${cachedPalette.host || "website"} via StylePeek */\n${vars.join("\n")}\n}`;
+    navigator.clipboard.writeText(code);
+    setStatus("Copied CSS Variables!", "ok");
+  });
+
+  btnCopyPaletteTailwind?.addEventListener("click", () => {
+    if (!cachedPalette || !cachedPalette.all) {
+      setStatus("No palette loaded yet", "err");
+      return;
+    }
+    const colorsObj = {};
+    cachedPalette.all.slice(0, 16).forEach((c, i) => {
+      const cleanName = (c.roles[0] || "color") + (i > 0 ? `-${i + 1}` : "");
+      colorsObj[cleanName] = c.hex;
+    });
+    const code = `// Tailwind config colors snippet\nmodule.exports = {\n  theme: {\n    extend: {\n      colors: ${JSON.stringify(colorsObj, null, 8).replace(/\n\s*}/, "\n      }")}\n    }\n  }\n};`;
+    navigator.clipboard.writeText(code);
+    setStatus("Copied Tailwind Config!", "ok");
+  });
+
   // Mode 3: Export HTML (Shares the EXACT same captureVisibleViewport function as on-canvas capture)
   btnExportHtml?.addEventListener("click", async () => {
     btnExportHtml.disabled = true;
@@ -1341,8 +1316,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Send captureViewport to execute captureVisibleViewport() on the tab
       let res = await chrome.tabs.sendMessage(tab.id, { action: "captureViewport" }).catch(() => null);
       if (!res?.success) {
-        // If content script wasn't active on tab, inject content.js and run
-        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }).catch(() => {});
+        // If content script wasn't active on tab, inject content scripts and run
+        const spContentFiles = [
+          "technologies.js", "js/sp_utils.js", "js/sp_panel.js", "js/sp_deep_layers.js",
+          "js/sp_style.js", "js/sp_move.js", "js/sp_transform.js", "js/sp_inspect.js",
+          "js/sp_tech_capture.js", "content.js"
+        ];
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: spContentFiles }).catch(() => {});
         res = await chrome.tabs.sendMessage(tab.id, { action: "captureViewport" }).catch(() => null);
       }
 
@@ -1389,7 +1369,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const headers = hdrRes?.headers || {};
       let res = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
       if (!res?.grouped) {
-        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["technologies.js", "content.js"] }).catch(() => {});
+        const spContentFiles = [
+          "technologies.js", "js/sp_utils.js", "js/sp_panel.js", "js/sp_deep_layers.js",
+          "js/sp_style.js", "js/sp_move.js", "js/sp_transform.js", "js/sp_inspect.js",
+          "js/sp_tech_capture.js", "content.js"
+        ];
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: spContentFiles }).catch(() => {});
         res = await chrome.tabs.sendMessage(tab.id, { action: "detectTechStack", headers }).catch(() => null);
       }
       if (res?.count) {

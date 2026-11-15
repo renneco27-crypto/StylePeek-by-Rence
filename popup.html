@@ -242,6 +242,189 @@
       fill: none;
       flex-shrink: 0;
     }
+
+    /* Palette Tab UI (Tactile CTRL+SPC) */
+    .palette-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+
+    .palette-site-info {
+      font-family: var(--font-mono, monospace);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--color-ink-2, #78716C);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-text-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: var(--color-ink-2, #78716C);
+      font-family: var(--font-display, sans-serif);
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      box-shadow: none;
+      margin: 0;
+    }
+
+    .icon-text-btn:hover {
+      color: var(--color-ink, #1C1C1E);
+    }
+
+    .palette-filter-pills {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+      overflow-x: auto;
+      padding: 2px 0;
+    }
+
+    .filter-pill {
+      background: var(--color-paper-2, #EAE8E0);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 9999px;
+      padding: 3px 8px;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--color-ink-2, #78716C);
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: none;
+      margin: 0;
+      transition: all 0.1s ease;
+    }
+
+    .filter-pill:hover {
+      color: var(--color-ink, #1C1C1E);
+    }
+
+    .filter-pill.active {
+      background: var(--color-ink, #1C1C1E);
+      color: #FAF9F6;
+      border-color: #1C1C1E;
+    }
+
+    .popup-palette-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      max-height: 155px;
+      min-height: 90px;
+      overflow-y: auto;
+      padding: 3px;
+      margin-bottom: 10px;
+      background: var(--color-paper-2, #EAE8E0);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 9px;
+    }
+
+    .popup-swatch-item {
+      height: 38px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      transition: transform 0.08s ease, border-color 0.08s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .popup-swatch-item:hover {
+      transform: translateY(-2px);
+      border-color: var(--color-ink, #1C1C1E);
+      z-index: 2;
+    }
+
+    .popup-swatch-item.active {
+      outline: 2px solid var(--color-accent, #C84B44);
+      outline-offset: 1px;
+    }
+
+    .popup-swatch-hex {
+      font-family: var(--font-mono, monospace);
+      font-size: 8px;
+      font-weight: 700;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.65);
+      color: #FFFFFF;
+      padding: 1px 0;
+      line-height: 1.1;
+      width: 100%;
+    }
+
+    .popup-color-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: var(--color-surface, #FAF9F6);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .popup-color-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      flex-shrink: 0;
+    }
+
+    .popup-color-meta {
+      flex: 1;
+      margin-left: 8px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .popup-color-hex {
+      font-family: var(--font-mono, monospace);
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--color-ink, #1C1C1E);
+    }
+
+    .popup-color-role {
+      font-family: var(--font-mono, monospace);
+      font-size: 9.5px;
+      color: var(--color-ink-2, #78716C);
+    }
+
+    .popup-copy-btn {
+      background: var(--color-paper-2, #EAE8E0);
+      border: 1px solid var(--color-rule, #DCD9CE);
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-family: var(--font-display, sans-serif);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-ink, #1C1C1E);
+      cursor: pointer;
+      box-shadow: none;
+      margin: 0;
+    }
+
+    .popup-copy-btn:hover {
+      background: var(--color-surface, #FAF9F6);
+      border-color: var(--color-ink, #1C1C1E);
+    }
   </style>
   <script src="dist/jszip.min.js"></script>
   <script src="technologies.js"></script>
@@ -254,10 +437,11 @@
     <div id="statusPill" class="state-indicator">Ready</div>
   </div>
 
-  <!-- 3 Simple Clean Modes (No Clutter, Hick's Law) -->
+  <!-- 4 Clean Modes (Tactile Control) -->
   <div class="segmented-control">
-    <button class="segment-tab active" data-tab="edit">Edit Page</button>
+    <button class="segment-tab active" data-tab="edit">Edit</button>
     <button class="segment-tab" data-tab="capture">Capture</button>
+    <button class="segment-tab" data-tab="palette">Palette</button>
     <button class="segment-tab" data-tab="export">Export</button>
   </div>
 
@@ -293,10 +477,70 @@
         <span>Toggle Floating Capture Bar</span>
         <span class="arrow">&rarr;</span>
       </button>
+      <button id="btnCapturePalette" class="action-link">
+        <span>Website Color Palette</span>
+        <span class="arrow">&rarr;</span>
+      </button>
     </div>
   </div>
 
-  <!-- TAB 3: EXPORT (Full Site & Apps) -->
+  <!-- TAB 3: PALETTE (Website Color Picker & Tokens) -->
+  <div id="view-palette" class="view-panel">
+    <!-- Primary CTA: Eyedropper / Pick Color from page -->
+    <button id="btnPopupEyedropper" class="btn-primary">
+      <svg class="ico" viewBox="0 0 24 24"><path d="m14 2 4 4L7 17H3v-4L14 2z"/><path d="m13 3 4 4"/><circle cx="18" cy="19" r="3"/><path d="m9 15 2 2"/></svg>
+      Pick Color from Website
+    </button>
+
+    <div class="palette-header-row">
+      <div id="popupPaletteSiteInfo" class="palette-site-info">Detecting website colors...</div>
+      <button id="btnPopupRescanPalette" class="icon-text-btn" title="Rescan page colors">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Rescan</span>
+      </button>
+    </div>
+
+    <!-- Quick Role Filter Pills -->
+    <div class="palette-filter-pills" id="popupPaletteFilter">
+      <button class="filter-pill active" data-filter="all">All</button>
+      <button class="filter-pill" data-filter="dominant">Dominant</button>
+      <button class="filter-pill" data-filter="surfaces">Surfaces</button>
+      <button class="filter-pill" data-filter="accents">Accents</button>
+      <button class="filter-pill" data-filter="text">Text</button>
+    </div>
+
+    <!-- Swatches Grid (compact, scrollable, tactile) -->
+    <div id="popupPaletteGrid" class="popup-palette-grid">
+      <!-- Injected swatches -->
+    </div>
+
+    <!-- Active Swatch Inspector Pill -->
+    <div id="popupSelectedColorBar" class="popup-color-bar" style="display:none;">
+      <div id="popupSelectedColorPreview" class="popup-color-dot"></div>
+      <div class="popup-color-meta">
+        <span id="popupSelectedColorHex" class="popup-color-hex">#000000</span>
+        <span id="popupSelectedColorRole" class="popup-color-role">Dominant</span>
+      </div>
+      <button id="btnCopySelectedHex" class="popup-copy-btn" title="Copy HEX">Copy</button>
+    </div>
+
+    <div class="secondary-actions">
+      <button id="btnOpenFullPaletteStudio" class="action-link">
+        <span>Launch Full Palette Studio</span>
+        <span class="arrow">&rarr;</span>
+      </button>
+      <button id="btnCopyPaletteCss" class="action-link">
+        <span>Copy as CSS Variables</span>
+        <span class="arrow">&rarr;</span>
+      </button>
+      <button id="btnCopyPaletteTailwind" class="action-link">
+        <span>Copy as Tailwind Config</span>
+        <span class="arrow">&rarr;</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 4: EXPORT (Full Site & Apps) -->
   <div id="view-export" class="view-panel">
     <!-- One Obvious Primary CTA -->
     <button id="btnExportHtml" class="btn-primary">
@@ -337,6 +581,7 @@
   <input type="file" id="zipFileInput" accept=".zip,application/zip">
   <input type="file" id="parentFolderPicker" webkitdirectory directory multiple>
 
+  <script src="js/sp_android_export.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
